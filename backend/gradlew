@@ -1,0 +1,32 @@
+#!/bin/sh
+set -eu
+
+SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+GRADLE_VERSION=8.10.2
+GRADLE_DIR="$SCRIPT_DIR/.gradle-dist/gradle-$GRADLE_VERSION"
+ZIP_PATH="$SCRIPT_DIR/.gradle-dist/gradle-$GRADLE_VERSION-bin.zip"
+DIST_URL="https://services.gradle.org/distributions/gradle-$GRADLE_VERSION-bin.zip"
+
+mkdir -p "$SCRIPT_DIR/.gradle-dist"
+
+if [ ! -x "$GRADLE_DIR/bin/gradle" ]; then
+  echo "Downloading Gradle $GRADLE_VERSION..."
+  if command -v curl >/dev/null 2>&1; then
+    curl -fsSL "$DIST_URL" -o "$ZIP_PATH"
+  elif command -v wget >/dev/null 2>&1; then
+    wget -q "$DIST_URL" -O "$ZIP_PATH"
+  else
+    echo "curl or wget is required to bootstrap Gradle." >&2
+    exit 1
+  fi
+
+  if command -v unzip >/dev/null 2>&1; then
+    unzip -q "$ZIP_PATH" -d "$SCRIPT_DIR/.gradle-dist"
+  else
+    echo "unzip is required to bootstrap Gradle." >&2
+    exit 1
+  fi
+fi
+
+exec "$GRADLE_DIR/bin/gradle" -p "$SCRIPT_DIR" "$@"
+

@@ -1,0 +1,42 @@
+.DS_Store
+Thumbs.db
+*.log
+
+# Node / frontend
+frontend/node_modules/
+frontend/dist/
+
+# Java / backend
+backend/.gradle/
+backend/.gradle-user-home/
+backend/build/
+backend/out/
+backend/bin/
+
+# Local uploads and test artifacts
+uploads/
+backend/uploads/
+build/test-uploads/
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# Local env
+.env
+.env.local
+.env.*.local
+backend/.env
+backend/.env.local
+backend/.env.*.local
+frontend/.env
+frontend/.env.local
+frontend/.env.*.local
+
+backend/.gradle-dist/
+*.out
+*.err
+frontend/*.tsbuildinfo
+frontend/vite.config.js
+frontend/vite.config.d.ts

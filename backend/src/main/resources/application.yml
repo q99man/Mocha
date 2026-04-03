@@ -1,0 +1,35 @@
+server:
+  port: ${SERVER_PORT:8080}
+
+spring:
+  application:
+    name: motion-challenge-backend
+  profiles:
+    default: local
+  jpa:
+    open-in-view: false
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      timeout: 2s
+  servlet:
+    multipart:
+      max-file-size: 200MB
+      max-request-size: 200MB
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+
+app:
+  cors:
+    allowed-origins: ${APP_CORS_ALLOWED_ORIGINS:http://localhost:5173}
+  cache:
+    popular-challenges-ttl-seconds: ${POPULAR_CHALLENGES_CACHE_TTL:300}
+  scoring:
+    sample-stub-enabled: ${APP_SCORING_SAMPLE_STUB_ENABLED:false}
+  storage:
+    local-root: ${APP_STORAGE_LOCAL_ROOT:uploads}
