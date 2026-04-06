@@ -67,6 +67,29 @@ npm install
 npm run dev
 ```
 
+### MySQL profile note
+
+- `backend/src/main/resources/application-mysql.yml` uses MySQL as the source of truth and keeps `spring.jpa.hibernate.ddl-auto=update`, so tables are created automatically when the backend starts successfully with the `mysql` profile.
+- `.env.example` defaults to `MYSQL_USERNAME=motion`, `MYSQL_PASSWORD=motion`, but your actual local MySQL account may be different.
+- If local MySQL uses a different account, override one of these before startup:
+  - environment variables such as `MYSQL_USERNAME`, `MYSQL_PASSWORD`, `MYSQL_HOST`, `MYSQL_PORT`, `MYSQL_DATABASE`
+  - or `backend/src/main/resources/application-mysql.yml` for temporary local verification
+- In this repository, MySQL profile verification was confirmed by starting the built backend JAR against a real local MySQL instance and checking that the schema and seed data were created.
+
+### Timezone note
+
+- MySQL JDBC timezone is configured with `${MYSQL_TIMEZONE:Asia/Seoul}`.
+- Hibernate JDBC timezone is also aligned to `${MYSQL_TIMEZONE:Asia/Seoul}`.
+- Add `MYSQL_TIMEZONE=Asia/Seoul` to your local environment if you want explicit control over stored timestamp behavior.
+
+### Fallback verification path
+
+- If `docker compose` is not available in the current shell, you can still verify the MySQL profile by:
+  1. ensuring a local MySQL instance is reachable
+  2. creating the target database if needed
+  3. starting the built backend JAR with `--spring.profiles.active=mysql`
+- This confirms schema creation and seed loading even when Docker CLI access is temporarily unavailable.
+
 ## Current MVP Foundation
 
 - Frontend routes for `/`, `/challenges`, `/challenges/:id`, and `/attempts`

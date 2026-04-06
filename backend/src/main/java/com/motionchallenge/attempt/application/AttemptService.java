@@ -9,10 +9,7 @@ import com.motionchallenge.challenge.entity.ChallengeMotionProfile;
 import com.motionchallenge.challenge.entity.ReferenceAnalysisStatus;
 import com.motionchallenge.challenge.repository.ChallengeMotionProfileRepository;
 import com.motionchallenge.challenge.repository.ChallengeRepository;
-import com.motionchallenge.motion.service.MotionAnalysisResult;
-import com.motionchallenge.motion.service.MotionAnalysisService;
-import com.motionchallenge.scoring.application.ScoringResult;
-import com.motionchallenge.scoring.application.ScoringService;
+import com.motionchallenge.challenge.service.MotionSessionRuntimeTracker;
 import com.motionchallenge.scoring.application.SimpleScoringPreviewService;
 import com.motionchallenge.scoring.application.SimpleScoringResult;
 import com.motionchallenge.video.service.StoredVideo;
@@ -27,10 +24,13 @@ import org.springframework.web.server.ResponseStatusException;
 @Transactional(readOnly = true)
 public class AttemptService {
 
+    private static final String FAILURE_CODE_UPLOAD_STORAGE = "UPLOAD_STORAGE_FAILED";
+    private static final String FAILURE_CODE_ANALYSIS = "ANALYSIS_FAILED";
+    private static final String FAILURE_CODE_SCORING = "SCORING_FAILED";
     private static final int PREPARED_SCORE = 0;
     private static final int MIN_COMPLETED_SCORE = 1;
-    private static final String DEFAULT_PREPARED_NOTE = "카메라 준비 단계를 저장한 기록입니다.";
-    private static final String DEFAULT_COMPLETED_NOTE = "샘플 완료 결과를 저장한 기록입니다.";
+    private static final String DEFAULT_PREPARED_NOTE = "카메라 준비 단계를 통과한 기록입니다.";
+    private static final String DEFAULT_COMPLETED_NOTE = "샘플 완료 결과를 통과한 기록입니다.";
 
     private final AttemptRepository attemptRepository;
     private final AttemptVideoRepository attemptVideoRepository;
@@ -38,8 +38,8 @@ public class AttemptService {
     private final ChallengeMotionProfileRepository challengeMotionProfileRepository;
     private final SimpleScoringPreviewService simpleScoringPreviewService;
     private final VideoStorageService videoStorageService;
-    private final MotionAnalysisService motionAnalysisService;
-    private final ScoringService scoringService;
+    private final AttemptVideoProcessingService attemptVideoProcessingService;
+    private final MotionSessionRuntimeTracker motionSessionRuntimeTracker;
 
     public AttemptService(
             AttemptRepository attemptRepository,
@@ -48,16 +48,16 @@ public class AttemptService {
             ChallengeMotionProfileRepository challengeMotionProfileRepository,
             SimpleScoringPreviewService simpleScoringPreviewService,
             VideoStorageService videoStorageService,
-            MotionAnalysisService motionAnalysisService,
-            ScoringService scoringService) {
+            AttemptVideoProcessingService attemptVideoProcessingService,
+            MotionSessionRuntimeTracker motionSessionRuntimeTracker) {
         this.attemptRepository = attemptRepository;
         this.attemptVideoRepository = attemptVideoRepository;
         this.challengeRepository = challengeRepository;
         this.challengeMotionProfileRepository = challengeMotionProfileRepository;
         this.simpleScoringPreviewService = simpleScoringPreviewService;
         this.videoStorageService = videoStorageService;
-        this.motionAnalysisService = motionAnalysisService;
-        this.scoringService = scoringService;
+        this.attemptVideoProcessingService = attemptVideoProcessingService;
+        this.motionSessionRuntimeTracker = motionSessionRuntimeTracker;
     }
 
     public List<AttemptSummaryResponse> getAttempts() {
@@ -68,7 +68,7 @@ public class AttemptService {
 
     public AttemptSummaryResponse getAttempt(Long id) {
         Attempt attempt = attemptRepository.findById(id)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "도전 기록을 찾을 수 없습니다."));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "이전 기록을 찾을 수 없습니다."));
 
         return toResponse(attempt);
     }
@@ -122,49 +122,47 @@ public class AttemptService {
 
         Challenge challenge = findActiveChallenge(request.getChallengeId());
         if (challenge.getReferenceAnalysisStatus() != ReferenceAnalysisStatus.COMPLETED) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "레퍼런스 비디오 분석이 완료된 챌린지에서만 시도 업로드를 진행할 수 있습니다.");
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "레퍼런스 비디오 분석이 완료된 챌린지에서만 시도 업로드를 진행할 수 있습니다.");
         }
 
         ChallengeMotionProfile referenceProfile = challengeMotionProfileRepository.findByChallengeId(challenge.getId())
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "레퍼런스 모션 프로필이 준비되지 않았습니다."));
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.BAD_REQUEST,
+                        "레퍼런스 모션 프로필이 아직 준비되지 않았습니다."));
 
-        StoredVideo storedVideo = videoStorageService.storeAttemptVideo(challenge.getId(), request.getAttemptVideo());
-        MotionAnalysisResult attemptAnalysis = motionAnalysisService.analyzeAttemptVideo(storedVideo);
-        ScoringResult scoringResult = scoringService.calculateScore(referenceProfile, attemptAnalysis);
+        motionSessionRuntimeTracker.markUploadInProgress(challenge.getId());
+        boolean uploadCompleted = false;
+        try {
+            StoredVideo storedVideo;
+            try {
+                storedVideo = videoStorageService.storeAttemptVideo(challenge.getId(), request.getAttemptVideo());
+            } catch (RuntimeException exception) {
+                markRetryableFailure(challenge.getId(), FAILURE_CODE_UPLOAD_STORAGE, exception);
+                throw exception;
+            }
+            motionSessionRuntimeTracker.markUploadStored(challenge.getId());
 
-        Attempt attempt = attemptRepository.save(new Attempt(
-                challenge,
-                scoringResult.score(),
-                AttemptStatus.COMPLETED,
-                request.getNotes() == null || request.getNotes().isBlank()
-                        ? scoringResult.summary()
-                        : request.getNotes()));
+            try {
+                motionSessionRuntimeTracker.markAnalysisInProgress(challenge.getId());
+                AttemptResultResponse response = attemptVideoProcessingService.processUploadedAttempt(
+                        challenge,
+                        referenceProfile,
+                        storedVideo,
+                        request.getNotes());
 
-        attemptVideoRepository.save(new AttemptVideo(
-                attempt,
-                storedVideo.originalFileName(),
-                storedVideo.storagePath(),
-                storedVideo.contentType(),
-                storedVideo.size()));
-
-        SimpleScoringResult previewResult = simpleScoringPreviewService.buildResult(
-                attempt.getStatus(),
-                scoringResult.score());
-
-        return new AttemptResultResponse(
-                attempt.getId(),
-                challenge.getId(),
-                challenge.getTitle(),
-                scoringResult.score(),
-                attempt.getStatus(),
-                previewResult.scoreAvailable(),
-                previewResult.resultHeadline(),
-                scoringResult.summary(),
-                attemptAnalysis.analyzerName(),
-                storedVideo.originalFileName(),
-                storedVideo.contentType(),
-                storedVideo.size(),
-                attempt.getCreatedAt());
+                uploadCompleted = true;
+                return response;
+            } catch (RuntimeException exception) {
+                markRetryableFailure(challenge.getId(), resolvePipelineFailureCode(exception), exception);
+                throw exception;
+            }
+        } finally {
+            if (uploadCompleted) {
+                motionSessionRuntimeTracker.clearRuntimeState(challenge.getId());
+            }
+        }
     }
 
     private Challenge findActiveChallenge(Long challengeId) {
@@ -176,6 +174,7 @@ public class AttemptService {
         SimpleScoringResult scoringResult = simpleScoringPreviewService.buildResult(
                 attempt.getStatus(),
                 attempt.getScore());
+        String resultSource = resolveResultSource(attempt);
 
         return new AttemptSummaryResponse(
                 attempt.getId(),
@@ -183,10 +182,24 @@ public class AttemptService {
                 attempt.getChallenge().getTitle(),
                 attempt.getScore(),
                 attempt.getStatus(),
+                resultSource,
                 scoringResult.scoreAvailable(),
                 scoringResult.resultHeadline(),
                 scoringResult.resultSummary(),
                 attempt.getCreatedAt());
+    }
+
+    private String resolveResultSource(Attempt attempt) {
+        if (!AttemptStatus.COMPLETED.equals(attempt.getStatus())) {
+            return AttemptResultSource.PREPARED_FLOW;
+        }
+
+        boolean hasUploadedVideo = attemptVideoRepository.findByAttemptId(attempt.getId()).isPresent();
+        if (hasUploadedVideo) {
+            return AttemptResultSource.VIDEO_UPLOAD_AUTOSCORED;
+        }
+
+        return AttemptResultSource.SAMPLE_SCORING_PREVIEW;
     }
 
     private String normalizeRecordType(String recordType) {
@@ -219,5 +232,22 @@ public class AttemptService {
         }
 
         return notes;
+    }
+
+    private void markRetryableFailure(Long challengeId, String failureCode, RuntimeException exception) {
+        motionSessionRuntimeTracker.markFailedRetryable(
+                challengeId,
+                failureCode,
+                exception.getMessage() == null || exception.getMessage().isBlank()
+                        ? "업로드 처리 중 문제가 발생했습니다. 같은 화면에서 다시 시도해 주세요."
+                        : exception.getMessage());
+    }
+    private String resolvePipelineFailureCode(RuntimeException exception) {
+        String simpleName = exception.getClass().getSimpleName();
+        if (simpleName.contains("Score")) {
+            return FAILURE_CODE_SCORING;
+        }
+
+        return FAILURE_CODE_ANALYSIS;
     }
 }

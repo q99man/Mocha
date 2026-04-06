@@ -7,4 +7,6 @@ import org.springframework.data.jpa.repository.JpaRepository;
 public interface AttemptRepository extends JpaRepository<Attempt, Long> {
 
     List<Attempt> findAllByOrderByCreatedAtDesc();
+
+    java.util.Optional<Attempt> findTopByChallengeIdOrderByCreatedAtDesc(Long challengeId);
 }

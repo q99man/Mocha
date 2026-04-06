@@ -1,5 +1,9 @@
 ﻿export type AttemptStatus = '준비됨' | '완료됨';
 export type AttemptRecordType = 'prepared' | 'completed';
+export type AttemptResultSource =
+  | 'PREPARED_FLOW'
+  | 'SAMPLE_SCORING_PREVIEW'
+  | 'VIDEO_UPLOAD_AUTOSCORED';
 
 export type AttemptSummary = {
   id: number;
@@ -7,6 +11,7 @@ export type AttemptSummary = {
   challengeTitle: string;
   score: number;
   status: AttemptStatus;
+  resultSource: AttemptResultSource;
   scoreAvailable: boolean;
   resultHeadline: string;
   resultSummary: string;
@@ -32,6 +37,7 @@ export type AttemptVideoResult = {
   challengeTitle: string;
   score: number;
   status: AttemptStatus;
+  resultSource: AttemptResultSource;
   scoreAvailable: boolean;
   resultHeadline: string;
   resultSummary: string;

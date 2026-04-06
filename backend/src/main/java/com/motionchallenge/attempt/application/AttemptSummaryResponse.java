@@ -8,6 +8,7 @@ public record AttemptSummaryResponse(
         String challengeTitle,
         int score,
         String status,
+        String resultSource,
         boolean scoreAvailable,
         String resultHeadline,
         String resultSummary,

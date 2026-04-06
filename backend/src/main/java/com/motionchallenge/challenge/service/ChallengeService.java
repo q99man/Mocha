@@ -11,6 +11,9 @@ import com.motionchallenge.challenge.entity.ReferenceAnalysisStatus;
 import com.motionchallenge.challenge.repository.ChallengeMotionProfileRepository;
 import com.motionchallenge.challenge.repository.ChallengeRepository;
 import com.motionchallenge.challenge.repository.ChallengeVideoRepository;
+import com.motionchallenge.attempt.entity.Attempt;
+import com.motionchallenge.attempt.repository.AttemptRepository;
+import com.motionchallenge.attempt.repository.AttemptVideoRepository;
 import com.motionchallenge.motion.service.MotionAnalysisResult;
 import com.motionchallenge.motion.service.MotionAnalysisService;
 import com.motionchallenge.video.service.StoredVideo;
@@ -30,8 +33,11 @@ public class ChallengeService {
     private final ChallengeRepository challengeRepository;
     private final ChallengeCacheService challengeCacheService;
     private final MotionSessionStateFactory motionSessionStateFactory;
+    private final MotionSessionRuntimeResolver motionSessionRuntimeResolver;
     private final ChallengeVideoRepository challengeVideoRepository;
     private final ChallengeMotionProfileRepository challengeMotionProfileRepository;
+    private final AttemptRepository attemptRepository;
+    private final AttemptVideoRepository attemptVideoRepository;
     private final VideoStorageService videoStorageService;
     private final MotionAnalysisService motionAnalysisService;
 
@@ -39,15 +45,21 @@ public class ChallengeService {
             ChallengeRepository challengeRepository,
             ChallengeCacheService challengeCacheService,
             MotionSessionStateFactory motionSessionStateFactory,
+            MotionSessionRuntimeResolver motionSessionRuntimeResolver,
             ChallengeVideoRepository challengeVideoRepository,
             ChallengeMotionProfileRepository challengeMotionProfileRepository,
+            AttemptRepository attemptRepository,
+            AttemptVideoRepository attemptVideoRepository,
             VideoStorageService videoStorageService,
             MotionAnalysisService motionAnalysisService) {
         this.challengeRepository = challengeRepository;
         this.challengeCacheService = challengeCacheService;
         this.motionSessionStateFactory = motionSessionStateFactory;
+        this.motionSessionRuntimeResolver = motionSessionRuntimeResolver;
         this.challengeVideoRepository = challengeVideoRepository;
         this.challengeMotionProfileRepository = challengeMotionProfileRepository;
+        this.attemptRepository = attemptRepository;
+        this.attemptVideoRepository = attemptVideoRepository;
         this.videoStorageService = videoStorageService;
         this.motionAnalysisService = motionAnalysisService;
     }
@@ -72,7 +84,28 @@ public class ChallengeService {
 
     public Optional<MotionSessionStateResponse> getMotionSessionState(Long id) {
         return challengeRepository.findByIdAndIsActiveTrue(id)
-                .map(motionSessionStateFactory::createReadyState);
+                .map(challenge -> {
+                    boolean referenceVideoUploaded =
+                            challengeVideoRepository.findByChallengeId(challenge.getId()).isPresent();
+                    boolean referenceMotionProfileReady =
+                            challengeMotionProfileRepository.findByChallengeId(challenge.getId()).isPresent();
+                    Optional<Attempt> latestAttempt =
+                            attemptRepository.findTopByChallengeIdOrderByCreatedAtDesc(challenge.getId());
+                    boolean latestAttemptVideoUploaded = latestAttempt
+                            .map(attempt -> attemptVideoRepository.findByAttemptId(attempt.getId()).isPresent())
+                            .orElse(false);
+                    MotionSessionRuntimeContext runtimeContext = motionSessionRuntimeResolver.resolve(
+                            challenge.getId(),
+                            referenceMotionProfileReady,
+                            latestAttempt,
+                            latestAttemptVideoUploaded);
+
+                    return motionSessionStateFactory.createState(
+                            challenge,
+                            referenceVideoUploaded,
+                            referenceMotionProfileReady,
+                            runtimeContext);
+                });
     }
 
     @Transactional
