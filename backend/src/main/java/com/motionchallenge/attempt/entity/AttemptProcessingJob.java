@@ -48,6 +48,9 @@ public class AttemptProcessingJob extends BaseTimeEntity {
     @Column(length = 255)
     private String originalFileName;
 
+    @Column(nullable = false)
+    private int processingAttempts;
+
     @Column(name = "result_attempt_id")
     private Long resultAttemptId;
 
@@ -69,6 +72,7 @@ public class AttemptProcessingJob extends BaseTimeEntity {
         this.runtimeState = runtimeState;
         this.processingNotice = processingNotice;
         this.originalFileName = originalFileName;
+        this.processingAttempts = 0;
     }
 
     public Long getId() {
@@ -107,6 +111,10 @@ public class AttemptProcessingJob extends BaseTimeEntity {
         return originalFileName;
     }
 
+    public int getProcessingAttempts() {
+        return processingAttempts;
+    }
+
     public Long getResultAttemptId() {
         return resultAttemptId;
     }
@@ -115,6 +123,7 @@ public class AttemptProcessingJob extends BaseTimeEntity {
         this.status = AttemptProcessingJobStatus.PROCESSING;
         this.runtimeState = runtimeState;
         this.processingNotice = processingNotice;
+        this.processingAttempts += 1;
     }
 
     public void markCompleted(Long resultAttemptId, String runtimeState, String processingNotice) {

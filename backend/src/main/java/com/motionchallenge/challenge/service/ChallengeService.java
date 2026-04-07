@@ -1,5 +1,10 @@
 package com.motionchallenge.challenge.service;
 
+import com.motionchallenge.attempt.entity.Attempt;
+import com.motionchallenge.attempt.entity.AttemptProcessingJob;
+import com.motionchallenge.attempt.repository.AttemptProcessingJobRepository;
+import com.motionchallenge.attempt.repository.AttemptRepository;
+import com.motionchallenge.attempt.repository.AttemptVideoRepository;
 import com.motionchallenge.challenge.dto.ChallengeAnalysisResponse;
 import com.motionchallenge.challenge.dto.ChallengeCreateRequest;
 import com.motionchallenge.challenge.dto.ChallengeResponse;
@@ -11,9 +16,6 @@ import com.motionchallenge.challenge.entity.ReferenceAnalysisStatus;
 import com.motionchallenge.challenge.repository.ChallengeMotionProfileRepository;
 import com.motionchallenge.challenge.repository.ChallengeRepository;
 import com.motionchallenge.challenge.repository.ChallengeVideoRepository;
-import com.motionchallenge.attempt.entity.Attempt;
-import com.motionchallenge.attempt.repository.AttemptRepository;
-import com.motionchallenge.attempt.repository.AttemptVideoRepository;
 import com.motionchallenge.motion.service.MotionAnalysisResult;
 import com.motionchallenge.motion.service.MotionAnalysisService;
 import com.motionchallenge.video.service.StoredVideo;
@@ -37,6 +39,7 @@ public class ChallengeService {
     private final ChallengeVideoRepository challengeVideoRepository;
     private final ChallengeMotionProfileRepository challengeMotionProfileRepository;
     private final AttemptRepository attemptRepository;
+    private final AttemptProcessingJobRepository attemptProcessingJobRepository;
     private final AttemptVideoRepository attemptVideoRepository;
     private final VideoStorageService videoStorageService;
     private final MotionAnalysisService motionAnalysisService;
@@ -49,6 +52,7 @@ public class ChallengeService {
             ChallengeVideoRepository challengeVideoRepository,
             ChallengeMotionProfileRepository challengeMotionProfileRepository,
             AttemptRepository attemptRepository,
+            AttemptProcessingJobRepository attemptProcessingJobRepository,
             AttemptVideoRepository attemptVideoRepository,
             VideoStorageService videoStorageService,
             MotionAnalysisService motionAnalysisService) {
@@ -59,6 +63,7 @@ public class ChallengeService {
         this.challengeVideoRepository = challengeVideoRepository;
         this.challengeMotionProfileRepository = challengeMotionProfileRepository;
         this.attemptRepository = attemptRepository;
+        this.attemptProcessingJobRepository = attemptProcessingJobRepository;
         this.attemptVideoRepository = attemptVideoRepository;
         this.videoStorageService = videoStorageService;
         this.motionAnalysisService = motionAnalysisService;
@@ -91,6 +96,8 @@ public class ChallengeService {
                             challengeMotionProfileRepository.findByChallengeId(challenge.getId()).isPresent();
                     Optional<Attempt> latestAttempt =
                             attemptRepository.findTopByChallengeIdOrderByCreatedAtDesc(challenge.getId());
+                    Optional<AttemptProcessingJob> latestProcessingJob =
+                            attemptProcessingJobRepository.findTopByChallengeIdOrderByCreatedAtDesc(challenge.getId());
                     boolean latestAttemptVideoUploaded = latestAttempt
                             .map(attempt -> attemptVideoRepository.findByAttemptId(attempt.getId()).isPresent())
                             .orElse(false);
@@ -98,7 +105,8 @@ public class ChallengeService {
                             challenge.getId(),
                             referenceMotionProfileReady,
                             latestAttempt,
-                            latestAttemptVideoUploaded);
+                            latestAttemptVideoUploaded,
+                            latestProcessingJob);
 
                     return motionSessionStateFactory.createState(
                             challenge,
@@ -176,7 +184,7 @@ public class ChallengeService {
                     true,
                     analysisResult.analyzerName(),
                     analyzedAt,
-                    "레퍼런스 비디오 분석이 완료되었습니다.");
+                    "레퍼런스 비디오 분석이 완료됐습니다.");
         } catch (ResponseStatusException exception) {
             challenge.markReferenceAnalysisFailed();
             throw exception;

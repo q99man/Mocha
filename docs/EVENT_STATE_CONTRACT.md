@@ -50,6 +50,14 @@ Failure codes:
 - `ANALYSIS_FAILED`
 - `SCORING_FAILED`
 
+Processing job observability fields:
+- `completionStrategy`
+- `retryRecommended`
+- `failureSeverity`
+- `failureAction`
+- `processingAttempts`
+- `retryCount`
+
 Other session fields:
 - `runtimeUpdatedAt`
 - `serverRuntimeTrace`
@@ -110,6 +118,29 @@ If `runtimeState = FAILED_RETRYABLE`:
 - `lastFailureAt` should tell the user when the failure happened
 
 The start screen should show those values directly in the runtime diagnostics.
+
+Processing job failure metadata should follow these rules:
+- `failureSeverity`
+  - `WARN` for retryable analysis-level failures
+  - `HIGH` for storage or scoring failures that should trigger stronger inspection guidance
+- `failureAction`
+  - `CHECK_STORAGE` when upload storage should be inspected first
+  - `RETRY_ANALYSIS` when the same upload can be analyzed again
+  - `RETRY_SCORING` when scoring can be retried after analysis data check
+  - `RETRY_UPLOAD` when the safest path is to restart upload flow
+- `retryRecommended`
+  - `true` only when the current failure is retryable from the same screen
+- `processingAttempts`
+  - total number of processing executions attempted for the same pending job
+- `retryCount`
+  - derived as `processingAttempts - 1`
+
+Inspect mode rule:
+- `inspectMode` is a frontend operating judgment, not a backend API field
+- it becomes active when:
+  - `retryCount >= 2`
+  - `failureSeverity = HIGH`
+- when active, the start screen should switch to inspection-first guidance instead of plain retry guidance
 
 ## Runtime Timestamp Rule
 - `runtimeUpdatedAt` should expose the best available timestamp for the current runtime state.

@@ -1381,3 +1381,104 @@ pm.cmd run build)????쇰뻻 ?類ㅼ뵥??뉙????궢??됰뮸??덈뼄.
 ### 메모
 - 콘솔에서 한글이 깨져 보여도 파일 자체는 UTF-8 기준으로 저장된 경우가 많아서, 최종 판단은 빌드 성공 여부를 기준으로 보는 편이 안전합니다.
 - 지금은 메모리 registry와 durable progress 초안이 함께 있는 과도기 구조입니다. 다음 큰 작업은 이 둘의 역할을 조금 더 분리하거나 progress 조회 surface를 여는 쪽이 자연스럽습니다.
+### 2026-04-07 Session Resume
+- 학원 작업 재개 기준으로 `NEXT_SESSION.md`를 점검했고, 다음 단계 기준을 다시 고정했다.
+- `AttemptService`에서 dispatcher 호출 전 무조건 `ANALYSIS_IN_PROGRESS`를 발행하던 흐름을 정리했다.
+- sync 경로의 `ANALYSIS_IN_PROGRESS` 발행 책임을 `SyncAttemptVideoProcessingDispatcher`로 이동했다.
+- `ChallengeService`와 `MotionSessionRuntimeResolver`가 최신 `AttemptProcessingJob`을 읽도록 연결했다.
+- `serverRuntimeTrace`가 tracker/event bus뿐 아니라 async pending stub의 `ASYNC_JOB` source도 합성해서 보여줄 수 있게 준비했다.
+### 2026-04-07 Pending Progress Surface
+- `AttemptProcessingJobProgressResponse`를 추가해서 pending upload 처리 상태를 별도 응답으로 조회할 수 있게 했다.
+- `AttemptController`에 `/api/attempts/video-processing-progress` endpoint를 추가했다.
+- `AttemptService`에 processing job 조회 로직을 넣어 challengeId / trackingId 기준 최소 progress surface를 열었다.
+- 시작 화면 `CameraPermissionPanel`에 pending 처리 중일 때 `PROCESSING JOB` 상태 카드가 보이도록 연결했다.
+- 프론트 빌드(`npm.cmd run build`)는 다시 통과했다.
+### 2026-04-07 Async Pending Test Coverage
+- `ChallengeVideoAsyncPendingFlowIntegrationTest`에 processing progress endpoint 검증을 추가했다.
+- pending 업로드 직후 `PENDING / ASYNC_JOB_PENDING / UPLOAD_PENDING` 응답을 확인하는 시나리오를 넣었다.
+- async completion 이후 `COMPLETED / SCORING_COMPLETED / resultAttemptId` 갱신을 확인하는 시나리오도 같이 넣었다.
+### 2026-04-07 Camera Panel Copy Cleanup
+- `CameraPermissionPanel`의 시작 화면 문구를 다시 정리해서 카메라 권한, 업로드, 비동기 대기, 로컬 완료 처리 흐름을 한국어 기준으로 읽히게 맞췄다.
+- pending 상태일 때 보여주는 `PROCESSING JOB` 카드도 사용자 기준으로 더 자연스럽게 정리했다.
+- 프론트 빌드(`npm.cmd run build`)는 다시 통과했다.
+### 2026-04-07 Pending Progress Failure Coverage
+- `ChallengeVideoAsyncPendingFlowIntegrationTest`에 progress endpoint 실패 케이스를 추가했다.
+- 존재하지 않는 `trackingId` 요청은 `404 Not Found`로 검증했다.
+- 다른 챌린지에 속한 `trackingId` 요청은 `400 Bad Request`로 검증했다.
+### 2026-04-07 Latest Pending Progress Fallback
+- progress endpoint가 `trackingId` 없이도 challenge 기준 최신 pending job을 반환하는 경로를 테스트로 고정했다.
+- 프론트가 trackingId를 잃어도 최소 fallback 조회 surface가 유지되도록 기준을 마련했다.
+### 2026-04-07 Pending Progress Frontend Fallback
+- `CameraPermissionPanel`이 `trackingId` 없이도 challenge 기준 최신 pending progress를 다시 읽을 수 있게 보강했다.
+- pending job이 `COMPLETED`와 `resultAttemptId`를 반환하면 결과 화면으로 바로 이동할 수 있는 링크를 보여주도록 연결했다.
+- 프론트 빌드(`npm.cmd run build`)는 다시 통과했다.
+### 2026-04-07 Processing Job Timing Meta
+- `AttemptProcessingJobProgressResponse`에 `createdAt`, `updatedAt`, `elapsedSeconds`를 추가했다.
+- `AttemptService`가 progress 응답을 만들 때 경과 시간을 계산해 내려주도록 보강했다.
+- `CameraPermissionPanel`의 `PROCESSING JOB` 카드에 시작 시각과 경과 시간을 표시하도록 연결했다.
+- 프론트 빌드(`npm.cmd run build`)는 다시 통과했다.
+### 2026-04-07 Processing Job Latency Badge
+- `PROCESSING JOB` 카드에 경과 시간 기준 `NORMAL / SLOW` 지연 배지를 추가했다.
+- async pending integration test에서 `createdAt`, `updatedAt`, `elapsedSeconds` 응답 shape도 같이 검증하도록 보강했다.
+- 프론트 빌드(`npm.cmd run build`)는 다시 통과했다.
+### 2026-04-07 Failed Retryable Coverage
+- async pending completion 흐름에서 `MotionAnalysisService`를 spy로 실패시켜 `FAILED_RETRYABLE` 경로를 테스트로 고정했다.
+- 실패 후 progress endpoint가 `FAILED`, `FAILED_RETRYABLE`, `ANALYSIS_FAILED`를 반환하는지 검증했다.
+- 같은 실패가 motion session 응답의 `lastFailureCode`, `lastFailureMessage`에도 반영되는지 함께 확인하도록 보강했다.
+### 2026-04-07 Async Job Runner Scaffold
+- `AsyncPendingAttemptJobRunner`를 추가해서 async pending stub job을 일정 지연 후 백그라운드에서 로컬 완료 처리할 수 있는 scaffold를 만들었다.
+- `AsyncPendingAttemptVideoProcessingDispatcher`가 pending job 등록 후 optional runner가 있으면 자동 예약하도록 연결했다.
+- `application.yml`에 auto-complete on/off와 delay 설정을 추가했다.
+### 2026-04-07 Async Auto Complete Test
+- `ChallengeVideoAsyncAutoCompleteIntegrationTest`를 추가해서 auto-complete runner가 켜졌을 때 pending job이 백그라운드에서 자동 완료되는 흐름 기준을 만들었다.
+- 짧은 지연 뒤 progress endpoint가 `COMPLETED / SCORING_COMPLETED`로 바뀌고 motion session도 완료 상태를 반영하는지 확인하도록 구성했다.
+### 2026-04-07 Completion Strategy Metadata
+- `AttemptProcessingJobProgressResponse`??`completionStrategy`瑜?異붽??댁꽌 async pending progress媛 `AUTO_RUNNER / MANUAL_COMPLETION / INLINE_FLOW`瑜?吏곸젒 ?쒖떆?섎룄濡?蹂닿컯?덈떎.
+- `CameraPermissionPanel`??`PROCESSING JOB` 移대뱶媛 ?꾨즺 ?쟾?략?쓣 諛곗???臾멸뎄濡?諛붾줈 蹂댁뿬二쇰룄濡??곌껐?덈떎.
+### 2026-04-07 Processing Job Next Step Hint
+- `CameraPermissionPanel`의 `PROCESSING JOB` 카드에 `NEXT` 행을 추가해 현재 job의 다음 액션을 바로 읽을 수 있게 정리했다.
+- auto runner job은 짧은 대기 예상 힌트, manual completion job은 수동 완료 필요 힌트를 같이 보여주도록 보강했다.
+### 2026-04-07 Retry Recommended Metadata
+- async pending progress 응답에 `retryRecommended`를 추가해서 retryable failure를 별도 boolean으로 바로 읽을 수 있게 했다.
+- `CameraPermissionPanel`의 `PROCESSING JOB` 카드가 실패 시 `RETRY ADVISED` 배지를 보여주도록 연결했다.
+### 2026-04-07 Failure Severity Metadata
+- async pending progress 응답에 `failureSeverity`를 추가해서 retryable failure를 `WARN / HIGH` 강도로 바로 읽을 수 있게 했다.
+- `PROCESSING JOB` 카드의 retry 배지도 severity 문구를 함께 보여주도록 보강했다.
+### 2026-04-07 Failure Action Metadata
+- async pending progress 응답에 `failureAction`을 추가해서 실패 후 다음 조치(`CHECK_STORAGE / RETRY_ANALYSIS / RETRY_SCORING`)를 서버가 직접 내려주도록 정리했다.
+- `PROCESSING JOB` 카드가 failure action 라벨과 운영 힌트를 같이 보여주도록 보강했다.
+### 2026-04-07 Processing Attempts Metadata
+- async pending progress 응답에 `processingAttempts`, `retryCount`를 추가해서 같은 job의 처리 누적과 재시도 횟수를 바로 읽을 수 있게 했다.
+- `PROCESSING JOB` 카드에 `ATTEMPTS` 행을 추가해 현재 누적 처리 횟수와 retry 수를 같이 보여주도록 정리했다.
+### 2026-04-07 Retry Count Retry Flow Test
+- async pending integration test에 같은 trackingId를 다시 완료 처리하는 재시도 시나리오를 추가했다.
+- 첫 실패 뒤 두 번째 완료 처리에서 `processingAttempts=2`, `retryCount=1`이 되는 기준을 테스트로 고정했다.
+### 2026-04-07 Repeated Failure Badge
+- `PROCESSING JOB` 카드에 `retryCount >= 2`일 때 `REPEATED FAILURE` 배지를 추가했다.
+- 반복 실패가 쌓이는 케이스를 일회성 retryable failure와 구분해서 바로 읽을 수 있게 했다.
+### 2026-04-07 High Severity Retry Escalation
+- `retryCount >= 2`이면서 `failureSeverity=HIGH`인 경우 `PROCESSING JOB` 카드에 `INSPECT BEFORE RETRY` 경고를 추가했다.
+- 반복 고강도 실패는 재시도보다 원인 점검이 먼저라는 운영 메모를 카드 하단에도 같이 노출하도록 보강했다.
+### 2026-04-07 Inspect Ops Banner
+- `retryCount >= 2`이면서 `failureSeverity=HIGH`인 경우 `PROCESSING JOB` 상단에 `OPS MODE: INSPECT` 배너를 추가했다.
+- 세부 row를 읽기 전에도 반복 고강도 실패 상태를 바로 판단할 수 있게 정리했다.
+### 2026-04-07 Inspect Status Strip
+- repeated high-severity failure 조건일 때 시작 화면 상단 contract strip에도 `OPS MODE: INSPECT` 상태 칸을 추가했다.
+- 카드 내부 경고가 아니라 화면 상단에서도 즉시 우선순위를 읽을 수 있게 정리했다.
+### 2026-04-07 Inspect First Message
+- repeated high-severity failure 조건을 `inspectModeActive`로 묶어 상단 strip, processing card, 본문 메시지가 같은 판단을 공유하도록 정리했다.
+- inspect 모드에서는 본문 안내도 재시도보다 점검 우선 톤으로 바뀌게 보강했다.
+### 2026-04-07 Auto Runner Retry Scaffold
+- `AsyncPendingAttemptJobRunner`가 실패 후 같은 pending job을 다시 예약할 수 있게 초기 지연, 재시도 지연, 최대 시도 횟수 설정을 추가했다.
+- auto runner integration test에 1회 실패 후 background 재시도로 완료되는 기준을 추가했다.
+### 2026-04-07 Auto Retry Budget Metadata
+- async pending 설정을 `AttemptAsyncPendingProperties`로 모으고 runner/service가 같은 값을 공유하도록 정리했다.
+- progress 응답에 `autoRetryEnabled`, `remainingAutoRetryCount`, `autoRetryExhausted`를 추가해 auto runner의 남은 재시도 예산을 직접 노출하도록 보강했다.
+### 2026-04-07 MediaPipe Adapter Scaffold
+- 모션 분석 provider를 `mock / mediapipe`로 전환할 수 있는 구조를 추가했다.
+- `MediaPipeMotionAnalysisService`와 공통 profile payload factory를 추가해서 실제 bridge 도입 전에도 같은 result schema를 유지하게 정리했다.
+- `MEDIAPIPE_ADAPTER_PLAN.md` 문서에 provider 전환 규칙과 실제 도입 다음 단계를 정리했다.
+### 2026-04-07 MediaPipe Stub Integration Test
+- `ChallengeVideoMediaPipeStubIntegrationTest`를 추가해서 `provider=mediapipe`와 `stub-enabled=true` 조합이 reference 분석과 attempt 업로드를 현재 파이프라인으로 통과하는 기준을 만들었다.
+- mock 기본 경로와 mediapipe 준비 경로를 독립적으로 검증할 수 있게 분리했다.
+- 2026-04-07: Fixed async pending completion state persistence by moving processing/completed/failed job state transitions into `AttemptProcessingJobStateService` with `REQUIRES_NEW`, so failure paths no longer roll back processingAttempts/retryCount/job status before progress polling reads them.

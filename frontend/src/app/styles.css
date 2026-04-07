@@ -1883,6 +1883,14 @@ main {
   color: #d8ffdd;
 }
 
+.camera-runtime-feed__ops {
+  margin: -2px 0 10px;
+  font-size: 0.78rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #ffd37a;
+}
+
 .camera-runtime-feed__list {
   margin: 0;
   padding: 0;

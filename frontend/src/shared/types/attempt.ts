@@ -56,6 +56,30 @@ export type AttemptVideoResult = {
   attemptedAt: string;
 };
 
+export type AttemptVideoProcessingJobProgress = {
+  trackingId: string;
+  challengeId: number;
+  status: 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED';
+  processingMode: AttemptProcessingMode;
+  completionStrategy: 'INLINE_FLOW' | 'AUTO_RUNNER' | 'MANUAL_COMPLETION';
+  runtimeState: string | null;
+  processingNotice: string | null;
+  failureCode: string | null;
+  failureSeverity: 'WARN' | 'HIGH' | null;
+  failureAction: 'CHECK_STORAGE' | 'RETRY_ANALYSIS' | 'RETRY_SCORING' | 'RETRY_UPLOAD' | null;
+  retryRecommended: boolean;
+  processingAttempts: number;
+  retryCount: number;
+  autoRetryEnabled: boolean;
+  remainingAutoRetryCount: number;
+  autoRetryExhausted: boolean;
+  resultAttemptId: number | null;
+  originalFileName: string | null;
+  createdAt: string;
+  updatedAt: string;
+  elapsedSeconds: number;
+};
+
 export type AsyncPendingCompletionRequest = {
   challengeId: number;
   trackingId?: string;

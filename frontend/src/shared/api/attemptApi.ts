@@ -2,6 +2,7 @@ import { fetchJson, postFormData, postJson } from './client';
 import type {
   AsyncPendingCompletionRequest,
   AttemptCreateRequest,
+  AttemptVideoProcessingJobProgress,
   AttemptSummary,
   AttemptVideoResult,
   AttemptVideoUploadRequest,
@@ -17,6 +18,20 @@ export async function getAttempts(): Promise<AttemptSummary[]> {
 
 export async function getAttemptById(id: string | number): Promise<AttemptSummary> {
   return fetchJson<AttemptSummary>(`/api/attempts/${id}`);
+}
+
+export async function getAttemptVideoProcessingProgress(
+  challengeId: number,
+  trackingId?: string | null,
+): Promise<AttemptVideoProcessingJobProgress> {
+  const query = new URLSearchParams({ challengeId: String(challengeId) });
+  if (trackingId) {
+    query.set('trackingId', trackingId);
+  }
+
+  return fetchJson<AttemptVideoProcessingJobProgress>(
+    `/api/attempts/video-processing-progress?${query.toString()}`,
+  );
 }
 
 export async function createAttempt(request: AttemptCreateRequest): Promise<AttemptSummary> {

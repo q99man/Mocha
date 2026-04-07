@@ -27,6 +27,14 @@ management:
 app:
   cors:
     allowed-origins: ${APP_CORS_ALLOWED_ORIGINS:http://localhost:5173}
+  motion:
+    analysis:
+      provider: ${APP_MOTION_ANALYSIS_PROVIDER:mock}
+      schema-version: ${APP_MOTION_ANALYSIS_SCHEMA_VERSION:v1}
+      mediapipe:
+        stub-enabled: ${APP_MOTION_MEDIAPIPE_STUB_ENABLED:false}
+        endpoint: ${APP_MOTION_MEDIAPIPE_ENDPOINT:http://localhost:8000}
+        timeout-millis: ${APP_MOTION_MEDIAPIPE_TIMEOUT_MILLIS:5000}
   cache:
     popular-challenges-ttl-seconds: ${POPULAR_CHALLENGES_CACHE_TTL:300}
   scoring:
@@ -35,3 +43,7 @@ app:
     local-root: ${APP_STORAGE_LOCAL_ROOT:uploads}
   attempt:
     video-processing-mode: ${APP_ATTEMPT_VIDEO_PROCESSING_MODE:sync-inline}
+    async-pending-auto-complete-enabled: ${APP_ATTEMPT_ASYNC_PENDING_AUTO_COMPLETE_ENABLED:false}
+    async-pending-auto-complete-delay-millis: ${APP_ATTEMPT_ASYNC_PENDING_AUTO_COMPLETE_DELAY_MILLIS:2500}
+    async-pending-auto-complete-retry-delay-millis: ${APP_ATTEMPT_ASYNC_PENDING_AUTO_COMPLETE_RETRY_DELAY_MILLIS:4000}
+    async-pending-auto-complete-max-attempts: ${APP_ATTEMPT_ASYNC_PENDING_AUTO_COMPLETE_MAX_ATTEMPTS:3}

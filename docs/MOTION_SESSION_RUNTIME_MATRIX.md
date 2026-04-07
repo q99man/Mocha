@@ -42,6 +42,42 @@ This document summarizes the current motion session runtime contract in a clean,
 - `SCORING_FAILED`
   - Failure happened while calculating score from analysis output.
 
+## Processing Job Metadata
+- `completionStrategy`
+  - `INLINE_FLOW`
+    - no async pending handoff is active
+  - `MANUAL_COMPLETION`
+    - async pending job exists and a manual completion action is expected
+  - `AUTO_RUNNER`
+    - async pending job exists and background auto-complete runner is expected to finish it
+- `retryRecommended`
+  - boolean flag for retryable failure guidance
+- `failureSeverity`
+  - `WARN`
+    - retryable but not yet escalated
+  - `HIGH`
+    - repeated or high-impact failure requiring stronger inspection guidance
+- `failureAction`
+  - `CHECK_STORAGE`
+  - `RETRY_ANALYSIS`
+  - `RETRY_SCORING`
+  - `RETRY_UPLOAD`
+- `processingAttempts`
+  - total number of processing executions attempted for one pending job
+- `retryCount`
+  - retry counter derived from attempts after the first execution
+
+## Frontend Inspect Mode
+- `inspectModeActive`
+  - frontend-derived operating mode
+  - should turn on when:
+    - `retryCount >= 2`
+    - `failureSeverity = HIGH`
+  - expected UI effect:
+    - top contract strip shows `OPS MODE: INSPECT`
+    - processing card shows inspection-first warning
+    - main guidance copy shifts from retry-first to inspect-first
+
 ## Session Response Fields
 - `challengeId`
 - `readinessState`

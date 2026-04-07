@@ -94,7 +94,32 @@ Use this checklist after backend restart to verify that the motion session API a
    - failure message
    - retry guidance
 
-## Check 8: Local / Server Trace Alignment
+## Check 8: Processing Job Failure Metadata
+1. Use an async pending upload and force a retryable failure.
+2. Confirm progress response shows:
+   - `retryRecommended = true`
+   - `failureSeverity != null`
+   - `failureAction != null`
+   - `processingAttempts >= 1`
+   - `retryCount = processingAttempts - 1`
+3. Confirm start screen shows:
+   - `RETRY ADVISED`
+   - failure action row
+   - attempts / retries row
+   - action-specific playbook copy
+
+## Check 9: Inspect Mode Escalation
+1. Repeat a high-severity failure until:
+   - `retryCount >= 2`
+   - `failureSeverity = HIGH`
+2. Confirm start screen shows:
+   - top strip `OPS MODE: INSPECT`
+   - processing card `OPS MODE: INSPECT`
+   - `INSPECT BEFORE RETRY`
+   - inspection-first main guidance copy
+3. Confirm the screen is now encouraging inspection over another blind retry
+
+## Check 10: Local / Server Trace Alignment
 1. Run one or more uploads and let runtime history accumulate on the start screen.
 2. Compare:
    - local `TRACE PATH`

@@ -1,6 +1,7 @@
 package com.motionchallenge.attempt.api;
 
 import com.motionchallenge.attempt.application.AttemptCreateRequest;
+import com.motionchallenge.attempt.application.AttemptProcessingJobProgressResponse;
 import com.motionchallenge.attempt.application.AttemptResultResponse;
 import com.motionchallenge.attempt.application.AttemptService;
 import com.motionchallenge.attempt.application.AttemptSummaryResponse;
@@ -15,6 +16,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -36,6 +38,13 @@ public class AttemptController {
     @GetMapping("/{id}")
     public AttemptSummaryResponse getAttempt(@PathVariable Long id) {
         return attemptService.getAttempt(id);
+    }
+
+    @GetMapping("/video-processing-progress")
+    public AttemptProcessingJobProgressResponse getAttemptVideoProcessingProgress(
+            @RequestParam Long challengeId,
+            @RequestParam(required = false) String trackingId) {
+        return attemptService.getAttemptVideoProcessingProgress(challengeId, trackingId);
     }
 
     @PostMapping

@@ -1,6 +1,7 @@
 package com.motionchallenge.scoring.application;
 
 import com.motionchallenge.attempt.application.AttemptResultResponse;
+import com.motionchallenge.attempt.application.AttemptProcessingJobStateService;
 import com.motionchallenge.attempt.application.AttemptVideoProcessingService;
 import com.motionchallenge.attempt.application.PendingAttemptVideoJob;
 import com.motionchallenge.attempt.application.PendingAttemptVideoJobRegistry;
@@ -25,13 +26,16 @@ public class AsyncPendingAttemptCompletionService {
     private static final String PROCESSING_RUNTIME_STATE = "ANALYSIS_IN_PROGRESS";
     private static final String COMPLETED_RUNTIME_STATE = "SCORING_COMPLETED";
     private static final String FAILED_RUNTIME_STATE = "FAILED_RETRYABLE";
-    private static final String PROCESSING_NOTICE = "비동기 대기 업로드를 로컬 완료 처리로 이어가는 중입니다.";
-    private static final String COMPLETION_NOTICE = "로컬 async pending 완료 stub으로 분석과 채점을 마무리했습니다.";
+    private static final String PROCESSING_NOTICE =
+            "비동기 대기 업로드를 로컬 완료 처리로 이어가는 중입니다.";
+    private static final String COMPLETION_NOTICE =
+            "로컬 async pending 완료 stub으로 분석과 채점을 마무리했습니다.";
 
     private final PendingAttemptVideoJobRegistry pendingAttemptVideoJobRegistry;
     private final ChallengeRepository challengeRepository;
     private final ChallengeMotionProfileRepository challengeMotionProfileRepository;
     private final AttemptVideoProcessingService attemptVideoProcessingService;
+    private final AttemptProcessingJobStateService attemptProcessingJobStateService;
     private final MotionSessionRuntimeEventPublisher motionSessionRuntimeEventPublisher;
     private final AttemptProcessingJobRepository attemptProcessingJobRepository;
 
@@ -40,24 +44,29 @@ public class AsyncPendingAttemptCompletionService {
             ChallengeRepository challengeRepository,
             ChallengeMotionProfileRepository challengeMotionProfileRepository,
             AttemptVideoProcessingService attemptVideoProcessingService,
+            AttemptProcessingJobStateService attemptProcessingJobStateService,
             MotionSessionRuntimeEventPublisher motionSessionRuntimeEventPublisher,
             AttemptProcessingJobRepository attemptProcessingJobRepository) {
         this.pendingAttemptVideoJobRegistry = pendingAttemptVideoJobRegistry;
         this.challengeRepository = challengeRepository;
         this.challengeMotionProfileRepository = challengeMotionProfileRepository;
         this.attemptVideoProcessingService = attemptVideoProcessingService;
+        this.attemptProcessingJobStateService = attemptProcessingJobStateService;
         this.motionSessionRuntimeEventPublisher = motionSessionRuntimeEventPublisher;
         this.attemptProcessingJobRepository = attemptProcessingJobRepository;
     }
 
     public AttemptResultResponse completePendingAttempt(Long challengeId, String trackingId, String notes) {
         PendingAttemptVideoJob pendingJob = resolvePendingJob(challengeId, trackingId);
-        AttemptProcessingJob processingJob = resolveProcessingJob(challengeId, trackingId)
-                .map(job -> {
-                    job.markProcessing(PROCESSING_RUNTIME_STATE, PROCESSING_NOTICE);
-                    return attemptProcessingJobRepository.save(job);
-                })
-                .orElse(null);
+        String resolvedTrackingId = pendingJob.trackingId();
+        boolean processingJobExists = resolveProcessingJob(challengeId, trackingId).isPresent();
+
+        if (processingJobExists) {
+            attemptProcessingJobStateService.markProcessing(
+                    resolvedTrackingId,
+                    PROCESSING_RUNTIME_STATE,
+                    PROCESSING_NOTICE);
+        }
 
         Challenge challenge = challengeRepository.findByIdAndIsActiveTrue(challengeId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "챌린지를 찾을 수 없습니다."));
@@ -77,9 +86,12 @@ public class AsyncPendingAttemptCompletionService {
             pendingAttemptVideoJobRegistry.remove(challengeId);
             motionSessionRuntimeEventPublisher.publishScoringCompleted(challengeId);
 
-            if (processingJob != null) {
-                processingJob.markCompleted(response.attemptId(), COMPLETED_RUNTIME_STATE, COMPLETION_NOTICE);
-                attemptProcessingJobRepository.save(processingJob);
+            if (processingJobExists) {
+                attemptProcessingJobStateService.markCompleted(
+                        resolvedTrackingId,
+                        response.attemptId(),
+                        COMPLETED_RUNTIME_STATE,
+                        COMPLETION_NOTICE);
             }
 
             return response.withProcessingState("SYNC_INLINE", true, COMPLETION_NOTICE);
@@ -88,9 +100,12 @@ public class AsyncPendingAttemptCompletionService {
                     .filter(message -> !message.isBlank())
                     .orElse("비동기 완료 처리 중 문제가 발생했습니다.");
 
-            if (processingJob != null) {
-                processingJob.markFailed(FAILURE_CODE_ANALYSIS, FAILED_RUNTIME_STATE, failureMessage);
-                attemptProcessingJobRepository.save(processingJob);
+            if (processingJobExists) {
+                attemptProcessingJobStateService.markFailed(
+                        resolvedTrackingId,
+                        FAILURE_CODE_ANALYSIS,
+                        FAILED_RUNTIME_STATE,
+                        failureMessage);
             }
 
             motionSessionRuntimeEventPublisher.publishFailedRetryable(

@@ -225,3 +225,47 @@
 - [x] client.ts 기본 에러 문구를 현재 화면 톤에 맞게 조금 더 구체화
 - [x] 시작 화면, 결과 화면, 기록 목록의 상단 배너/단계 문구를 더 같은 톤으로 정리
 - [x] pending registry를 durable progress 저장으로 바꾸기 전, 최소 AttemptProcessingJob 엔티티/리포지토리 초안 추가- [x] PendingAttemptVideoJob -> AttemptProcessingJob 초안 필드 매핑 기준을 AttemptProcessingJobDraftFactory로 정리- [x] async pending stub 경로에서 AttemptProcessingJob 초안을 실제 생성하고 completion 시 COMPLETED/FAILED로 갱신- [ ] 집에서 이어서 할 다음 작업: AttemptProcessingJob를 읽는 최소 progress 조회 endpoint 초안 추가
+- [x] 학원 handoff 기준으로 async pending stub의 runtime source 연결 상태 재점검
+- [x] sync/async dispatcher별 runtime event 발행 책임 정리
+- [x] motion session resolver에 latest AttemptProcessingJob 연동해서 `ASYNC_JOB` source 합성 준비
+- [x] `AttemptProcessingJob` 최소 progress 조회 endpoint 추가
+- [x] `CameraPermissionPanel`에 pending processing job 상태 카드 연결
+- [x] pending upload polling 중 motion session과 processing job progress를 함께 갱신하도록 연결
+- [x] async pending integration test에 `/api/attempts/video-processing-progress` 검증 추가
+- [x] `CameraPermissionPanel` 시작 화면 문구와 pending progress 카드 문구 정리
+- [x] async pending progress endpoint 실패 케이스 테스트 추가
+- [x] `trackingId` 없이 최신 pending progress를 조회하는 fallback 테스트 추가
+- [x] `trackingId` 없이도 pending job progress polling을 유지하는 프론트 fallback 추가
+- [x] processing job progress 응답에 시작 시각과 경과 시간 메타 추가
+- [x] `PROCESSING JOB` 카드에 대기 시간 표시 추가
+- [x] processing job 카드에 latency badge 추가
+- [x] progress endpoint 시간 메타 shape 테스트 보강
+- [x] async pending completion 실패 시 `FAILED_RETRYABLE` progress/motion session 테스트 추가
+- [x] `async-pending-stub`용 자동 완료 job runner scaffold 추가
+- [x] async pending auto-complete runner integration test 추가
+- [x] async pending progress ?묐떟??`completionStrategy` 異붽?
+- [x] `PROCESSING JOB` 移대뱶??`AUTO RUNNER / MANUAL COMPLETE / INLINE FLOW` ?쒖떆 異붽?
+- [x] `PROCESSING JOB` 카드에 `NEXT STEP`과 ETA 힌트 추가
+- [x] async pending progress 응답에 `retryRecommended` 추가
+- [x] `PROCESSING JOB` 카드에 `RETRY ADVISED` 배지 추가
+- [x] async pending progress 응답에 `failureSeverity` 추가
+- [x] `PROCESSING JOB` 카드에 failure severity 표시 추가
+- [x] async pending progress 응답에 `failureAction` 추가
+- [x] `PROCESSING JOB` 카드에 failure action 표시 추가
+- [x] async pending progress 응답에 `processingAttempts`, `retryCount` 추가
+- [x] `PROCESSING JOB` 카드에 attempts/retries 표시 추가
+- [x] async pending 재시도 시 `processingAttempts=2`, `retryCount=1` 검증 테스트 추가
+- [x] `PROCESSING JOB` 카드에 `REPEATED FAILURE` 배지 추가
+- [x] repeated high-severity failure 운영 경고 추가
+- [x] repeated high-severity failure 시 `OPS MODE: INSPECT` 배너 추가
+- [x] repeated high-severity failure 시 상단 status strip에 `OPS MODE: INSPECT` 추가
+- [x] repeated high-severity failure 시 본문 메시지도 inspection-first 톤으로 전환
+- [x] auto runner 재시도 지연 및 최대 시도 횟수 설정 추가
+- [x] auto runner 1회 실패 후 background 재시도 완료 테스트 추가
+- [x] async pending 설정을 `AttemptAsyncPendingProperties`로 정리
+- [x] progress 응답에 auto retry budget 메타 추가
+- [x] motion analysis provider `mock / mediapipe` 전환 구조 추가
+- [x] MediaPipe adapter stub 및 공통 result schema factory 추가
+- [x] `MEDIAPIPE_ADAPTER_PLAN.md` 문서 추가
+- [x] MediaPipe stub provider 전용 integration test 추가
+- [x] Keep async pending job failure/completion state transitions persisted even when completion requests throw, so progress polling can read `FAILED`, `processingAttempts`, and `retryCount` correctly.
