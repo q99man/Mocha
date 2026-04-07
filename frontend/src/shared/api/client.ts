@@ -1,4 +1,4 @@
-﻿const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080';
 
 type RequestOptions = RequestInit & {
   path: string;
@@ -14,6 +14,10 @@ async function requestJson<T>({ path, ...options }: RequestOptions): Promise<T> 
 
     if (response.status === 400) {
       throw new Error('요청 내용을 다시 확인해 주세요.');
+    }
+
+    if (response.status >= 500) {
+      throw new Error('서버 처리 중 문제가 발생했습니다. 잠시 후 다시 시도해 주세요.');
     }
 
     throw new Error('데이터를 불러오는 중 문제가 발생했습니다.');

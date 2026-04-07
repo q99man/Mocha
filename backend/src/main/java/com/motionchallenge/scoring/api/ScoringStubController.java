@@ -1,6 +1,8 @@
 package com.motionchallenge.scoring.api;
 
+import com.motionchallenge.attempt.application.AttemptResultResponse;
 import com.motionchallenge.attempt.application.AttemptSummaryResponse;
+import com.motionchallenge.scoring.application.AsyncPendingAttemptCompletionService;
 import com.motionchallenge.scoring.application.ScoringCompletionCommand;
 import com.motionchallenge.scoring.application.ScoringCompletionService;
 import jakarta.validation.Valid;
@@ -18,9 +20,13 @@ import org.springframework.web.bind.annotation.RestController;
 public class ScoringStubController {
 
     private final ScoringCompletionService scoringCompletionService;
+    private final AsyncPendingAttemptCompletionService asyncPendingAttemptCompletionService;
 
-    public ScoringStubController(ScoringCompletionService scoringCompletionService) {
+    public ScoringStubController(
+            ScoringCompletionService scoringCompletionService,
+            AsyncPendingAttemptCompletionService asyncPendingAttemptCompletionService) {
         this.scoringCompletionService = scoringCompletionService;
+        this.asyncPendingAttemptCompletionService = asyncPendingAttemptCompletionService;
     }
 
     @PostMapping("/sample-completion")
@@ -29,12 +35,21 @@ public class ScoringStubController {
         return scoringCompletionService.createCompletedAttemptFromScoring(new ScoringCompletionCommand(
                 request.challengeId(),
                 request.score(),
-                normalizeNotes(request.notes())));
+                normalizeSampleNotes(request.notes())));
     }
 
-    private String normalizeNotes(String notes) {
+    @PostMapping("/async-pending-completion")
+    @ResponseStatus(HttpStatus.CREATED)
+    public AttemptResultResponse completeAsyncPendingUpload(@Valid @RequestBody AsyncPendingCompletionRequest request) {
+        return asyncPendingAttemptCompletionService.completePendingAttempt(
+                request.challengeId(),
+                request.trackingId(),
+                request.notes());
+    }
+
+    private String normalizeSampleNotes(String notes) {
         if (notes == null || notes.isBlank()) {
-            return "샘플 scoring 입력으로 저장한 완료 기록";
+            return "샘플 scoring 입력으로 저장한 완료 기록입니다.";
         }
 
         return notes;

@@ -1,4 +1,4 @@
-server:
+﻿server:
   port: ${SERVER_PORT:8080}
 
 spring:
@@ -33,3 +33,5 @@ app:
     sample-stub-enabled: ${APP_SCORING_SAMPLE_STUB_ENABLED:false}
   storage:
     local-root: ${APP_STORAGE_LOCAL_ROOT:uploads}
+  attempt:
+    video-processing-mode: ${APP_ATTEMPT_VIDEO_PROCESSING_MODE:sync-inline}

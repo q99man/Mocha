@@ -30,6 +30,15 @@ public class Attempt extends BaseTimeEntity {
     @Column(nullable = false, length = 20)
     private String status;
 
+    @Column(length = 40)
+    private String processingMode;
+
+    @Column(nullable = false)
+    private boolean processingComplete;
+
+    @Column(length = 500)
+    private String processingNotice;
+
     @Column(length = 1000)
     private String notes;
 
@@ -37,9 +46,23 @@ public class Attempt extends BaseTimeEntity {
     }
 
     public Attempt(Challenge challenge, Integer score, String status, String notes) {
+        this(challenge, score, status, null, false, null, notes);
+    }
+
+    public Attempt(
+            Challenge challenge,
+            Integer score,
+            String status,
+            String processingMode,
+            boolean processingComplete,
+            String processingNotice,
+            String notes) {
         this.challenge = challenge;
         this.score = score;
         this.status = status;
+        this.processingMode = processingMode;
+        this.processingComplete = processingComplete;
+        this.processingNotice = processingNotice;
         this.notes = notes;
     }
 
@@ -57,6 +80,18 @@ public class Attempt extends BaseTimeEntity {
 
     public String getStatus() {
         return status;
+    }
+
+    public String getProcessingMode() {
+        return processingMode;
+    }
+
+    public boolean isProcessingComplete() {
+        return processingComplete;
+    }
+
+    public String getProcessingNotice() {
+        return processingNotice;
     }
 
     public String getNotes() {

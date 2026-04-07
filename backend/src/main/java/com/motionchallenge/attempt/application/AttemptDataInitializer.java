@@ -25,11 +25,25 @@ public class AttemptDataInitializer {
             }
 
             Challenge firstChallenge = challenges.get(0);
-            attemptRepository.save(new Attempt(firstChallenge, 84, AttemptStatus.COMPLETED, "초기 완료 샘플 기록"));
+            attemptRepository.save(new Attempt(
+                    firstChallenge,
+                    84,
+                    AttemptStatus.COMPLETED,
+                    null,
+                    true,
+                    "샘플 preview 흐름으로 만든 완료 결과입니다. 실제 업로드 자동 채점 결과와는 다를 수 있습니다.",
+                    "초기 완료 샘플 기록"));
 
             if (challenges.size() > 1) {
                 Challenge secondChallenge = challenges.get(1);
-                attemptRepository.save(new Attempt(secondChallenge, 0, AttemptStatus.PREPARED, "카메라 준비 단계까지 저장한 기록"));
+                attemptRepository.save(new Attempt(
+                        secondChallenge,
+                        0,
+                        AttemptStatus.PREPARED,
+                        null,
+                        false,
+                        "준비 단계에서 저장한 기록입니다. 실제 업로드와 자동 채점은 아직 진행하지 않았습니다.",
+                        "카메라 준비 단계까지 저장한 기록"));
             }
         };
     }

@@ -17,3 +17,5 @@ spring:
 app:
   scoring:
     sample-stub-enabled: true
+  attempt:
+    video-processing-mode: sync-inline

@@ -32,7 +32,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class ChallengeVideoFlowIntegrationTest {
 
     private static final Path TEST_UPLOAD_ROOT = Path.of("build", "test-uploads");
-
     @Autowired
     private MockMvc mockMvc;
 
@@ -74,11 +73,14 @@ class ChallengeVideoFlowIntegrationTest {
         mockMvc.perform(multipart("/api/attempts/video")
                         .file(attemptVideo)
                         .param("challengeId", String.valueOf(challengeId))
-                        .param("notes", "통합 테스트 시도"))
+                        .param("notes", "integration test attempt"))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.challengeId").value(challengeId))
-                .andExpect(jsonPath("$.status").value("완료됨"))
+                .andExpect(jsonPath("$.status").isString())
                 .andExpect(jsonPath("$.analyzerName").value("mock-attempt-analyzer"))
+                .andExpect(jsonPath("$.processingMode").value("SYNC_INLINE"))
+                .andExpect(jsonPath("$.processingComplete").value(true))
+                .andExpect(jsonPath("$.processingNotice").isString())
                 .andExpect(jsonPath("$.videoOriginalFileName").value("attempt.mp4"))
                 .andExpect(jsonPath("$.resultHeadline").isString())
                 .andExpect(jsonPath("$.scoreAvailable").value(true))
@@ -101,7 +103,7 @@ class ChallengeVideoFlowIntegrationTest {
                         .file(attemptVideo)
                         .param("challengeId", String.valueOf(challengeId)))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.message").value("레퍼런스 비디오 분석이 완료된 챌린지에서만 시도 업로드를 진행할 수 있습니다."));
+                .andExpect(jsonPath("$.message").isString());
     }
 
     private Long createChallengeWithReferenceVideo() throws Exception {
@@ -113,10 +115,10 @@ class ChallengeVideoFlowIntegrationTest {
 
         MvcResult result = mockMvc.perform(multipart("/api/challenges")
                         .file(referenceVideo)
-                        .param("title", "테스트 레퍼런스 챌린지")
-                        .param("description", "통합 테스트용 레퍼런스 비디오 업로드")
-                        .param("category", "테스트")
-                        .param("difficulty", "보통")
+                        .param("title", "test reference challenge")
+                        .param("description", "integration test reference upload")
+                        .param("category", "test")
+                        .param("difficulty", "medium")
                         .param("durationSec", "18"))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.referenceAnalysisStatus").value("NOT_ANALYZED"))

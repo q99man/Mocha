@@ -12,5 +12,8 @@ public record AttemptSummaryResponse(
         boolean scoreAvailable,
         String resultHeadline,
         String resultSummary,
+        String processingMode,
+        boolean processingComplete,
+        String processingNotice,
         LocalDateTime attemptedAt) {
 }

@@ -1,5 +1,6 @@
-﻿export type AttemptStatus = '준비됨' | '완료됨';
+export type AttemptStatus = '준비됨' | '완료됨';
 export type AttemptRecordType = 'prepared' | 'completed';
+export type AttemptProcessingMode = 'SYNC_INLINE' | 'ASYNC_JOB_PENDING';
 export type AttemptResultSource =
   | 'PREPARED_FLOW'
   | 'SAMPLE_SCORING_PREVIEW'
@@ -15,6 +16,9 @@ export type AttemptSummary = {
   scoreAvailable: boolean;
   resultHeadline: string;
   resultSummary: string;
+  processingMode: AttemptProcessingMode | null;
+  processingComplete: boolean;
+  processingNotice: string | null;
   attemptedAt: string;
 };
 
@@ -32,7 +36,7 @@ export type AttemptVideoUploadRequest = {
 };
 
 export type AttemptVideoResult = {
-  attemptId: number;
+  attemptId: number | null;
   challengeId: number;
   challengeTitle: string;
   score: number;
@@ -42,8 +46,18 @@ export type AttemptVideoResult = {
   resultHeadline: string;
   resultSummary: string;
   analyzerName: string;
+  processingMode: AttemptProcessingMode | null;
+  processingComplete: boolean;
+  processingNotice: string | null;
+  pendingTrackingId: string | null;
   videoOriginalFileName: string;
   videoContentType: string;
   videoSize: number;
   attemptedAt: string;
+};
+
+export type AsyncPendingCompletionRequest = {
+  challengeId: number;
+  trackingId?: string;
+  notes?: string;
 };

@@ -18,6 +18,9 @@ import org.springframework.stereotype.Service;
 @Service
 public class AttemptVideoProcessingService {
 
+    private static final String PROCESSING_MODE_SYNC_INLINE = "SYNC_INLINE";
+    private static final String PROCESSING_NOTICE_AUTOSCORED = "실제 업로드 비디오를 기준으로 서버가 분석과 채점을 완료했습니다.";
+
     private final AttemptRepository attemptRepository;
     private final AttemptVideoRepository attemptVideoRepository;
     private final MotionAnalysisService motionAnalysisService;
@@ -49,6 +52,9 @@ public class AttemptVideoProcessingService {
                 challenge,
                 scoringResult.score(),
                 AttemptStatus.COMPLETED,
+                PROCESSING_MODE_SYNC_INLINE,
+                true,
+                PROCESSING_NOTICE_AUTOSCORED,
                 notes == null || notes.isBlank()
                         ? scoringResult.summary()
                         : notes));
@@ -75,6 +81,10 @@ public class AttemptVideoProcessingService {
                 previewResult.resultHeadline(),
                 scoringResult.summary(),
                 attemptAnalysis.analyzerName(),
+                attempt.getProcessingMode(),
+                attempt.isProcessingComplete(),
+                attempt.getProcessingNotice(),
+                null,
                 storedVideo.originalFileName(),
                 storedVideo.contentType(),
                 storedVideo.size(),
