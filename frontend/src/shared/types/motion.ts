@@ -34,6 +34,13 @@ export type MotionSessionState = {
     | 'ANALYSIS_FAILED'
     | 'SCORING_FAILED'
     | null;
+  failureSeverity: 'WARN' | 'HIGH' | null;
+  failureAction: 'CHECK_STORAGE' | 'RETRY_ANALYSIS' | 'RETRY_SCORING' | 'RETRY_UPLOAD' | null;
+  retryCount: number;
+  autoRetryExhausted: boolean;
+  inspectRecommended: boolean;
+  terminalState: 'AUTO_RETRY_EXHAUSTED' | null;
+  terminalMessage: string | null;
   lastFailureMessage: string | null;
   lastFailureAt: string | null;
   sessionState: 'REFERENCE_PENDING' | 'CAMERA_PERMISSION_REQUIRED';

@@ -2030,6 +2030,41 @@ main {
   background: rgba(255, 109, 140, 0.1);
 }
 
+.camera-panel__terminal {
+  margin-top: 14px;
+  padding: 14px 16px;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 207, 117, 0.18);
+  background: rgba(255, 207, 117, 0.06);
+}
+
+.camera-panel__terminal strong,
+.camera-panel__terminal p,
+.camera-panel__terminal small {
+  display: block;
+  margin: 0;
+}
+
+.camera-panel__terminal p {
+  margin-top: 8px;
+  line-height: 1.5;
+}
+
+.camera-panel__terminal small {
+  margin-top: 6px;
+  color: var(--text-soft);
+}
+
+.camera-panel__terminal--warn {
+  border-color: rgba(255, 207, 117, 0.24);
+  background: rgba(255, 207, 117, 0.08);
+}
+
+.camera-panel__terminal--danger {
+  border-color: rgba(255, 109, 140, 0.28);
+  background: rgba(255, 109, 140, 0.1);
+}
+
 .result-process-feed--pending {
   border-color: rgba(255, 214, 102, 0.24);
   background: rgba(255, 214, 102, 0.09);

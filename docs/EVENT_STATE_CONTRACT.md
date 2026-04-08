@@ -61,6 +61,13 @@ Processing job observability fields:
 Other session fields:
 - `runtimeUpdatedAt`
 - `serverRuntimeTrace`
+- `failureSeverity`
+- `failureAction`
+- `retryCount`
+- `autoRetryExhausted`
+- `inspectRecommended`
+- `terminalState`
+- `terminalMessage`
 - `latestAttemptId`
 - `latestAttemptResultSource`
 - `scoreAvailable`
@@ -141,6 +148,15 @@ Inspect mode rule:
   - `retryCount >= 2`
   - `failureSeverity = HIGH`
 - when active, the start screen should switch to inspection-first guidance instead of plain retry guidance
+
+Terminal exhaustion rule:
+- when async auto retry is enabled and the remaining retry budget reaches `0` while runtime stays `FAILED_RETRYABLE`,
+  the motion session should also surface:
+  - `autoRetryExhausted = true`
+  - `inspectRecommended = true`
+  - `terminalState = AUTO_RETRY_EXHAUSTED`
+  - `terminalMessage` with the next manual recovery guidance
+- this lets the start screen show a strong warning even before the user opens the detailed processing job card
 
 ## Runtime Timestamp Rule
 - `runtimeUpdatedAt` should expose the best available timestamp for the current runtime state.

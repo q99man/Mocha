@@ -1628,3 +1628,15 @@ pm.cmd run build)를 다시 통과시켰다.
 - AttemptSummaryResponse와 AttemptSummary 타입에 durable progress 핵심 메타(상태, 완료 방식, 누적 처리 시간, 자동 재시도 정보, 업로드 파일명)를 추가했다.
 - 결과 화면과 기록 목록은 재조회 전에도 AttemptSummary 기반 durable progress snapshot을 fallback으로 사용해 더 정확한 상태 설명과 메타를 보여주도록 정리했다.
 - 백엔드 빌드(./gradlew.bat build)와 프론트 빌드(npm.cmd run build)를 다시 통과했다.
+- 2026-04-08: Surfaced async auto-retry exhaustion at motion-session level with `failureSeverity`, `failureAction`, `retryCount`, `autoRetryExhausted`, `inspectRecommended`, `terminalState`, and `terminalMessage`; start screen now shows a terminal warning banner when retry budget is exhausted.
+- 2026-04-08: Added `ChallengeVideoAsyncAutoRetryExhaustedIntegrationTest` to lock the `AUTO_RETRY_EXHAUSTED` async terminal failure path.
+- 2026-04-08: Refactored MediaPipe provider path into a real bridge boundary: added `MediaPipeBridgeRequest`, `MediaPipeBridgeResponse`, `MediaPipeBridgeClient`, `MediaPipeBridgeRequestFactory`, `MediaPipeBridgeResultMapper`, and moved stub behavior into `StubMediaPipeBridgeClient`.
+- 2026-04-08: Added `MEDIAPIPE_FASTAPI_HANDOFF.md` to define the next Python/FastAPI request-response contract without changing the current motion/scoring pipeline shape.
+- 2026-04-08: Added a real HTTP MediaPipe bridge scaffold with `HttpMediaPipeBridgeClient`, `MediaPipeHttpAnalyzeRequest`, and `MediaPipeHttpAnalyzeResponse`; `stub-enabled=false` now uses the actual HTTP call shape instead of a placeholder not-implemented client.
+- 2026-04-08: Added a runnable `mediapipe-bridge` FastAPI scaffold with `/health` and `/api/v1/analyze`, so Spring can now verify the real HTTP bridge contract without waiting for full MediaPipe extraction logic.
+- 2026-04-08: Added `HttpMediaPipeBridgeClientTest` to lock the HTTP bridge request URL/body mapping and malformed-response failure mapping before connecting to a real FastAPI service.
+- 2026-04-08: Added runnable bridge ops assets: `.env.example` MediaPipe variables, `mediapipe-bridge/run-bridge.ps1`, and `MEDIAPIPE_BRIDGE_VERIFICATION.md` for end-to-end Spring/FastAPI verification.
+- 2026-04-08: Added `ChallengeVideoMediaPipeHttpBridgeIntegrationTest` using a JDK in-process HTTP server to verify the full Spring reference/attempt flow against the real HTTP bridge path with `stub-enabled=false`.
+- 2026-04-08: Upgraded the FastAPI bridge scaffold from contract-only stub to dual-mode analysis (`stub` / `mediapipe`) with real pose extraction logic in `mediapipe-bridge/app/analysis.py`.
+- 2026-04-08: Added `backend/run-mediapipe-http.ps1` so Spring MediaPipe HTTP mode can be started with one command instead of manual environment setup.
+- 2026-04-08: Added `verify-mediapipe-stack.ps1` to quickly validate bridge health, backend health, challenge list, and motion session after starting the MediaPipe HTTP stack.

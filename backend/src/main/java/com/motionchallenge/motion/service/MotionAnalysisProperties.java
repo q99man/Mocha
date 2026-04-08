@@ -34,6 +34,7 @@ public class MotionAnalysisProperties {
     public static class Mediapipe {
         private boolean stubEnabled;
         private String endpoint = "http://localhost:8000";
+        private String analyzePath = "/api/v1/analyze";
         private long timeoutMillis = 5000L;
 
         public boolean isStubEnabled() {
@@ -50,6 +51,14 @@ public class MotionAnalysisProperties {
 
         public void setEndpoint(String endpoint) {
             this.endpoint = endpoint;
+        }
+
+        public String getAnalyzePath() {
+            return analyzePath;
+        }
+
+        public void setAnalyzePath(String analyzePath) {
+            this.analyzePath = analyzePath;
         }
 
         public long getTimeoutMillis() {

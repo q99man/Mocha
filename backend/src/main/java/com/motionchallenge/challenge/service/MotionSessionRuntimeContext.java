@@ -11,6 +11,13 @@ public record MotionSessionRuntimeContext(
         boolean latestAttemptScoreAvailable,
         boolean latestAttemptVideoUploaded,
         String lastFailureCode,
+        String failureSeverity,
+        String failureAction,
+        int retryCount,
+        boolean autoRetryExhausted,
+        boolean inspectRecommended,
+        String terminalState,
+        String terminalMessage,
         String lastFailureMessage,
         java.time.LocalDateTime lastFailureAt) {
 }

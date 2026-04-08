@@ -37,6 +37,13 @@ public class MotionSessionStateFactory {
                     runtimeContext.latestAttemptResultSource(),
                     runtimeContext.latestAttemptScoreAvailable(),
                     runtimeContext.lastFailureCode(),
+                    runtimeContext.failureSeverity(),
+                    runtimeContext.failureAction(),
+                    runtimeContext.retryCount(),
+                    runtimeContext.autoRetryExhausted(),
+                    runtimeContext.inspectRecommended(),
+                    runtimeContext.terminalState(),
+                    runtimeContext.terminalMessage(),
                     runtimeContext.lastFailureMessage(),
                     formatFailureAt(runtimeContext.lastFailureAt()),
                     SESSION_STATE_REFERENCE_PENDING,
@@ -47,8 +54,8 @@ public class MotionSessionStateFactory {
                     false,
                     false,
                     referenceVideoUploaded
-                            ? "레퍼런스 비디오는 준비됐지만 분석이 아직 끝나지 않아 지금은 샘플 저장 흐름만 먼저 확인할 수 있습니다."
-                            : "아직 레퍼런스 준비가 끝나지 않아 지금은 카메라 확인과 샘플 저장 흐름만 확인하는 단계입니다.");
+                            ? "?덊띁?곗뒪 鍮꾨뵒?ㅻ뒗 以鍮꾨릱吏留?遺꾩꽍???꾩쭅 ?앸굹吏 ?딆븘 吏湲덉? ?섑뵆 ????먮쫫留?癒쇱? ?뺤씤?????덉뒿?덈떎."
+                            : "?꾩쭅 ?덊띁?곗뒪 以鍮꾧? ?앸굹吏 ?딆븘 吏湲덉? 移대찓???뺤씤怨??섑뵆 ????먮쫫留??뺤씤?섎뒗 ?④퀎?낅땲??");
         }
 
         if ("SCORING_COMPLETED".equals(runtimeContext.runtimeState())) {
@@ -62,6 +69,13 @@ public class MotionSessionStateFactory {
                     runtimeContext.latestAttemptResultSource(),
                     runtimeContext.latestAttemptScoreAvailable(),
                     runtimeContext.lastFailureCode(),
+                    runtimeContext.failureSeverity(),
+                    runtimeContext.failureAction(),
+                    runtimeContext.retryCount(),
+                    runtimeContext.autoRetryExhausted(),
+                    runtimeContext.inspectRecommended(),
+                    runtimeContext.terminalState(),
+                    runtimeContext.terminalMessage(),
                     runtimeContext.lastFailureMessage(),
                     formatFailureAt(runtimeContext.lastFailureAt()),
                     SESSION_STATE_CAMERA_PERMISSION_REQUIRED,
@@ -71,7 +85,7 @@ public class MotionSessionStateFactory {
                     false,
                     true,
                     true,
-                    "레퍼런스 분석과 최신 시도 결과 반영이 모두 끝났습니다. 결과 화면에서 자동 채점 요약을 바로 확인할 수 있습니다.");
+                    "?덊띁?곗뒪 遺꾩꽍怨?理쒖떊 ?쒕룄 寃곌낵 諛섏쁺??紐⑤몢 ?앸궗?듬땲?? 寃곌낵 ?붾㈃?먯꽌 ?먮룞 梨꾩젏 ?붿빟??諛붾줈 ?뺤씤?????덉뒿?덈떎.");
         }
 
         return new MotionSessionStateResponse(
@@ -84,6 +98,13 @@ public class MotionSessionStateFactory {
                 runtimeContext.latestAttemptResultSource(),
                 runtimeContext.latestAttemptScoreAvailable(),
                 runtimeContext.lastFailureCode(),
+                runtimeContext.failureSeverity(),
+                runtimeContext.failureAction(),
+                runtimeContext.retryCount(),
+                runtimeContext.autoRetryExhausted(),
+                runtimeContext.inspectRecommended(),
+                runtimeContext.terminalState(),
+                runtimeContext.terminalMessage(),
                 runtimeContext.lastFailureMessage(),
                 formatFailureAt(runtimeContext.lastFailureAt()),
                 SESSION_STATE_CAMERA_PERMISSION_REQUIRED,
@@ -93,7 +114,7 @@ public class MotionSessionStateFactory {
                 false,
                 true,
                 true,
-                "레퍼런스 분석이 완료되어 카메라 확인 후 시도 비디오 업로드와 자동 채점 흐름으로 바로 이어질 수 있습니다.");
+                resolveReadyMessage(runtimeContext));
     }
 
     private String formatFailureAt(java.time.LocalDateTime failureAt) {
@@ -102,6 +123,14 @@ public class MotionSessionStateFactory {
 
     private String formatRuntimeUpdatedAt(java.time.LocalDateTime runtimeUpdatedAt) {
         return runtimeUpdatedAt == null ? null : runtimeUpdatedAt.toString();
+    }
+
+    private String resolveReadyMessage(MotionSessionRuntimeContext runtimeContext) {
+        if (runtimeContext.terminalMessage() != null && !runtimeContext.terminalMessage().isBlank()) {
+            return runtimeContext.terminalMessage();
+        }
+
+        return "?덊띁?곗뒪 遺꾩꽍???꾨즺?섏뼱 移대찓???뺤씤 ???쒕룄 鍮꾨뵒???낅줈?쒖? ?먮룞 梨꾩젏 ?먮쫫?쇰줈 諛붾줈 ?댁뼱吏????덉뒿?덈떎.";
     }
 
     private java.time.LocalDateTime resolveRuntimeUpdatedAt(

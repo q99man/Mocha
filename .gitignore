@@ -40,3 +40,9 @@ backend/.gradle-dist/
 frontend/*.tsbuildinfo
 frontend/vite.config.js
 frontend/vite.config.d.ts
+
+# Python / MediaPipe bridge
+mediapipe-bridge/.venv/
+mediapipe-bridge/**/__pycache__/
+mediapipe-bridge/**/*.pyc
+mediapipe-bridge/models/*.task

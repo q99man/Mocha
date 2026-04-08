@@ -40,6 +40,7 @@ public class MockMotionAnalysisService implements MotionAnalysisService {
                 sampleCount,
                 durationMs,
                 List.of("Mock analyzer path is active."),
+                List.of(),
                 buildExtras());
 
         return new MotionAnalysisResult(rawProfileData, signature, sampleCount, durationMs, analyzerName);

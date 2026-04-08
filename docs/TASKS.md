@@ -383,3 +383,15 @@
 - [x] durable progress 상태 카드 메타 라벨 helper를 공용화해서 완료 방식/처리 시간/재시도/업로드 파일 규칙을 한 곳으로 모음
 
 - [x] AttemptSummary 조회 응답에 durable progress 핵심 메타를 반영해서 결과/기록 화면이 재조회 전에도 더 정확한 상태 설명을 쓸 수 있게 정리
+- [x] Surface a clearer terminal state when async auto retry is exhausted in both motion session API and start-screen UI.
+- [x] Add integration coverage for the async auto-retry exhausted terminal failure path.
+- [x] Split MediaPipe provider into bridge request/client/mapper layers so the stub path can be replaced by a real FastAPI bridge without redesigning the analyzer flow.
+- [x] Document the first FastAPI handoff contract for MediaPipe request/response mapping.
+- [x] Add a real HTTP MediaPipe bridge scaffold so `stub-enabled=false` uses actual request/response transport shape.
+- [x] Add a runnable FastAPI bridge scaffold so Spring can verify the real MediaPipe HTTP contract before real landmark extraction is implemented.
+- [x] Add focused backend tests for MediaPipe HTTP bridge success mapping and malformed-response failure mapping.
+- [x] Add a repeatable local run/verification path for the FastAPI MediaPipe bridge.
+- [x] Add an end-to-end backend integration test that exercises the real MediaPipe HTTP bridge path with `stub-enabled=false`.
+- [x] Add a real MediaPipe extraction mode to the FastAPI bridge while preserving the stub mode for offline contract checks.
+- [x] Add a one-command backend startup path for MediaPipe HTTP bridge verification.
+- [x] Add a one-command stack verification script for the MediaPipe bridge and backend runtime.

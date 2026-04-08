@@ -42,6 +42,35 @@ npm run dev
 
 The frontend expects the backend at `http://localhost:8080` by default.
 
+### MediaPipe bridge verification run
+
+If you want the backend to use the real HTTP bridge shape instead of the in-process MediaPipe stub:
+
+1. Start the FastAPI bridge:
+
+```powershell
+cd mediapipe-bridge
+.\run-bridge.ps1
+```
+
+2. Start the backend with MediaPipe HTTP mode:
+
+```powershell
+cd backend
+.\run-mediapipe-http.ps1
+```
+
+3. Then use the normal challenge reference analysis and attempt upload flow.
+
+Quick stack verification:
+
+```powershell
+cd C:\SpringWork\Mocha
+.\verify-mediapipe-stack.ps1
+```
+
+Detailed verification steps are in [docs/MEDIAPIPE_BRIDGE_VERIFICATION.md](C:\SpringWork\Mocha\docs\MEDIAPIPE_BRIDGE_VERIFICATION.md).
+
 ### Docker-backed infra run
 
 1. Copy `.env.example` values into your shell or a local `.env` file.

@@ -32,6 +32,7 @@ public class MotionAnalysisProfilePayloadFactory {
             int sampleCount,
             long durationMs,
             List<String> notes,
+            List<Map<String, Object>> landmarks,
             Map<String, Object> extras) {
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("schemaVersion", motionAnalysisProperties.getSchemaVersion());
@@ -40,7 +41,7 @@ public class MotionAnalysisProfilePayloadFactory {
         payload.put("analysisPhase", analysisPhase);
         payload.put("sourceVideo", buildSourceVideo(storedVideo));
         payload.put("metrics", buildMetrics(signature, sampleCount, durationMs));
-        payload.put("landmarks", List.of());
+        payload.put("landmarks", landmarks == null ? List.of() : landmarks);
         payload.put("notes", notes);
         payload.put("extras", extras);
 

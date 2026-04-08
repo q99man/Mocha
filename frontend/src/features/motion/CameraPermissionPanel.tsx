@@ -75,10 +75,11 @@ export function CameraPermissionPanel({ challengeId, challengeTitle }: CameraPer
     [sessionState?.serverRuntimeTrace],
   );
   const pendingStageSummary = buildDurableProgressSummary(pendingJobProgress);
-  const messageToneClass = buildMessageToneClass(pendingJobProgress, message);
-  const serverStatusToneClass = buildServerStatusToneClass(pendingJobProgress);
+  const messageToneClass = buildMessageToneClass(pendingJobProgress, sessionState, message);
+  const serverStatusToneClass = buildServerStatusToneClass(pendingJobProgress, sessionState);
   const processingJobToneClass = buildProcessingJobToneClass(pendingJobProgress);
   const processingJobActionToneClass = buildProcessingJobActionToneClass(pendingJobProgress);
+  const sessionTerminalActive = sessionState?.terminalState === 'AUTO_RETRY_EXHAUSTED';
 
   useEffect(() => {
     mountedRef.current = true;
@@ -412,6 +413,17 @@ export function CameraPermissionPanel({ challengeId, challengeTitle }: CameraPer
         <strong>{sessionState?.runtimeState ?? '상태 확인 중'}</strong>
       </div>
 
+      {sessionTerminalActive ? (
+        <div className={`camera-panel__terminal ${buildSessionTerminalToneClass(sessionState)}`}>
+          <strong>자동 재시도 소진</strong>
+          <p>{sessionState?.terminalMessage ?? '자동 재시도 예산이 모두 소진되어 점검 우선 상태로 전환되었습니다.'}</p>
+          <small>
+            {sessionState?.failureAction ? `권장 조치: ${buildDurableProgressFailureAction(sessionState.failureAction)}` : '권장 조치를 먼저 확인해 주세요.'}
+            {typeof sessionState?.retryCount === 'number' ? ` · 누적 재시도 ${sessionState.retryCount}회` : ''}
+          </small>
+        </div>
+      ) : null}
+
       {sessionError ? <p className="camera-panel__error">{sessionError}</p> : null}
 
       {recentRuntimeTrace.length > 0 ? (
@@ -632,9 +644,18 @@ function buildFailureProgressMessage(progress: AttemptVideoProcessingJobProgress
   return `재시도 가능한 실패 상태를 확인했습니다. ${buildDurableProgressFailureAction(progress.failureAction)} 먼저 확인해 주세요.`;
 }
 
-function buildMessageToneClass(progress: AttemptVideoProcessingJobProgress | null, message: string) {
+function buildMessageToneClass(
+  progress: AttemptVideoProcessingJobProgress | null,
+  sessionState: MotionSessionState | null,
+  message: string,
+) {
   if (progress?.status === 'FAILED') {
     return progress.failureSeverity === 'HIGH'
+      ? 'camera-panel__message camera-panel__message--danger'
+      : 'camera-panel__message camera-panel__message--warn';
+  }
+  if (sessionState?.terminalState === 'AUTO_RETRY_EXHAUSTED') {
+    return sessionState.inspectRecommended
       ? 'camera-panel__message camera-panel__message--danger'
       : 'camera-panel__message camera-panel__message--warn';
   }
@@ -644,8 +665,13 @@ function buildMessageToneClass(progress: AttemptVideoProcessingJobProgress | nul
   return 'camera-panel__message';
 }
 
-function buildServerStatusToneClass(progress: AttemptVideoProcessingJobProgress | null) {
+function buildServerStatusToneClass(progress: AttemptVideoProcessingJobProgress | null, sessionState: MotionSessionState | null) {
   if (!progress) {
+    if (sessionState?.terminalState === 'AUTO_RETRY_EXHAUSTED') {
+      return sessionState.inspectRecommended
+        ? 'camera-panel__status camera-panel__status--danger'
+        : 'camera-panel__status camera-panel__status--warn';
+    }
     return 'camera-panel__status';
   }
   if (progress.status === 'FAILED') {
@@ -654,6 +680,16 @@ function buildServerStatusToneClass(progress: AttemptVideoProcessingJobProgress 
       : 'camera-panel__status camera-panel__status--warn';
   }
   return 'camera-panel__status';
+}
+
+function buildSessionTerminalToneClass(sessionState: MotionSessionState | null) {
+  if (!sessionState || sessionState.terminalState !== 'AUTO_RETRY_EXHAUSTED') {
+    return 'camera-panel__terminal';
+  }
+
+  return sessionState.inspectRecommended
+    ? 'camera-panel__terminal camera-panel__terminal--danger'
+    : 'camera-panel__terminal camera-panel__terminal--warn';
 }
 
 function buildProcessingJobToneClass(progress: AttemptVideoProcessingJobProgress | null) {

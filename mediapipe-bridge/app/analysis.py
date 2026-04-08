@@ -1,0 +1,273 @@
+from __future__ import annotations
+
+import os
+from hashlib import sha256
+from pathlib import Path
+from typing import Any
+
+from fastapi import HTTPException
+
+from .schemas import AnalyzeRequest, AnalyzeResponse
+
+
+BRIDGE_MODE_STUB = "stub"
+BRIDGE_MODE_MEDIAPIPE = "mediapipe"
+
+
+def analyze_payload(payload: AnalyzeRequest) -> AnalyzeResponse:
+    bridge_mode = os.getenv("MEDIAPIPE_BRIDGE_MODE", BRIDGE_MODE_STUB).strip().lower()
+    if bridge_mode == BRIDGE_MODE_MEDIAPIPE:
+        return analyze_with_mediapipe(payload)
+    return analyze_with_stub(payload)
+
+
+def analyze_with_stub(payload: AnalyzeRequest) -> AnalyzeResponse:
+    signature = build_signature(payload)
+    sample_count = max(16, min(300, payload.sourceVideo.size // 1536))
+    duration_ms = max(4_000, min(90_000, payload.sourceVideo.size // 12))
+
+    analyzer_name = "mediapipe-fastapi-contract-stub"
+    landmarks = build_stub_landmarks(payload)
+    extras = {
+        "bridgeMode": "FASTAPI",
+        "analysisMode": BRIDGE_MODE_STUB,
+        "bridgeVersion": "v1",
+        "poseModel": "mediapipe-pose",
+        "schemaVersion": payload.schemaVersion,
+        "analysisPhase": payload.analysisPhase,
+        "storagePathEcho": payload.sourceVideo.storagePath,
+    }
+
+    return AnalyzeResponse(
+        provider="mediapipe",
+        analyzerName=analyzer_name,
+        signature=signature,
+        sampleCount=sample_count,
+        durationMs=duration_ms,
+        notes=[
+            "FastAPI contract stub is active.",
+            "Replace landmark generation with real MediaPipe extraction.",
+        ],
+        landmarks=landmarks,
+        extras=extras,
+    )
+
+
+def analyze_with_mediapipe(payload: AnalyzeRequest) -> AnalyzeResponse:
+    try:
+        import cv2  # type: ignore
+        import mediapipe as mp  # type: ignore
+        from mediapipe.tasks.python.vision.core.vision_task_running_mode import VisionTaskRunningMode  # type: ignore
+        from mediapipe.tasks.python.vision.pose_landmarker import (  # type: ignore
+            PoseLandmarker,
+            PoseLandmarkerOptions,
+        )
+    except Exception as exc:  # pragma: no cover - environment specific
+        raise bridge_error(
+            503,
+            "MEDIAPIPE_DEPENDENCY_MISSING",
+            "MediaPipe bridge dependencies are not installed in this Python environment.",
+        ) from exc
+
+    video_path = resolve_video_path(payload.sourceVideo.storagePath)
+    if not video_path.exists():
+        raise bridge_error(
+            400,
+            "SOURCE_VIDEO_NOT_FOUND",
+            f"Source video path does not exist: {video_path}",
+        )
+
+    cap = cv2.VideoCapture(str(video_path))
+    if not cap.isOpened():
+        raise bridge_error(
+            400,
+            "VIDEO_OPEN_FAILED",
+            f"Failed to open source video: {video_path}",
+        )
+
+    fps = cap.get(cv2.CAP_PROP_FPS) or 0.0
+    total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT) or 0)
+    duration_ms = (
+        int((total_frames / fps) * 1000)
+        if fps > 0 and total_frames > 0
+        else max(4_000, min(90_000, payload.sourceVideo.size // 12))
+    )
+
+    max_frames = max(8, min(24, total_frames if total_frames > 0 else 12))
+    frame_step = max(1, total_frames // max_frames) if total_frames > 0 else 5
+
+    model_path = resolve_pose_landmarker_model_path()
+    if not model_path.exists():
+        raise bridge_error(
+            503,
+            "POSE_LANDMARKER_MODEL_MISSING",
+            "Pose landmarker model file is missing. Set MEDIAPIPE_BRIDGE_MODEL_PATH or place a .task model under "
+            "mediapipe-bridge/models/pose_landmarker_lite.task.",
+        )
+
+    base_options = mp.tasks.BaseOptions(model_asset_path=str(model_path))
+    options = PoseLandmarkerOptions(
+        base_options=base_options,
+        running_mode=VisionTaskRunningMode.VIDEO,
+        num_poses=1,
+        min_pose_detection_confidence=0.5,
+        min_pose_presence_confidence=0.5,
+        min_tracking_confidence=0.5,
+        output_segmentation_masks=False,
+    )
+
+    sampled_landmarks: list[dict[str, Any]] = []
+    processed_frames = 0
+    frames_with_pose = 0
+
+    with PoseLandmarker.create_from_options(options) as pose_landmarker:
+        frame_index = 0
+        while processed_frames < max_frames:
+            ok, frame = cap.read()
+            if not ok:
+                break
+            if frame_index % frame_step != 0:
+                frame_index += 1
+                continue
+
+            rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb_frame)
+            timestamp_ms = int((frame_index / fps) * 1000) if fps > 0 else processed_frames * 33
+            result = pose_landmarker.detect_for_video(mp_image, timestamp_ms)
+            if result.pose_landmarks:
+                frames_with_pose += 1
+                points = [
+                    {
+                        "name": task_landmark_name(index),
+                        "x": round(landmark.x, 6),
+                        "y": round(landmark.y, 6),
+                        "z": round(landmark.z, 6),
+                        "visibility": round(getattr(landmark, "visibility", 0.0), 6),
+                    }
+                    for index, landmark in enumerate(result.pose_landmarks[0])
+                ]
+                sampled_landmarks.append(
+                    {
+                        "frameIndex": frame_index,
+                        "phase": payload.analysisPhase,
+                        "points": points,
+                    }
+                )
+            processed_frames += 1
+            frame_index += 1
+
+    cap.release()
+
+    if not sampled_landmarks:
+        raise bridge_error(
+            422,
+            "POSE_NOT_DETECTED",
+            "MediaPipe could not detect pose landmarks from the provided video.",
+        )
+
+    signature = build_signature(payload, sampled_landmarks)
+    sample_count = len(sampled_landmarks)
+    analyzer_name = "mediapipe-fastapi-pose-v1"
+
+    return AnalyzeResponse(
+        provider="mediapipe",
+        analyzerName=analyzer_name,
+        signature=signature,
+        sampleCount=sample_count,
+        durationMs=duration_ms,
+        notes=[
+            "Real MediaPipe Pose Landmarker extraction is active.",
+            f"Processed frames: {processed_frames}",
+            f"Frames with pose landmarks: {frames_with_pose}",
+        ],
+        landmarks=sampled_landmarks,
+        extras={
+            "bridgeMode": "FASTAPI",
+            "analysisMode": BRIDGE_MODE_MEDIAPIPE,
+            "bridgeVersion": "v1",
+            "poseModel": "mediapipe-pose-landmarker",
+            "schemaVersion": payload.schemaVersion,
+            "analysisPhase": payload.analysisPhase,
+            "storagePathEcho": payload.sourceVideo.storagePath,
+            "modelPath": str(model_path),
+            "fps": fps,
+            "totalFrames": total_frames,
+            "processedFrames": processed_frames,
+            "framesWithPose": frames_with_pose,
+        },
+    )
+
+
+def build_signature(payload: AnalyzeRequest, landmarks: list[dict[str, Any]] | None = None) -> int:
+    seed = (
+        f"{payload.analysisPhase}|{payload.sourceVideo.originalFileName}|"
+        f"{payload.sourceVideo.storagePath}|{payload.sourceVideo.size}"
+    )
+    if landmarks:
+        seed += f"|{len(landmarks)}|{landmarks[0]['frameIndex']}"
+    digest = sha256(seed.encode("utf-8")).hexdigest()
+    return int(digest[:8], 16) % 10_000
+
+
+def build_stub_landmarks(payload: AnalyzeRequest) -> list[dict[str, Any]]:
+    base_points = [
+        {"name": "nose", "x": 0.51, "y": 0.18, "z": -0.04, "visibility": 0.98},
+        {"name": "left_shoulder", "x": 0.41, "y": 0.31, "z": -0.08, "visibility": 0.96},
+        {"name": "right_shoulder", "x": 0.62, "y": 0.30, "z": -0.07, "visibility": 0.95},
+        {"name": "left_hip", "x": 0.46, "y": 0.55, "z": -0.03, "visibility": 0.93},
+        {"name": "right_hip", "x": 0.57, "y": 0.54, "z": -0.02, "visibility": 0.92},
+    ]
+    return [{"frameIndex": 0, "phase": payload.analysisPhase, "points": base_points}]
+
+
+def bridge_error(status_code: int, error_code: str, message: str) -> HTTPException:
+    return HTTPException(
+        status_code=status_code,
+        detail={
+            "errorCode": error_code,
+            "message": message,
+        },
+    )
+
+
+def landmark_name(index: int) -> str:
+    names = {
+        0: "nose",
+        11: "left_shoulder",
+        12: "right_shoulder",
+        23: "left_hip",
+        24: "right_hip",
+    }
+    return names.get(index, f"landmark_{index}")
+
+
+def task_landmark_name(index: int) -> str:
+    return landmark_name(index)
+
+
+def resolve_pose_landmarker_model_path() -> Path:
+    configured_model_path = os.getenv("MEDIAPIPE_BRIDGE_MODEL_PATH", "").strip()
+    if configured_model_path:
+        return Path(configured_model_path).resolve()
+
+    project_root = Path(__file__).resolve().parents[2]
+    return project_root.joinpath("models", "pose_landmarker_lite.task").resolve()
+
+
+def resolve_video_path(storage_path: str) -> Path:
+    path = Path(storage_path)
+    if path.is_absolute():
+        print("[bridge-path]", f"absolute={path}", flush=True)
+        return path
+
+    configured_backend_root = os.getenv("MOCHA_BACKEND_UPLOAD_ROOT", "").strip()
+    if configured_backend_root:
+        resolved = Path(configured_backend_root).joinpath(path).resolve()
+        print("[bridge-path]", f"configuredRoot={configured_backend_root}", f"resolved={resolved}", flush=True)
+        return resolved
+
+    project_root = Path(__file__).resolve().parents[2]
+    backend_upload_root = project_root.joinpath("backend", "uploads")
+    resolved = backend_upload_root.joinpath(path).resolve()
+    print("[bridge-path]", f"projectRoot={project_root}", f"resolved={resolved}", flush=True)
+    return resolved
