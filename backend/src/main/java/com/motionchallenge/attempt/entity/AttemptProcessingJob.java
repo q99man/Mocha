@@ -48,6 +48,18 @@ public class AttemptProcessingJob extends BaseTimeEntity {
     @Column(length = 255)
     private String originalFileName;
 
+    @Column(length = 500)
+    private String storagePath;
+
+    @Column(length = 100)
+    private String contentType;
+
+    @Column(nullable = false)
+    private long fileSize;
+
+    @Column(length = 500)
+    private String pendingNotes;
+
     @Column(nullable = false)
     private int processingAttempts;
 
@@ -64,7 +76,11 @@ public class AttemptProcessingJob extends BaseTimeEntity {
             String processingMode,
             String runtimeState,
             String processingNotice,
-            String originalFileName) {
+            String originalFileName,
+            String storagePath,
+            String contentType,
+            long fileSize,
+            String pendingNotes) {
         this.trackingId = trackingId;
         this.challenge = challenge;
         this.status = status;
@@ -72,6 +88,10 @@ public class AttemptProcessingJob extends BaseTimeEntity {
         this.runtimeState = runtimeState;
         this.processingNotice = processingNotice;
         this.originalFileName = originalFileName;
+        this.storagePath = storagePath;
+        this.contentType = contentType;
+        this.fileSize = fileSize;
+        this.pendingNotes = pendingNotes;
         this.processingAttempts = 0;
     }
 
@@ -109,6 +129,22 @@ public class AttemptProcessingJob extends BaseTimeEntity {
 
     public String getOriginalFileName() {
         return originalFileName;
+    }
+
+    public String getStoragePath() {
+        return storagePath;
+    }
+
+    public String getContentType() {
+        return contentType;
+    }
+
+    public long getFileSize() {
+        return fileSize;
+    }
+
+    public String getPendingNotes() {
+        return pendingNotes;
     }
 
     public int getProcessingAttempts() {

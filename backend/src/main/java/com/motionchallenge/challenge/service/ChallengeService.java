@@ -97,7 +97,7 @@ public class ChallengeService {
                     Optional<Attempt> latestAttempt =
                             attemptRepository.findTopByChallengeIdOrderByCreatedAtDesc(challenge.getId());
                     Optional<AttemptProcessingJob> latestProcessingJob =
-                            attemptProcessingJobRepository.findTopByChallengeIdOrderByCreatedAtDesc(challenge.getId());
+                            attemptProcessingJobRepository.findTopByChallengeIdOrderByUpdatedAtDesc(challenge.getId());
                     boolean latestAttemptVideoUploaded = latestAttempt
                             .map(attempt -> attemptVideoRepository.findByAttemptId(attempt.getId()).isPresent())
                             .orElse(false);
@@ -119,7 +119,7 @@ public class ChallengeService {
     @Transactional
     public ChallengeResponse createChallenge(ChallengeCreateRequest request) {
         if (request.getReferenceVideo() == null || request.getReferenceVideo().isEmpty()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "레퍼런스 비디오 파일이 필요합니다.");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "?덊띁?곗뒪 鍮꾨뵒???뚯씪???꾩슂?⑸땲??");
         }
 
         Challenge challenge = challengeRepository.save(new Challenge(
@@ -149,7 +149,7 @@ public class ChallengeService {
     public ChallengeAnalysisResponse analyzeReferenceVideo(Long challengeId) {
         Challenge challenge = findActiveChallenge(challengeId);
         ChallengeVideo challengeVideo = challengeVideoRepository.findByChallengeId(challengeId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "레퍼런스 비디오가 등록되지 않았습니다."));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "?덊띁?곗뒪 鍮꾨뵒?ㅺ? ?깅줉?섏? ?딆븯?듬땲??"));
 
         challenge.markReferenceAnalyzing();
 
@@ -184,19 +184,19 @@ public class ChallengeService {
                     true,
                     analysisResult.analyzerName(),
                     analyzedAt,
-                    "레퍼런스 비디오 분석이 완료됐습니다.");
+                    "?덊띁?곗뒪 鍮꾨뵒??遺꾩꽍???꾨즺?먯뒿?덈떎.");
         } catch (ResponseStatusException exception) {
             challenge.markReferenceAnalysisFailed();
             throw exception;
         } catch (RuntimeException exception) {
             challenge.markReferenceAnalysisFailed();
-            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "레퍼런스 비디오 분석 중 오류가 발생했습니다.");
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "?덊띁?곗뒪 鍮꾨뵒??遺꾩꽍 以??ㅻ쪟媛 諛쒖깮?덉뒿?덈떎.");
         }
     }
 
     private Challenge findActiveChallenge(Long challengeId) {
         return challengeRepository.findByIdAndIsActiveTrue(challengeId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "챌린지를 찾을 수 없습니다."));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "梨뚮┛吏瑜?李얠쓣 ???놁뒿?덈떎."));
     }
 
     private ChallengeResponse toResponse(Challenge challenge) {

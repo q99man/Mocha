@@ -128,6 +128,45 @@ class ChallengeVideoAsyncAutoCompleteIntegrationTest {
     }
 
     @Test
+    void asyncPendingJobAutoCompletesInBackgroundFromDurableJob() throws Exception {
+        Long challengeId = createChallengeWithReferenceVideo();
+
+        mockMvc.perform(post("/api/challenges/{id}/analyze-reference", challengeId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.analysisStatus").value("COMPLETED"));
+
+        MockMultipartFile attemptVideo = new MockMultipartFile(
+                "attemptVideo",
+                "auto-no-registry-attempt.mp4",
+                "video/mp4",
+                "attempt-video-content-for-auto-no-registry".getBytes());
+
+        MvcResult pendingUploadResult = mockMvc.perform(multipart("/api/attempts/video")
+                        .file(attemptVideo)
+                        .param("challengeId", String.valueOf(challengeId))
+                        .param("notes", "async auto no registry integration test"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.pendingTrackingId").isString())
+                .andReturn();
+
+        String trackingId = objectMapper
+                .readTree(pendingUploadResult.getResponse().getContentAsString())
+                .get("pendingTrackingId")
+                .asText();
+        assertThat(trackingId).isNotBlank();
+
+        Thread.sleep(450L);
+
+        mockMvc.perform(get("/api/attempts/video-processing-progress/{trackingId}", trackingId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("COMPLETED"))
+                .andExpect(jsonPath("$.completionStrategy").value("AUTO_RUNNER"))
+                .andExpect(jsonPath("$.runtimeState").value("SCORING_COMPLETED"))
+                .andExpect(jsonPath("$.resultAttemptId").isNumber())
+                .andExpect(jsonPath("$.originalFileName").value("auto-no-registry-attempt.mp4"));
+    }
+
+    @Test
     void asyncPendingJobRetriesInBackgroundAfterSingleFailure() throws Exception {
         Long challengeId = createChallengeWithReferenceVideo();
 

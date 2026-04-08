@@ -104,7 +104,32 @@ class ChallengeVideoAsyncPendingFlowIntegrationTest {
                 .andExpect(jsonPath("$.runtimeState").value("UPLOAD_PENDING"));
     }
 
+    
     @Test
+    void pendingProgressStillResolvesFromDurableJobImmediately() throws Exception {
+        Long challengeId = createAnalyzedChallengeWithPendingUpload("durable-first-attempt.mp4");
+
+        MvcResult progressResult = mockMvc.perform(get("/api/attempts/video-processing-progress")
+                        .param("challengeId", String.valueOf(challengeId)))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        String trackingId = objectMapper
+                .readTree(progressResult.getResponse().getContentAsString())
+                .get("trackingId")
+                .asText();
+        assertThat(trackingId).isNotBlank();
+
+        mockMvc.perform(get("/api/attempts/video-processing-progress")
+                        .param("challengeId", String.valueOf(challengeId))
+                        .param("trackingId", trackingId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.trackingId").value(trackingId))
+                .andExpect(jsonPath("$.status").value(AttemptProcessingJobStatus.PENDING.name()))
+                .andExpect(jsonPath("$.runtimeState").value("UPLOAD_PENDING"))
+                .andExpect(jsonPath("$.originalFileName").value("durable-first-attempt.mp4"));
+    }
+@Test
     void asyncPendingCompletionStubCreatesCompletedAttemptAndUpdatesMotionSession() throws Exception {
         Long challengeId = createChallengeWithReferenceVideo();
 
@@ -269,6 +294,29 @@ class ChallengeVideoAsyncPendingFlowIntegrationTest {
                 .andExpect(jsonPath("$.updatedAt").isString())
                 .andExpect(jsonPath("$.elapsedSeconds").isNumber());
     }
+    @Test
+    void videoProcessingProgressByTrackingIdReturnsProgressWithoutChallengeId() throws Exception {
+        Long challengeId = createAnalyzedChallengeWithPendingUpload("tracking-only-attempt.mp4");
+
+        MvcResult progressResult = mockMvc.perform(get("/api/attempts/video-processing-progress")
+                        .param("challengeId", String.valueOf(challengeId)))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        String trackingId = objectMapper
+                .readTree(progressResult.getResponse().getContentAsString())
+                .get("trackingId")
+                .asText();
+
+        mockMvc.perform(get("/api/attempts/video-processing-progress/{trackingId}", trackingId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.trackingId").value(trackingId))
+                .andExpect(jsonPath("$.challengeId").value(challengeId))
+                .andExpect(jsonPath("$.status").value(AttemptProcessingJobStatus.PENDING.name()))
+                .andExpect(jsonPath("$.processingMode").value("ASYNC_JOB_PENDING"))
+                .andExpect(jsonPath("$.completionStrategy").value("MANUAL_COMPLETION"));
+    }
+
 
     @Test
     void asyncPendingCompletionFailureUpdatesProgressAndMotionSession() throws Exception {

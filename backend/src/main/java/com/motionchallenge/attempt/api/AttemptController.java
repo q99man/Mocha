@@ -40,11 +40,17 @@ public class AttemptController {
         return attemptService.getAttempt(id);
     }
 
+    // Fallback-only endpoint. Prefer trackingId direct lookup for active UI flows.
     @GetMapping("/video-processing-progress")
-    public AttemptProcessingJobProgressResponse getAttemptVideoProcessingProgress(
+    public AttemptProcessingJobProgressResponse getAttemptVideoProcessingProgressFallback(
             @RequestParam Long challengeId,
             @RequestParam(required = false) String trackingId) {
-        return attemptService.getAttemptVideoProcessingProgress(challengeId, trackingId);
+        return attemptService.getAttemptVideoProcessingProgressFallback(challengeId, trackingId);
+    }
+
+    @GetMapping("/video-processing-progress/{trackingId}")
+    public AttemptProcessingJobProgressResponse getAttemptVideoProcessingProgressByTrackingId(@PathVariable String trackingId) {
+        return attemptService.getAttemptVideoProcessingProgressByTrackingId(trackingId);
     }
 
     @PostMapping

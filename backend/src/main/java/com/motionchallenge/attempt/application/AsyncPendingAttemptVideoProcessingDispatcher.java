@@ -1,6 +1,5 @@
 package com.motionchallenge.attempt.application;
 
-import com.motionchallenge.attempt.entity.AttemptProcessingJob;
 import com.motionchallenge.attempt.repository.AttemptProcessingJobRepository;
 import java.time.LocalDateTime;
 import java.util.UUID;
@@ -15,23 +14,20 @@ public class AsyncPendingAttemptVideoProcessingDispatcher implements AttemptVide
     private static final String PROCESSING_MODE = "ASYNC_JOB_PENDING";
     private static final String RUNTIME_STATE = "UPLOAD_PENDING";
     private static final String PROCESSING_NOTICE =
-            "현재는 비동기 대기 stub 모드입니다. 실제 백그라운드 작업은 아직 연결되지 않았습니다.";
-    private static final String PENDING_HEADLINE = "업로드가 접수됐습니다.";
+            "현재는 비동기 대기 stub 모드입니다. 실제 백그라운드 작업은 아직 완전히 연결되지 않았습니다.";
+    private static final String PENDING_HEADLINE = "업로드가 접수되었습니다.";
     private static final String PENDING_SUMMARY =
-            "분석과 채점은 비동기 작업으로 전환될 예정이며, 지금은 대기 상태만 확인할 수 있습니다.";
+            "분석과 채점은 비동기 작업으로 전환될 예정이고, 지금은 대기 상태만 확인할 수 있습니다.";
     private static final String PENDING_ANALYZER_NAME = "async-pending-stub";
 
-    private final PendingAttemptVideoJobRegistry pendingAttemptVideoJobRegistry;
     private final AttemptProcessingJobDraftFactory attemptProcessingJobDraftFactory;
     private final AttemptProcessingJobRepository attemptProcessingJobRepository;
     private final ObjectProvider<AsyncPendingAttemptJobRunner> asyncPendingAttemptJobRunnerProvider;
 
     public AsyncPendingAttemptVideoProcessingDispatcher(
-            PendingAttemptVideoJobRegistry pendingAttemptVideoJobRegistry,
             AttemptProcessingJobDraftFactory attemptProcessingJobDraftFactory,
             AttemptProcessingJobRepository attemptProcessingJobRepository,
             ObjectProvider<AsyncPendingAttemptJobRunner> asyncPendingAttemptJobRunnerProvider) {
-        this.pendingAttemptVideoJobRegistry = pendingAttemptVideoJobRegistry;
         this.attemptProcessingJobDraftFactory = attemptProcessingJobDraftFactory;
         this.attemptProcessingJobRepository = attemptProcessingJobRepository;
         this.asyncPendingAttemptJobRunnerProvider = asyncPendingAttemptJobRunnerProvider;
@@ -40,22 +36,19 @@ public class AsyncPendingAttemptVideoProcessingDispatcher implements AttemptVide
     @Override
     public AttemptResultResponse dispatch(AttemptVideoProcessingCommand command) {
         String trackingId = UUID.randomUUID().toString();
-        PendingAttemptVideoJob pendingJob = new PendingAttemptVideoJob(
-                trackingId,
-                command.challenge().getId(),
-                command.storedVideo(),
-                command.notes());
 
-        pendingAttemptVideoJobRegistry.register(pendingJob);
+        var draft = attemptProcessingJobRepository.save(
+                attemptProcessingJobDraftFactory.createPendingDraft(
+                        command.challenge(),
+                        trackingId,
+                        command.storedVideo(),
+                        command.notes(),
+                        PROCESSING_MODE,
+                        RUNTIME_STATE,
+                        PROCESSING_NOTICE));
 
-        AttemptProcessingJob draft = attemptProcessingJobDraftFactory.createPendingDraft(
-                command.challenge(),
-                pendingJob,
-                PROCESSING_MODE,
-                RUNTIME_STATE,
-                PROCESSING_NOTICE);
-        attemptProcessingJobRepository.save(draft);
-        asyncPendingAttemptJobRunnerProvider.ifAvailable(runner -> runner.schedule(pendingJob));
+        asyncPendingAttemptJobRunnerProvider.ifAvailable(
+                runner -> runner.schedule(draft.getTrackingId(), command.challenge().getId(), command.notes()));
 
         return new AttemptResultResponse(
                 null,
@@ -71,7 +64,7 @@ public class AsyncPendingAttemptVideoProcessingDispatcher implements AttemptVide
                 PROCESSING_MODE,
                 false,
                 PROCESSING_NOTICE,
-                trackingId,
+                draft.getTrackingId(),
                 command.storedVideo().originalFileName(),
                 command.storedVideo().contentType(),
                 command.storedVideo().size(),

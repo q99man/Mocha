@@ -15,5 +15,13 @@ public record AttemptSummaryResponse(
         String processingMode,
         boolean processingComplete,
         String processingNotice,
+        String pendingTrackingId,
+        String durableProgressStatus,
+        String completionStrategy,
+        Long elapsedSeconds,
+        boolean autoRetryEnabled,
+        int remainingAutoRetryCount,
+        boolean autoRetryExhausted,
+        String originalFileName,
         LocalDateTime attemptedAt) {
 }

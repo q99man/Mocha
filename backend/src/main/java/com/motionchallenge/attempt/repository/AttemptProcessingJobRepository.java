@@ -9,4 +9,8 @@ public interface AttemptProcessingJobRepository extends JpaRepository<AttemptPro
     Optional<AttemptProcessingJob> findByTrackingId(String trackingId);
 
     Optional<AttemptProcessingJob> findTopByChallengeIdOrderByCreatedAtDesc(Long challengeId);
+
+    Optional<AttemptProcessingJob> findTopByChallengeIdOrderByUpdatedAtDesc(Long challengeId);
+
+    Optional<AttemptProcessingJob> findTopByResultAttemptIdOrderByUpdatedAtDesc(Long resultAttemptId);
 }

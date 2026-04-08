@@ -2011,3 +2011,182 @@ main {
   margin: 0;
   color: var(--text-muted);
 }
+
+.camera-panel__message--warn {
+  color: #ffdca3;
+}
+
+.camera-panel__message--danger {
+  color: #ffd7df;
+}
+
+.camera-panel__status--warn {
+  border-color: rgba(255, 207, 117, 0.24);
+  background: rgba(255, 207, 117, 0.08);
+}
+
+.camera-panel__status--danger {
+  border-color: rgba(255, 109, 140, 0.28);
+  background: rgba(255, 109, 140, 0.1);
+}
+
+.result-process-feed--pending {
+  border-color: rgba(255, 214, 102, 0.24);
+  background: rgba(255, 214, 102, 0.09);
+}
+
+.result-process-feed--processing {
+  border-color: rgba(73, 228, 255, 0.24);
+  background: rgba(73, 228, 255, 0.08);
+}
+
+.result-process-feed--completed {
+  border-color: rgba(89, 241, 177, 0.24);
+  background: rgba(89, 241, 177, 0.08);
+}
+
+.result-process-feed--failed-warn {
+  border-color: rgba(255, 207, 117, 0.28);
+  background: rgba(255, 207, 117, 0.1);
+}
+
+.result-process-feed--failed-high {
+  border-color: rgba(255, 109, 140, 0.28);
+  background: rgba(255, 109, 140, 0.12);
+}.processing-job-action {
+  margin-top: 12px;
+  padding: 14px 16px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 14px;
+}
+
+.processing-job-action strong {
+  display: block;
+  margin-bottom: 6px;
+}
+
+.processing-job-action p {
+  margin: 0;
+}
+
+.processing-job-action--warn {
+  border-color: rgba(255, 207, 117, 0.32);
+  background: rgba(255, 207, 117, 0.1);
+  color: #ffe6b3;
+}
+
+.processing-job-action--danger {
+  border-color: rgba(255, 109, 140, 0.32);
+  background: rgba(255, 109, 140, 0.12);
+  color: #ffd9e1;
+}.processing-job-result-link {
+  margin-top: 12px;
+  padding: 14px 16px;
+  border: 1px solid rgba(89, 241, 177, 0.28);
+  border-radius: 14px;
+  background: rgba(89, 241, 177, 0.1);
+}
+
+.processing-job-result-link strong {
+  display: block;
+  margin-bottom: 6px;
+  color: #d3ffe8;
+}
+
+.processing-job-result-link p {
+  margin: 0 0 10px;
+  color: rgba(228, 255, 239, 0.9);
+}
+.result-progress-meta,
+.archive-card__progress-meta {
+  margin: 12px 0 0;
+  padding: 12px 14px;
+  display: grid;
+  gap: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.result-progress-meta div,
+.archive-card__progress-meta div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.result-progress-meta dt,
+.archive-card__progress-meta dt {
+  color: var(--text-muted);
+}
+
+.result-progress-meta dd,
+.archive-card__progress-meta dd {
+  margin: 0;
+  text-align: right;
+  color: var(--text);
+}
+.durable-progress-card {
+  margin-top: 12px;
+  padding: 14px 16px;
+  border: 1px solid rgba(133, 211, 255, 0.18);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.durable-progress-card__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: start;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.durable-progress-card__eyebrow {
+  display: inline-flex;
+  margin-bottom: 6px;
+  color: var(--text-soft);
+  font-size: 0.76rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.durable-progress-card__header strong {
+  display: block;
+  color: var(--text);
+}
+
+.durable-progress-card__summary {
+  margin: 10px 0 0;
+  color: var(--text-muted);
+}
+
+.durable-progress-card__action {
+  margin: 10px 0 0;
+  color: var(--text);
+}
+
+.durable-progress-card--pending {
+  border-color: rgba(255, 214, 102, 0.24);
+  background: rgba(255, 214, 102, 0.08);
+}
+
+.durable-progress-card--processing {
+  border-color: rgba(73, 228, 255, 0.24);
+  background: rgba(73, 228, 255, 0.08);
+}
+
+.durable-progress-card--completed {
+  border-color: rgba(89, 241, 177, 0.24);
+  background: rgba(89, 241, 177, 0.08);
+}
+
+.durable-progress-card--failed-warn {
+  border-color: rgba(255, 207, 117, 0.28);
+  background: rgba(255, 207, 117, 0.1);
+}
+
+.durable-progress-card--failed-high {
+  border-color: rgba(255, 109, 140, 0.28);
+  background: rgba(255, 109, 140, 0.12);
+}

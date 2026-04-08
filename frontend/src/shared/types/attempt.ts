@@ -19,6 +19,14 @@ export type AttemptSummary = {
   processingMode: AttemptProcessingMode | null;
   processingComplete: boolean;
   processingNotice: string | null;
+  pendingTrackingId: string | null;
+  durableProgressStatus: AttemptVideoProcessingJobProgress['status'] | null;
+  completionStrategy: AttemptVideoProcessingJobProgress['completionStrategy'] | null;
+  elapsedSeconds: number | null;
+  autoRetryEnabled: boolean;
+  remainingAutoRetryCount: number;
+  autoRetryExhausted: boolean;
+  originalFileName: string | null;
   attemptedAt: string;
 };
 

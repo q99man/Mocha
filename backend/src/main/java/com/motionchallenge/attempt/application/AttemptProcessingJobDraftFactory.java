@@ -3,6 +3,7 @@ package com.motionchallenge.attempt.application;
 import com.motionchallenge.attempt.entity.AttemptProcessingJob;
 import com.motionchallenge.attempt.entity.AttemptProcessingJobStatus;
 import com.motionchallenge.challenge.entity.Challenge;
+import com.motionchallenge.video.service.StoredVideo;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -10,20 +11,23 @@ public class AttemptProcessingJobDraftFactory {
 
     public AttemptProcessingJob createPendingDraft(
             Challenge challenge,
-            PendingAttemptVideoJob pendingJob,
+            String trackingId,
+            StoredVideo storedVideo,
+            String pendingNotes,
             String processingMode,
             String runtimeState,
             String processingNotice) {
         return new AttemptProcessingJob(
-                pendingJob.trackingId(),
+                trackingId,
                 challenge,
                 AttemptProcessingJobStatus.PENDING,
                 processingMode,
                 runtimeState,
                 processingNotice,
-                pendingJob.storedVideo().originalFileName());
+                storedVideo.originalFileName(),
+                storedVideo.storagePath(),
+                storedVideo.contentType(),
+                storedVideo.size(),
+                pendingNotes);
     }
-
-    // TODO: Wire this factory into the async pending flow when the in-memory registry is replaced
-    // with durable progress persistence.
 }

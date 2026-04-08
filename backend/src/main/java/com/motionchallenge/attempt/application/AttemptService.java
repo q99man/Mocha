@@ -32,16 +32,16 @@ public class AttemptService {
     private static final String FAILURE_CODE_SCORING = "SCORING_FAILED";
     private static final int PREPARED_SCORE = 0;
     private static final int MIN_COMPLETED_SCORE = 1;
-    private static final String DEFAULT_PREPARED_NOTE = "준비 단계 확인을 위한 기본 기록";
-    private static final String DEFAULT_COMPLETED_NOTE = "샘플 완료 흐름 확인을 위한 기본 기록";
+    private static final String DEFAULT_PREPARED_NOTE = "以鍮??④퀎 ?뺤씤???꾪븳 湲곕낯 湲곕줉";
+    private static final String DEFAULT_COMPLETED_NOTE = "?섑뵆 ?꾨즺 ?먮쫫 ?뺤씤???꾪븳 湲곕낯 湲곕줉";
     private static final String PROCESSING_NOTICE_AUTOSCORED =
-            "실제 업로드 비디오를 기준으로 서버가 분석과 채점을 완료했습니다.";
+            "?ㅼ젣 ?낅줈??鍮꾨뵒?ㅻ? 湲곗??쇰줈 ?쒕쾭媛 遺꾩꽍怨?梨꾩젏???꾨즺?덉뒿?덈떎.";
     private static final String PROCESSING_NOTICE_SAMPLE =
-            "샘플 preview 흐름으로 만든 결과입니다. 실제 업로드 자동 채점 결과와는 차이가 있을 수 있습니다.";
+            "?섑뵆 preview ?먮쫫?쇰줈 留뚮뱺 寃곌낵?낅땲?? ?ㅼ젣 ?낅줈???먮룞 梨꾩젏 寃곌낵???李⑥씠媛 ?덉쓣 ???덉뒿?덈떎.";
     private static final String PROCESSING_NOTICE_PREPARED =
-            "준비 단계에서 저장한 기록입니다. 실제 업로드 전 자동 채점은 아직 진행되지 않았습니다.";
+            "以鍮??④퀎?먯꽌 ??ν븳 湲곕줉?낅땲?? ?ㅼ젣 ?낅줈?쒖? ?먮룞 梨꾩젏? ?꾩쭅 吏꾪뻾?섏? ?딆븯?듬땲??";
     private static final String DEFAULT_FAILURE_MESSAGE =
-            "처리 중 알 수 없는 문제가 발생했습니다. 잠시 후 다시 시도해 주세요.";
+            "泥섎━ 以??????녿뒗 臾몄젣媛 諛쒖깮?덉뒿?덈떎. ?좎떆 ???ㅼ떆 ?쒕룄??二쇱꽭??";
 
     private final AttemptRepository attemptRepository;
     private final AttemptProcessingJobRepository attemptProcessingJobRepository;
@@ -85,38 +85,23 @@ public class AttemptService {
 
     public AttemptSummaryResponse getAttempt(Long id) {
         Attempt attempt = attemptRepository.findById(id)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "해당 시도 기록을 찾을 수 없습니다."));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "???????筌먲퐣????れ삀??쎈뭄??癲ル슓??젆???????⑤８?????덊렡."));
 
         return toResponse(attempt);
     }
 
-    public AttemptProcessingJobProgressResponse getAttemptVideoProcessingProgress(Long challengeId, String trackingId) {
-        AttemptProcessingJob processingJob = resolveProcessingJob(challengeId, trackingId);
-        LocalDateTime now = LocalDateTime.now();
-        long elapsedSeconds = Math.max(0L, Duration.between(processingJob.getCreatedAt(), now).getSeconds());
+    public AttemptProcessingJobProgressResponse getAttemptVideoProcessingProgressFallback(Long challengeId, String trackingId) {
+        AttemptProcessingJob processingJob = resolveProcessingJobFallback(challengeId, trackingId);
+        return toProgressResponse(processingJob);
+    }
 
-        return new AttemptProcessingJobProgressResponse(
-                processingJob.getTrackingId(),
-                processingJob.getChallenge().getId(),
-                processingJob.getStatus().name(),
-                processingJob.getProcessingMode(),
-                resolveCompletionStrategy(processingJob),
-                processingJob.getRuntimeState(),
-                processingJob.getProcessingNotice(),
-                processingJob.getFailureCode(),
-                resolveFailureSeverity(processingJob),
-                resolveFailureAction(processingJob),
-                resolveRetryRecommended(processingJob),
-                processingJob.getProcessingAttempts(),
-                resolveRetryCount(processingJob),
-                resolveAutoRetryEnabled(processingJob),
-                resolveRemainingAutoRetryCount(processingJob),
-                resolveAutoRetryExhausted(processingJob),
-                processingJob.getResultAttemptId(),
-                processingJob.getOriginalFileName(),
-                processingJob.getCreatedAt(),
-                processingJob.getUpdatedAt(),
-                elapsedSeconds);
+    public AttemptProcessingJobProgressResponse getAttemptVideoProcessingProgressByTrackingId(String trackingId) {
+        AttemptProcessingJob processingJob = attemptProcessingJobRepository.findByTrackingId(trackingId)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "?怨뺣뾼??ID????????濡ル츎 ???놁Ŧ??嶺뚳퐣瑗????⑤객臾??嶺뚢돦堉??????怨룸????덈펲."));
+
+        return toProgressResponse(processingJob);
     }
 
     @Transactional
@@ -169,20 +154,20 @@ public class AttemptService {
     @Transactional
     public AttemptResultResponse submitAttemptVideo(AttemptVideoUploadRequest request) {
         if (request.getAttemptVideo() == null || request.getAttemptVideo().isEmpty()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "업로드할 시도 비디오를 먼저 선택해 주세요.");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "????겾????レ춵 ??筌먲퐣?????????? ?沃섅굥?? ???ャ뀕?????낆뒩??뗫빝??");
         }
 
         Challenge challenge = findActiveChallenge(request.getChallengeId());
         if (challenge.getReferenceAnalysisStatus() != ReferenceAnalysisStatus.COMPLETED) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
-                    "이 챌린지는 아직 레퍼런스 비디오 분석이 끝나지 않았습니다. 먼저 레퍼런스 분석을 완료해 주세요.");
+                    "??癲???????????ш끽維쀧빊?????녿군???Β?レ릇 ?????????됰슣維?????筌롫챶猷롳┼??넊? ????⒱봼?????? ?沃섅굥?? ????녿군???Β?レ릇 ??됰슣維?????ш끽維?????낆뒩??뗫빝??");
         }
 
         ChallengeMotionProfile referenceProfile = challengeMotionProfileRepository.findByChallengeId(challenge.getId())
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.BAD_REQUEST,
-                        "이 챌린지의 레퍼런스 모션 프로필을 찾지 못했습니다."));
+                        "??癲?????????????녿군???Β?レ릇 癲ル슢?꾤땟????ш끽維곩ㅇ??ш끽維쀨キ?癲ル슓??젆? 癲ル슢履뉑쾮?彛??????"));
 
         motionSessionRuntimeEventPublisher.publishUploadInProgress(challenge.getId());
         try {
@@ -219,25 +204,53 @@ public class AttemptService {
 
     private Challenge findActiveChallenge(Long challengeId) {
         return challengeRepository.findByIdAndIsActiveTrue(challengeId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "해당 챌린지를 찾을 수 없습니다."));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "?????癲?????????癲ル슓??젆???????⑤８?????덊렡."));
     }
 
-    private AttemptProcessingJob resolveProcessingJob(Long challengeId, String trackingId) {
+    private AttemptProcessingJob resolveProcessingJobFallback(Long challengeId, String trackingId) {
         AttemptProcessingJob processingJob = (trackingId != null && !trackingId.isBlank())
                 ? attemptProcessingJobRepository.findByTrackingId(trackingId)
                         .orElseThrow(() -> new ResponseStatusException(
                                 HttpStatus.NOT_FOUND,
-                                "업로드 처리 상태를 찾을 수 없습니다. 추적 ID를 다시 확인해 주세요."))
-                : attemptProcessingJobRepository.findTopByChallengeIdOrderByCreatedAtDesc(challengeId)
+                                "??낆쨮??筌ｌ꼶???怨밴묶??筌≪뼚??????곷뮸??덈뼄. ?곕뗄??ID????쇰뻻 ?類ㅼ뵥??雅뚯눘苑??"))
+                : attemptProcessingJobRepository.findTopByChallengeIdOrderByUpdatedAtDesc(challengeId)
                         .orElseThrow(() -> new ResponseStatusException(
                                 HttpStatus.NOT_FOUND,
-                                "업로드 처리 상태가 아직 기록되지 않았습니다."));
+                                "??낆쨮??筌ｌ꼶???怨밴묶揶쎛 ?袁⑹춦 疫꿸퀡以??? ??녿릭??щ빍??"));
 
         if (!processingJob.getChallenge().getId().equals(challengeId)) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "추적 ID와 챌린지 정보가 일치하지 않습니다.");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "?곕뗄??ID?? 筌?슢?쏉쭪? ?類ｋ궖揶쎛 ??깊뒄??? ??녿뮸??덈뼄.");
         }
 
         return processingJob;
+    }
+
+    private AttemptProcessingJobProgressResponse toProgressResponse(AttemptProcessingJob processingJob) {
+        LocalDateTime now = LocalDateTime.now();
+        long elapsedSeconds = Math.max(0L, Duration.between(processingJob.getCreatedAt(), now).getSeconds());
+
+        return new AttemptProcessingJobProgressResponse(
+                processingJob.getTrackingId(),
+                processingJob.getChallenge().getId(),
+                processingJob.getStatus().name(),
+                processingJob.getProcessingMode(),
+                resolveCompletionStrategy(processingJob),
+                processingJob.getRuntimeState(),
+                processingJob.getProcessingNotice(),
+                processingJob.getFailureCode(),
+                resolveFailureSeverity(processingJob),
+                resolveFailureAction(processingJob),
+                resolveRetryRecommended(processingJob),
+                processingJob.getProcessingAttempts(),
+                resolveRetryCount(processingJob),
+                resolveAutoRetryEnabled(processingJob),
+                resolveRemainingAutoRetryCount(processingJob),
+                resolveAutoRetryExhausted(processingJob),
+                processingJob.getResultAttemptId(),
+                processingJob.getOriginalFileName(),
+                processingJob.getCreatedAt(),
+                processingJob.getUpdatedAt(),
+                elapsedSeconds);
     }
 
     private AttemptSummaryResponse toResponse(Attempt attempt) {
@@ -248,6 +261,7 @@ public class AttemptService {
         String processingMode = resolvePersistedProcessingMode(attempt, resultSource);
         boolean processingComplete = resolvePersistedProcessingComplete(attempt, resultSource);
         String processingNotice = resolvePersistedProcessingNotice(attempt, resultSource);
+        AttemptProcessingJob latestProcessingJob = resolveLatestProcessingJobForAttempt(attempt).orElse(null);
 
         return new AttemptSummaryResponse(
                 attempt.getId(),
@@ -262,6 +276,14 @@ public class AttemptService {
                 processingMode,
                 processingComplete,
                 processingNotice,
+                resolvePendingTrackingId(attempt),
+                latestProcessingJob != null ? latestProcessingJob.getStatus().name() : null,
+                latestProcessingJob != null ? resolveCompletionStrategy(latestProcessingJob) : null,
+                latestProcessingJob != null ? resolveElapsedSeconds(latestProcessingJob) : null,
+                latestProcessingJob != null && resolveAutoRetryEnabled(latestProcessingJob),
+                latestProcessingJob != null ? resolveRemainingAutoRetryCount(latestProcessingJob) : 0,
+                latestProcessingJob != null && resolveAutoRetryExhausted(latestProcessingJob),
+                latestProcessingJob != null ? latestProcessingJob.getOriginalFileName() : null,
                 attempt.getCreatedAt());
     }
 
@@ -278,6 +300,19 @@ public class AttemptService {
         return AttemptResultSource.SAMPLE_SCORING_PREVIEW;
     }
 
+    private String resolvePendingTrackingId(Attempt attempt) {
+        return attemptProcessingJobRepository.findTopByResultAttemptIdOrderByUpdatedAtDesc(attempt.getId())
+                .map(AttemptProcessingJob::getTrackingId)
+                .orElse(null);
+    }
+
+    private java.util.Optional<AttemptProcessingJob> resolveLatestProcessingJobForAttempt(Attempt attempt) {
+        return attemptProcessingJobRepository.findTopByResultAttemptIdOrderByUpdatedAtDesc(attempt.getId());
+    }
+
+    private Long resolveElapsedSeconds(AttemptProcessingJob processingJob) {
+        return Math.max(0L, Duration.between(processingJob.getCreatedAt(), processingJob.getUpdatedAt()).getSeconds());
+    }
     private String resolvePersistedProcessingMode(Attempt attempt, String resultSource) {
         if (attempt.getProcessingMode() != null) {
             return attempt.getProcessingMode();
@@ -322,7 +357,7 @@ public class AttemptService {
 
     private int normalizeCompletedScore(int requestedScore) {
         if (requestedScore < MIN_COMPLETED_SCORE) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "완료 기록 점수는 최소 1점 이상이어야 합니다.");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "??ш끽維????れ삀??쎈뭄???????癲ル슔?됭짆??1?????⑤?彛???⑤９苑????筌뤾퍓???");
         }
 
         return requestedScore;

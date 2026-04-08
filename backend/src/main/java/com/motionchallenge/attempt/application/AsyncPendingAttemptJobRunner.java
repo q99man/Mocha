@@ -1,5 +1,7 @@
 package com.motionchallenge.attempt.application;
 
+import com.motionchallenge.attempt.entity.AttemptProcessingJob;
+import com.motionchallenge.attempt.entity.AttemptProcessingJobStatus;
 import com.motionchallenge.attempt.repository.AttemptProcessingJobRepository;
 import com.motionchallenge.scoring.application.AsyncPendingAttemptCompletionService;
 import jakarta.annotation.PreDestroy;
@@ -24,7 +26,6 @@ public class AsyncPendingAttemptJobRunner {
             });
 
     private final AsyncPendingAttemptCompletionService asyncPendingAttemptCompletionService;
-    private final PendingAttemptVideoJobRegistry pendingAttemptVideoJobRegistry;
     private final AttemptProcessingJobRepository attemptProcessingJobRepository;
     private final AttemptAsyncPendingProperties asyncPendingProperties;
     private final long initialDelayMillis;
@@ -33,11 +34,9 @@ public class AsyncPendingAttemptJobRunner {
 
     public AsyncPendingAttemptJobRunner(
             AsyncPendingAttemptCompletionService asyncPendingAttemptCompletionService,
-            PendingAttemptVideoJobRegistry pendingAttemptVideoJobRegistry,
             AttemptProcessingJobRepository attemptProcessingJobRepository,
             AttemptAsyncPendingProperties asyncPendingProperties) {
         this.asyncPendingAttemptCompletionService = asyncPendingAttemptCompletionService;
-        this.pendingAttemptVideoJobRegistry = pendingAttemptVideoJobRegistry;
         this.attemptProcessingJobRepository = attemptProcessingJobRepository;
         this.asyncPendingProperties = asyncPendingProperties;
         this.initialDelayMillis = asyncPendingProperties.getAsyncPendingAutoCompleteDelayMillis();
@@ -45,44 +44,42 @@ public class AsyncPendingAttemptJobRunner {
         this.maxAttempts = asyncPendingProperties.getAsyncPendingAutoCompleteMaxAttempts();
     }
 
-    public void schedule(PendingAttemptVideoJob pendingJob) {
-        schedule(pendingJob, initialDelayMillis);
+    public void schedule(String trackingId, Long challengeId, String notes) {
+        schedule(trackingId, challengeId, notes, initialDelayMillis);
     }
 
-    private void schedule(PendingAttemptVideoJob pendingJob, long delayMillis) {
+    private void schedule(String trackingId, Long challengeId, String notes, long delayMillis) {
         executorService.schedule(
                 () -> {
                     try {
-                        asyncPendingAttemptCompletionService.completePendingAttempt(
-                                pendingJob.challengeId(),
-                                pendingJob.trackingId(),
-                                pendingJob.notes());
+                        asyncPendingAttemptCompletionService.completePendingAttempt(challengeId, trackingId, notes);
                     } catch (RuntimeException ignored) {
-                        scheduleRetryIfEligible(pendingJob);
+                        scheduleRetryIfEligible(trackingId, challengeId, notes);
                     }
                 },
                 delayMillis,
                 TimeUnit.MILLISECONDS);
     }
 
-    private void scheduleRetryIfEligible(PendingAttemptVideoJob pendingJob) {
+    private void scheduleRetryIfEligible(String trackingId, Long challengeId, String notes) {
         if (!asyncPendingProperties.isAsyncPendingAutoCompleteEnabled()) {
             return;
         }
 
-        boolean stillPending = pendingAttemptVideoJobRegistry.findByTrackingId(pendingJob.trackingId()).isPresent();
-        if (!stillPending) {
+        AttemptProcessingJob job = attemptProcessingJobRepository.findByTrackingId(trackingId).orElse(null);
+        if (job == null) {
             return;
         }
 
-        int attempts = attemptProcessingJobRepository.findByTrackingId(pendingJob.trackingId())
-                .map(job -> job.getProcessingAttempts())
-                .orElse(0);
-        if (attempts >= maxAttempts) {
+        if (job.getStatus() == AttemptProcessingJobStatus.COMPLETED) {
             return;
         }
 
-        schedule(pendingJob, retryDelayMillis);
+        if (job.getProcessingAttempts() >= maxAttempts) {
+            return;
+        }
+
+        schedule(trackingId, challengeId, notes, retryDelayMillis);
     }
 
     @PreDestroy
