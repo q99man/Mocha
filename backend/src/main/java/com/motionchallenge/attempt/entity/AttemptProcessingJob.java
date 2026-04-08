@@ -176,6 +176,4 @@ public class AttemptProcessingJob extends BaseTimeEntity {
         this.runtimeState = runtimeState;
         this.processingNotice = processingNotice;
     }
-
-    // TODO: Replace the in-memory pending registry with this entity when durable async progress storage is introduced.
 }

@@ -1,4 +1,4 @@
-# Next Session
+﻿# Next Session
 
 ## Latest Handoff
 - 2026-04-08 local Gradle test status:
@@ -87,3 +87,67 @@ Target direction:
 - Motion session API shape stays compatible.
 - `serverRuntimeTrace.source` can eventually show something beyond `TRACKER`.
 - Local trace and server trace UI remain usable without redesign.
+## 2026-04-08 Evening Handoff
+### What Changed Today
+- Backend health confusion was reduced by disabling Redis health gating in [application.yml](/C:/SpringWork/Mocha/backend/src/main/resources/application.yml). `actuator/health` should no longer show `DOWN` just because Redis is absent in local dev.
+- Local bootstrap was improved in [ChallengeDataInitializer.java](/C:/SpringWork/Mocha/backend/src/main/java/com/motionchallenge/challenge/service/ChallengeDataInitializer.java). If there is no active READY challenge, startup now backfills one challenge to `referenceAnalysisStatus=COMPLETED` and creates a basic `ChallengeMotionProfile`.
+- [CameraPermissionPanel.tsx](/C:/SpringWork/Mocha/frontend/src/features/motion/CameraPermissionPanel.tsx) was cleaned up and rebuilt so the start screen more clearly separates button groups by purpose.
+
+### Verified Today
+- Frontend production build passed on 2026-04-08: `npm.cmd run build`
+- Backend build passed on 2026-04-08: `./gradlew.bat build`
+- Attempts created from the start screen are real DB writes, not preview-only UI state.
+- Challenge `2` was previously confirmed as the best manual test target because its motion session was `UPLOAD_READY` with upload/scoring enabled.
+
+### Important UI Map
+In [CameraPermissionPanel.tsx](/C:/SpringWork/Mocha/frontend/src/features/motion/CameraPermissionPanel.tsx):
+- Section `1. Camera check step`
+  - Camera-only checks
+  - No DB save
+  - Main handlers: `requestCameraAccess`, `moveToUploadStage`, `continueWithoutCamera`
+- Section `2. Quick attempt save`
+  - Real DB save buttons
+  - `Prepare attempt save` and `Sample completed attempt save` both persist attempts
+  - Main handler: `saveAttempt`
+- Section `3. Real video upload`
+  - Real file upload and scoring flow
+  - Main handlers: `onSelectVideo`, `submitAttemptVideo`
+- Pending/progress area
+  - Used after upload to refresh processing state or force manual completion
+  - Main handlers: `loadPendingJobProgress`, `copyTrackingId`, `completePendingAttempt`
+
+### Current Caution
+- At the end of this session, port `8080` was no longer listening. If the browser seems unresponsive again, check backend process status first before debugging the UI.
+
+### First Resume Steps At Home
+1. Start backend with MySQL profile:
+```powershell
+cd C:\SpringWork\Mocha\backend
+$env:SPRING_PROFILES_ACTIVE='mysql'
+./gradlew.bat bootRun
+```
+2. Start frontend:
+```powershell
+cd C:\SpringWork\Mocha\frontend
+npm.cmd run dev
+```
+3. Sanity check APIs:
+```powershell
+Invoke-WebRequest -UseBasicParsing 'http://localhost:8080/api/health' | Select-Object -ExpandProperty Content
+Invoke-WebRequest -UseBasicParsing 'http://localhost:8080/actuator/health' | Select-Object -ExpandProperty Content
+Invoke-WebRequest -UseBasicParsing 'http://localhost:8080/api/challenges/2/motion-session' | Select-Object -ExpandProperty Content
+```
+Expected baseline:
+- `/api/health` => `UP`
+- `/actuator/health` => `{"status":"UP"}`
+- challenge `2` motion session => `UPLOAD_READY`, `uploadEnabled=true`, `scoringEnabled=true`
+
+### Best Manual Test Flow
+1. Open challenge `2` start screen.
+2. Use `Quick attempt save` once and confirm a new attempt row is created.
+3. Then test the real upload button with a sample video.
+4. If upload becomes pending, use the progress area buttons to confirm tracking refresh / manual completion still works.
+
+### Best Next Engineering Task
+- Add stronger integration coverage for durable progress and upload terminal states.
+- Then tighten the start-page UX around progress refresh, failure messaging, and clear completion/result linking.
