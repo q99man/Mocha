@@ -13,6 +13,9 @@ import com.motionchallenge.scoring.application.ScoringService;
 import com.motionchallenge.scoring.application.SimpleScoringPreviewService;
 import com.motionchallenge.scoring.application.SimpleScoringResult;
 import com.motionchallenge.video.service.StoredVideo;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -111,16 +114,31 @@ public class AttemptVideoProcessingService {
     }
 
     private Attempt resolvePreviousScoredAttempt(Long challengeId, Long currentAttemptId) {
+        List<Attempt> attempts = attemptRepository.findByChallengeIdOrderByCreatedAtAsc(challengeId);
+        Set<Long> uploadedAttemptIds = findUploadedAttemptIds(attempts);
         Attempt previousAttempt = null;
-        for (Attempt candidate : attemptRepository.findByChallengeIdOrderByCreatedAtAsc(challengeId)) {
+        for (Attempt candidate : attempts) {
             if (candidate.getId().equals(currentAttemptId)) {
                 break;
             }
-            if (attemptVideoRepository.findByAttemptId(candidate.getId()).isPresent()) {
+            if (uploadedAttemptIds.contains(candidate.getId())) {
                 previousAttempt = candidate;
             }
         }
         return previousAttempt;
+    }
+
+    private Set<Long> findUploadedAttemptIds(List<Attempt> attempts) {
+        if (attempts.isEmpty()) {
+            return Set.of();
+        }
+
+        Set<Long> attemptIds = new HashSet<>();
+        for (Attempt attempt : attempts) {
+            attemptIds.add(attempt.getId());
+        }
+
+        return new HashSet<>(attemptVideoRepository.findAttemptIdsByAttemptIdIn(attemptIds));
     }
 
     private Integer computeDelta(Integer currentValue, Integer previousValue) {
