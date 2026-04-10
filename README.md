@@ -30,7 +30,7 @@ cd backend
 gradlew.bat bootRun
 ```
 
-This uses an in-memory H2 database and seeds a small challenge catalog automatically.
+This uses an in-memory H2 database. If you want to verify motion-session or upload flows, create a challenge with a reference video first.
 
 2. Start the frontend:
 
@@ -67,6 +67,20 @@ Quick stack verification:
 ```powershell
 cd C:\SpringWork\Mocha
 .\verify-mediapipe-stack.ps1
+```
+
+If the local H2 database is empty, you can provision a temporary verification challenge from a local video in one command:
+
+```powershell
+cd C:\SpringWork\Mocha
+.\verify-mediapipe-stack.ps1 -ReferenceVideoPath 'C:\path\to\reference.mp4' -ForceProvisionChallenge
+```
+
+For a full reference-analysis plus attempt-upload smoke run, add `-ForceUploadAttempt`. If `-AttemptVideoPath` is omitted, the script reuses `-ReferenceVideoPath`.
+
+```powershell
+cd C:\SpringWork\Mocha
+.\verify-mediapipe-stack.ps1 -ReferenceVideoPath 'C:\path\to\reference.mp4' -ForceProvisionChallenge -ForceUploadAttempt
 ```
 
 Detailed verification steps are in [docs/MEDIAPIPE_BRIDGE_VERIFICATION.md](C:\SpringWork\Mocha\docs\MEDIAPIPE_BRIDGE_VERIFICATION.md).

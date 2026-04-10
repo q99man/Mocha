@@ -65,6 +65,19 @@ cd C:\SpringWork\Mocha
 .\verify-mediapipe-stack.ps1
 ```
 
+If the local database is empty, you can also provision a temporary challenge from a local video and run reference analysis in the same command:
+```powershell
+cd C:\SpringWork\Mocha
+.\verify-mediapipe-stack.ps1 -ReferenceVideoPath 'C:\path\to\reference.mp4' -ForceProvisionChallenge
+```
+
+For a full end-to-end smoke run that also uploads an attempt video and verifies the result path, add `-ForceUploadAttempt`.
+If you omit `-AttemptVideoPath`, the script reuses the reference video path for the attempt upload.
+```powershell
+cd C:\SpringWork\Mocha
+.\verify-mediapipe-stack.ps1 -ReferenceVideoPath 'C:\path\to\reference.mp4' -ForceProvisionChallenge -ForceUploadAttempt
+```
+
 ## 5. Failure Checks
 If Spring cannot reach FastAPI:
 - bridge call should fail with service-unavailable / bad-gateway style response

@@ -42,6 +42,9 @@ public class Attempt extends BaseTimeEntity {
     @Column(length = 1000)
     private String notes;
 
+    @Column(length = 1000)
+    private String resultSummary;
+
     @Column
     private Integer poseSimilarity;
 
@@ -61,7 +64,7 @@ public class Attempt extends BaseTimeEntity {
     }
 
     public Attempt(Challenge challenge, Integer score, String status, String notes) {
-        this(challenge, score, status, null, false, null, notes, null, null, null, null, null);
+        this(challenge, score, status, null, false, null, notes, null, null, null, null, null, null);
     }
 
     public Attempt(
@@ -72,7 +75,7 @@ public class Attempt extends BaseTimeEntity {
             boolean processingComplete,
             String processingNotice,
             String notes) {
-        this(challenge, score, status, processingMode, processingComplete, processingNotice, notes, null, null, null, null, null);
+        this(challenge, score, status, processingMode, processingComplete, processingNotice, notes, null, null, null, null, null, null);
     }
 
     public Attempt(
@@ -83,6 +86,7 @@ public class Attempt extends BaseTimeEntity {
             boolean processingComplete,
             String processingNotice,
             String notes,
+            String resultSummary,
             Integer poseSimilarity,
             Integer timingSimilarity,
             Integer stabilitySimilarity,
@@ -95,6 +99,7 @@ public class Attempt extends BaseTimeEntity {
         this.processingComplete = processingComplete;
         this.processingNotice = processingNotice;
         this.notes = notes;
+        this.resultSummary = resultSummary;
         this.poseSimilarity = poseSimilarity;
         this.timingSimilarity = timingSimilarity;
         this.stabilitySimilarity = stabilitySimilarity;
@@ -132,6 +137,10 @@ public class Attempt extends BaseTimeEntity {
 
     public String getNotes() {
         return notes;
+    }
+
+    public String getResultSummary() {
+        return resultSummary;
     }
 
     public Integer getPoseSimilarity() {

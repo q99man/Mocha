@@ -289,7 +289,7 @@ public class AttemptService {
                 resultSource,
                 scoringResult.scoreAvailable(),
                 scoringResult.resultHeadline(),
-                resolveResultSummary(attempt, scoringResult),
+                resolveResultSummary(attempt, scoringResult, resultSource),
                 processingMode,
                 processingComplete,
                 processingNotice,
@@ -570,7 +570,16 @@ public class AttemptService {
         return AttemptStatus.COMPLETED.equals(attempt.getStatus()) && hasUploadedVideo;
     }
 
-    private String resolveResultSummary(Attempt attempt, SimpleScoringResult scoringResult) {
+    private String resolveResultSummary(Attempt attempt, SimpleScoringResult scoringResult, String resultSource) {
+        String persistedResultSummary = normalizeDisplayText(attempt.getResultSummary());
+        if (persistedResultSummary != null && !persistedResultSummary.isBlank()) {
+            return persistedResultSummary;
+        }
+
+        if (AttemptResultSource.VIDEO_UPLOAD_AUTOSCORED.equals(resultSource)) {
+            return scoringResult.resultSummary();
+        }
+
         String normalizedNotes = normalizeDisplayText(attempt.getNotes());
         if (normalizedNotes != null && !normalizedNotes.isBlank()) {
             return normalizedNotes;
