@@ -3,6 +3,7 @@ package com.motionchallenge.challenge.service;
 import com.motionchallenge.attempt.entity.Attempt;
 import com.motionchallenge.attempt.entity.AttemptProcessingJob;
 import com.motionchallenge.attempt.repository.AttemptProcessingJobRepository;
+import com.motionchallenge.attempt.repository.ChallengeRetryAttemptProjection;
 import com.motionchallenge.attempt.repository.AttemptRepository;
 import com.motionchallenge.attempt.repository.AttemptVideoRepository;
 import com.motionchallenge.challenge.dto.ChallengeAnalysisResponse;
@@ -102,7 +103,7 @@ public class ChallengeService {
                     boolean referenceMotionProfileReady =
                             challengeMotionProfileRepository.findByChallengeId(challenge.getId()).isPresent();
                     Optional<Attempt> latestAttempt =
-                            attemptRepository.findTopByChallengeIdOrderByCreatedAtDesc(challenge.getId());
+                            attemptRepository.findTopByChallengeIdOrderByCreatedAtDescIdDesc(challenge.getId());
                     Optional<AttemptProcessingJob> latestProcessingJob =
                             attemptProcessingJobRepository.findTopByChallengeIdOrderByUpdatedAtDesc(challenge.getId());
                     boolean latestAttemptVideoUploaded = latestAttempt
@@ -274,34 +275,44 @@ public class ChallengeService {
 
     private Map<Long, ChallengeLatestRetrySummaryResponse> buildLatestRetrySummaryByChallengeId(List<Challenge> challenges) {
         Set<Long> challengeIds = toChallengeIds(challenges);
-        List<Attempt> relevantAttempts =
-                attemptRepository.findByChallengeIdInWithChallengeOrderByCreatedAtAsc(List.copyOf(challengeIds));
-        Set<Long> uploadedAttemptIds = findUploadedAttemptIds(relevantAttempts);
+        List<ChallengeRetryAttemptProjection> latestAttempts =
+                attemptRepository.findLatestUploadedAttemptSnapshotsByChallengeIds(challengeIds);
         Map<Long, ChallengeLatestRetrySummaryResponse> summaryByChallengeId = new HashMap<>();
-        Map<Long, Attempt> previousScoredAttemptByChallengeId = new HashMap<>();
+        Map<Long, ChallengeRetryAttemptSnapshot> previousScoredAttemptByChallengeId = new HashMap<>();
 
-        relevantAttempts.forEach(attempt -> {
-            if (!isAutoScoredAttempt(attempt, uploadedAttemptIds)) {
-                return;
-            }
+        latestAttempts.forEach(attempt -> {
+            ChallengeRetryAttemptSnapshot currentAttempt = toRetryAttemptSnapshot(attempt);
+            ChallengeRetryAttemptSnapshot previousAttempt = previousScoredAttemptByChallengeId.get(currentAttempt.challengeId());
 
-            Attempt previousAttempt = previousScoredAttemptByChallengeId.get(attempt.getChallenge().getId());
             summaryByChallengeId.put(
-                    attempt.getChallenge().getId(),
+                    currentAttempt.challengeId(),
                     new ChallengeLatestRetrySummaryResponse(
-                            attempt.getId(),
-                            attempt.getScore(),
-                            attempt.getCreatedAt(),
-                            previousAttempt == null ? null : attempt.getScore() - previousAttempt.getScore(),
-                            normalizeDisplayText(attempt.getStrongestArea()),
-                            normalizeDisplayText(attempt.getWeakestArea()),
-                            buildCoachingTeaser(attempt, previousAttempt),
-                            buildRetryFocus(attempt, previousAttempt),
-                            buildKeepStableFocus(attempt, previousAttempt)));
-            previousScoredAttemptByChallengeId.put(attempt.getChallenge().getId(), attempt);
+                            currentAttempt.attemptId(),
+                            currentAttempt.score(),
+                            currentAttempt.createdAt(),
+                            previousAttempt == null ? null : currentAttempt.score() - previousAttempt.score(),
+                            normalizeDisplayText(currentAttempt.strongestArea()),
+                            normalizeDisplayText(currentAttempt.weakestArea()),
+                            buildCoachingTeaser(currentAttempt, previousAttempt),
+                            buildRetryFocus(currentAttempt, previousAttempt),
+                            buildKeepStableFocus(currentAttempt, previousAttempt)));
+            previousScoredAttemptByChallengeId.put(currentAttempt.challengeId(), currentAttempt);
         });
 
         return summaryByChallengeId;
+    }
+
+    private ChallengeRetryAttemptSnapshot toRetryAttemptSnapshot(ChallengeRetryAttemptProjection attempt) {
+        return new ChallengeRetryAttemptSnapshot(
+                attempt.getAttemptId(),
+                attempt.getChallengeId(),
+                attempt.getScore(),
+                attempt.getCreatedAt(),
+                attempt.getPoseSimilarity(),
+                attempt.getTimingSimilarity(),
+                attempt.getStabilitySimilarity(),
+                attempt.getStrongestArea(),
+                attempt.getWeakestArea());
     }
 
     private Set<Long> toChallengeIds(List<Challenge> challenges) {
@@ -312,26 +323,9 @@ public class ChallengeService {
         return challengeIds;
     }
 
-    private Set<Long> findUploadedAttemptIds(List<Attempt> attempts) {
-        if (attempts.isEmpty()) {
-            return Set.of();
-        }
-
-        Set<Long> attemptIds = new HashSet<>();
-        for (Attempt attempt : attempts) {
-            attemptIds.add(attempt.getId());
-        }
-
-        return new HashSet<>(attemptVideoRepository.findAttemptIdsByAttemptIdIn(attemptIds));
-    }
-
-    private boolean isAutoScoredAttempt(Attempt attempt, Set<Long> uploadedAttemptIds) {
-        return "Completed".equals(attempt.getStatus()) && uploadedAttemptIds.contains(attempt.getId());
-    }
-
-    private String buildCoachingTeaser(Attempt attempt, Attempt previousAttempt) {
-        String weakestArea = normalizeDisplayText(attempt.getWeakestArea());
-        String strongestArea = normalizeDisplayText(attempt.getStrongestArea());
+    private String buildCoachingTeaser(ChallengeRetryAttemptSnapshot attempt, ChallengeRetryAttemptSnapshot previousAttempt) {
+        String weakestArea = normalizeDisplayText(attempt.weakestArea());
+        String strongestArea = normalizeDisplayText(attempt.strongestArea());
         DeltaMetric bestMetric = buildPrimaryDeltaMetric(attempt, previousAttempt, true);
         DeltaMetric worstMetric = buildPrimaryDeltaMetric(attempt, previousAttempt, false);
 
@@ -344,20 +338,20 @@ public class ChallengeService {
         if ("pose similarity".equals(weakestArea)) {
             return "Next retry: recover the big body shapes before adjusting speed." + buildDeltaTail(bestMetric, worstMetric);
         }
-        if (attempt.getScore() >= 85 && strongestArea != null) {
+        if (attempt.score() >= 85 && strongestArea != null) {
             return "Strong run overall. Keep " + strongestArea + " steady." + buildDeltaTail(bestMetric, worstMetric);
         }
         if (previousAttempt != null) {
             return "Keep the same camera setup and change one variable at a time. Score trend: "
-                    + formatSignedDelta(attempt.getScore() - previousAttempt.getScore())
+                    + formatSignedDelta(attempt.score() - previousAttempt.score())
                     + " pts."
                     + buildDeltaTail(bestMetric, worstMetric);
         }
         return "Next retry: keep the same camera setup and change only one variable so the next score shift is easier to read.";
     }
 
-    private String buildRetryFocus(Attempt attempt, Attempt previousAttempt) {
-        String weakestArea = normalizeDisplayText(attempt.getWeakestArea());
+    private String buildRetryFocus(ChallengeRetryAttemptSnapshot attempt, ChallengeRetryAttemptSnapshot previousAttempt) {
+        String weakestArea = normalizeDisplayText(attempt.weakestArea());
         DeltaMetric worstMetric = buildPrimaryDeltaMetric(attempt, previousAttempt, false);
 
         if (weakestArea != null) {
@@ -370,15 +364,15 @@ public class ChallengeService {
 
         if (previousAttempt != null) {
             return "Keep the capture setup stable and isolate one variable. Latest score trend: "
-                    + formatSignedDelta(attempt.getScore() - previousAttempt.getScore())
+                    + formatSignedDelta(attempt.score() - previousAttempt.score())
                     + " pts.";
         }
 
         return "Use the next retry to create a clean baseline with the same camera setup.";
     }
 
-    private String buildKeepStableFocus(Attempt attempt, Attempt previousAttempt) {
-        String strongestArea = normalizeDisplayText(attempt.getStrongestArea());
+    private String buildKeepStableFocus(ChallengeRetryAttemptSnapshot attempt, ChallengeRetryAttemptSnapshot previousAttempt) {
+        String strongestArea = normalizeDisplayText(attempt.strongestArea());
         DeltaMetric bestMetric = buildPrimaryDeltaMetric(attempt, previousAttempt, true);
 
         if (strongestArea != null) {
@@ -396,15 +390,15 @@ public class ChallengeService {
         return "Keep the current framing, lighting, and tempo as consistent as possible across retries.";
     }
 
-    private DeltaMetric buildPrimaryDeltaMetric(Attempt attempt, Attempt previousAttempt, boolean best) {
+    private DeltaMetric buildPrimaryDeltaMetric(ChallengeRetryAttemptSnapshot attempt, ChallengeRetryAttemptSnapshot previousAttempt, boolean best) {
         if (previousAttempt == null) {
             return null;
         }
 
         DeltaMetric[] metrics = new DeltaMetric[] {
-            buildDeltaMetric("Pose", computeDelta(attempt.getPoseSimilarity(), previousAttempt.getPoseSimilarity())),
-            buildDeltaMetric("Timing", computeDelta(attempt.getTimingSimilarity(), previousAttempt.getTimingSimilarity())),
-            buildDeltaMetric("Stability", computeDelta(attempt.getStabilitySimilarity(), previousAttempt.getStabilitySimilarity()))
+            buildDeltaMetric("Pose", computeDelta(attempt.poseSimilarity(), previousAttempt.poseSimilarity())),
+            buildDeltaMetric("Timing", computeDelta(attempt.timingSimilarity(), previousAttempt.timingSimilarity())),
+            buildDeltaMetric("Stability", computeDelta(attempt.stabilitySimilarity(), previousAttempt.stabilitySimilarity()))
         };
 
         DeltaMetric selected = null;
@@ -466,6 +460,19 @@ public class ChallengeService {
         return value.contains("??") || value.contains("\uFFFD");
     }
 
+    private record ChallengeRetryAttemptSnapshot(
+            Long attemptId,
+            Long challengeId,
+            Integer score,
+            LocalDateTime createdAt,
+            Integer poseSimilarity,
+            Integer timingSimilarity,
+            Integer stabilitySimilarity,
+            String strongestArea,
+            String weakestArea) {
+    }
+
     private record DeltaMetric(String label, int delta) {
     }
 }
+

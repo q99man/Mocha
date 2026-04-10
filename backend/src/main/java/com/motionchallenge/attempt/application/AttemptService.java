@@ -21,7 +21,6 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -86,12 +85,14 @@ public class AttemptService {
         List<Attempt> attempts = attemptRepository.findAllWithChallengeOrderByCreatedAtDesc();
         Set<Long> uploadedAttemptIds = findUploadedAttemptIds(attempts);
         Map<Long, AttemptComparisonSnapshot> comparisonByAttemptId = buildComparisonByAttemptId(attempts, uploadedAttemptIds);
+        Map<Long, AttemptProcessingJob> latestProcessingJobByAttemptId = findLatestProcessingJobsByAttemptId(attempts);
 
         return attempts.stream()
                 .map(attempt -> toResponse(
                         attempt,
                         comparisonByAttemptId.get(attempt.getId()),
-                        uploadedAttemptIds.contains(attempt.getId())))
+                        uploadedAttemptIds.contains(attempt.getId()),
+                        latestProcessingJobByAttemptId.get(attempt.getId())))
                 .toList();
     }
 
@@ -101,7 +102,8 @@ public class AttemptService {
 
         boolean hasUploadedVideo = findUploadedAttemptIds(List.of(attempt)).contains(attempt.getId());
         AttemptComparisonSnapshot comparison = buildComparisonSnapshot(attempt, hasUploadedVideo);
-        return toResponse(attempt, comparison, hasUploadedVideo);
+        AttemptProcessingJob latestProcessingJob = findLatestProcessingJobsByAttemptId(List.of(attempt)).get(attempt.getId());
+        return toResponse(attempt, comparison, hasUploadedVideo, latestProcessingJob);
     }
 
     public AttemptProcessingJobProgressResponse getAttemptVideoProcessingProgressFallback(Long challengeId, String trackingId) {
@@ -145,7 +147,7 @@ public class AttemptService {
                 PROCESSING_NOTICE_PREPARED,
                 normalizePreparedNotes(notes)));
 
-        return toResponse(attempt, null, false);
+        return toResponse(attempt, null, false, null);
     }
 
     @Transactional
@@ -162,7 +164,7 @@ public class AttemptService {
                 PROCESSING_NOTICE_SAMPLE,
                 normalizeCompletedNotes(command.notes())));
 
-        return toResponse(attempt, null, false);
+        return toResponse(attempt, null, false, null);
     }
 
     @Transactional
@@ -269,14 +271,14 @@ public class AttemptService {
     private AttemptSummaryResponse toResponse(
             Attempt attempt,
             AttemptComparisonSnapshot comparison,
-            boolean hasUploadedVideo) {
+            boolean hasUploadedVideo,
+            AttemptProcessingJob latestProcessingJob) {
         String resultSource = resolveResultSource(attempt, hasUploadedVideo);
         String displayStatus = resolveDisplayStatus(attempt, resultSource);
         SimpleScoringResult scoringResult = simpleScoringPreviewService.buildResult(displayStatus, attempt.getScore());
         String processingMode = resolvePersistedProcessingMode(attempt, resultSource);
         boolean processingComplete = resolvePersistedProcessingComplete(attempt, resultSource);
         String processingNotice = resolvePersistedProcessingNotice(attempt, resultSource);
-        AttemptProcessingJob latestProcessingJob = resolveLatestProcessingJobForAttempt(attempt).orElse(null);
 
         return new AttemptSummaryResponse(
                 attempt.getId(),
@@ -291,7 +293,7 @@ public class AttemptService {
                 processingMode,
                 processingComplete,
                 processingNotice,
-                resolvePendingTrackingId(attempt),
+                latestProcessingJob != null ? latestProcessingJob.getTrackingId() : null,
                 latestProcessingJob != null ? latestProcessingJob.getStatus().name() : null,
                 latestProcessingJob != null ? resolveCompletionStrategy(latestProcessingJob) : null,
                 latestProcessingJob != null ? resolveElapsedSeconds(latestProcessingJob) : null,
@@ -603,14 +605,22 @@ public class AttemptService {
         return value.contains("??") || value.contains("\uFFFD");
     }
 
-    private String resolvePendingTrackingId(Attempt attempt) {
-        return attemptProcessingJobRepository.findTopByResultAttemptIdOrderByUpdatedAtDesc(attempt.getId())
-                .map(AttemptProcessingJob::getTrackingId)
-                .orElse(null);
-    }
+    private Map<Long, AttemptProcessingJob> findLatestProcessingJobsByAttemptId(List<Attempt> attempts) {
+        if (attempts.isEmpty()) {
+            return Map.of();
+        }
 
-    private Optional<AttemptProcessingJob> resolveLatestProcessingJobForAttempt(Attempt attempt) {
-        return attemptProcessingJobRepository.findTopByResultAttemptIdOrderByUpdatedAtDesc(attempt.getId());
+        Set<Long> attemptIds = new HashSet<>();
+        for (Attempt attempt : attempts) {
+            attemptIds.add(attempt.getId());
+        }
+
+        Map<Long, AttemptProcessingJob> latestProcessingJobByAttemptId = new HashMap<>();
+        for (AttemptProcessingJob processingJob : attemptProcessingJobRepository
+                .findByResultAttemptIdInOrderByResultAttemptIdAscUpdatedAtDescIdDesc(attemptIds)) {
+            latestProcessingJobByAttemptId.putIfAbsent(processingJob.getResultAttemptId(), processingJob);
+        }
+        return latestProcessingJobByAttemptId;
     }
 
     private Long resolveElapsedSeconds(AttemptProcessingJob processingJob) {
@@ -765,3 +775,4 @@ public class AttemptService {
         };
     }
 }
+

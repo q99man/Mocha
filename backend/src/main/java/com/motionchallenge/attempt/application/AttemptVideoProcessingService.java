@@ -114,7 +114,7 @@ public class AttemptVideoProcessingService {
     }
 
     private Attempt resolvePreviousScoredAttempt(Long challengeId, Long currentAttemptId) {
-        List<Attempt> attempts = attemptRepository.findByChallengeIdOrderByCreatedAtAsc(challengeId);
+        List<Attempt> attempts = attemptRepository.findByChallengeIdOrderByCreatedAtAscIdAsc(challengeId);
         Set<Long> uploadedAttemptIds = findUploadedAttemptIds(attempts);
         Attempt previousAttempt = null;
         for (Attempt candidate : attempts) {
@@ -148,3 +148,4 @@ public class AttemptVideoProcessingService {
         return currentValue - previousValue;
     }
 }
+

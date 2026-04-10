@@ -1,6 +1,8 @@
 package com.motionchallenge.attempt.repository;
 
 import com.motionchallenge.attempt.entity.AttemptProcessingJob;
+import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 
@@ -13,4 +15,7 @@ public interface AttemptProcessingJobRepository extends JpaRepository<AttemptPro
     Optional<AttemptProcessingJob> findTopByChallengeIdOrderByUpdatedAtDesc(Long challengeId);
 
     Optional<AttemptProcessingJob> findTopByResultAttemptIdOrderByUpdatedAtDesc(Long resultAttemptId);
+
+    List<AttemptProcessingJob> findByResultAttemptIdInOrderByResultAttemptIdAscUpdatedAtDescIdDesc(
+            Collection<Long> resultAttemptIds);
 }
