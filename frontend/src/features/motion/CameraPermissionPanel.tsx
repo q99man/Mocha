@@ -9,6 +9,15 @@ import {
 import { getMotionSessionState } from '../../shared/api/motionApi';
 import { buildAttemptBreakdownMetrics, buildAttemptBreakdownSummary } from '../../shared/presentation/attemptBreakdown';
 import { buildAttemptCoachingTeaser } from '../../shared/presentation/attemptCoaching';
+import {
+  buildDurableProgressCompletionStrategyLabel,
+  buildDurableProgressElapsedTimeLabel,
+  buildDurableProgressFailureAction,
+  buildDurableProgressHeadline,
+  buildDurableProgressOriginalFileLabel,
+  buildDurableProgressRetryWindowLabel,
+  buildDurableProgressSummary,
+} from '../../shared/presentation/durableProgress';
 import type {
   AsyncPendingCompletionRequest,
   AttemptVideoProcessingJobProgress,
@@ -190,6 +199,7 @@ export function CameraPermissionPanel({ challengeId, challengeTitle }: CameraPer
         const progress = await getAttemptVideoProcessingProgressByTrackingId(response.pendingTrackingId);
         if (mountedRef.current) {
           setPendingJobProgress(progress);
+          setMessage(buildPendingPanelSummary(progress, response));
         }
       }
 
@@ -219,6 +229,7 @@ export function CameraPermissionPanel({ challengeId, challengeTitle }: CameraPer
         return;
       }
       setPendingJobProgress(progress);
+      setMessage(buildPendingPanelSummary(progress, uploadedAttempt));
       if (progress.status === 'COMPLETED' && progress.resultAttemptId && uploadedAttempt) {
         setUploadedAttempt({
           ...uploadedAttempt,
@@ -430,11 +441,21 @@ export function CameraPermissionPanel({ challengeId, challengeTitle }: CameraPer
             <div className="camera-panel__pending-box">
               <div className="camera-panel__pending-header">
                 <div>
-                  <h4>{buildProgressHeadline(pendingJobProgress)}</h4>
-                  <p>{pendingJobProgress?.processingNotice ?? 'Processing state is being refreshed.'}</p>
+                  <h4>{buildDurableProgressHeadline(pendingJobProgress)}</h4>
+                  <p>{buildPendingPanelSummary(pendingJobProgress, uploadedAttempt)}</p>
                 </div>
                 <span className="camera-panel__pill">{pendingJobProgress?.status ?? 'PENDING'}</span>
               </div>
+
+              {buildPendingPanelNotice(pendingJobProgress, uploadedAttempt) ? (
+                <p className="camera-panel__meta">{buildPendingPanelNotice(pendingJobProgress, uploadedAttempt)}</p>
+              ) : null}
+
+              {pendingJobProgress?.status === 'FAILED' ? (
+                <p className="camera-panel__error">
+                  Next step: {buildDurableProgressFailureAction(pendingJobProgress.failureAction)}
+                </p>
+              ) : null}
 
               <ul className="detail-list">
                 <li>
@@ -443,15 +464,21 @@ export function CameraPermissionPanel({ challengeId, challengeTitle }: CameraPer
                 </li>
                 <li>
                   <strong>completion strategy</strong>
-                  {pendingJobProgress?.completionStrategy ?? 'MANUAL_COMPLETION'}
+                  {buildDurableProgressCompletionStrategyLabel(pendingJobProgress?.completionStrategy)}
                 </li>
                 <li>
                   <strong>elapsed</strong>
-                  {pendingJobProgress ? `${pendingJobProgress.elapsedSeconds}s` : 'Waiting...'}
+                  {buildDurableProgressElapsedTimeLabel(pendingJobProgress?.elapsedSeconds)}
+                </li>
+                <li>
+                  <strong>retry window</strong>
+                  {buildDurableProgressRetryWindowLabel(pendingJobProgress)}
                 </li>
                 <li>
                   <strong>original file</strong>
-                  {pendingJobProgress?.originalFileName ?? selectedVideo?.name ?? 'unknown'}
+                  {pendingJobProgress
+                    ? buildDurableProgressOriginalFileLabel(pendingJobProgress)
+                    : selectedVideo?.name ?? 'unknown'}
                 </li>
               </ul>
 
@@ -500,19 +527,26 @@ function buildSessionMessage(state: MotionSessionState) {
   return 'Check the current runtime state before uploading.';
 }
 
-function buildProgressHeadline(progress: AttemptVideoProcessingJobProgress | null) {
-  switch (progress?.status) {
-    case 'PENDING':
-      return 'Processing pending';
-    case 'PROCESSING':
-      return 'Analyzing and scoring';
-    case 'COMPLETED':
-      return 'Processing completed';
-    case 'FAILED':
-      return 'Processing failed';
-    default:
-      return 'Processing status';
+function buildPendingPanelSummary(
+  progress: AttemptVideoProcessingJobProgress | null,
+  uploadedAttempt: AttemptVideoResult | null,
+) {
+  if (progress) {
+    return buildDurableProgressSummary(progress);
   }
+
+  if (uploadedAttempt?.processingMode === 'ASYNC_JOB_PENDING' && !uploadedAttempt.processingComplete) {
+    return 'Upload accepted. Waiting for the first durable progress snapshot.';
+  }
+
+  return 'Processing state is being refreshed.';
+}
+
+function buildPendingPanelNotice(
+  progress: AttemptVideoProcessingJobProgress | null,
+  uploadedAttempt: AttemptVideoResult | null,
+) {
+  return progress?.processingNotice ?? uploadedAttempt?.processingNotice ?? null;
 }
 
 function cameraStateLabel(cameraState: CameraState) {

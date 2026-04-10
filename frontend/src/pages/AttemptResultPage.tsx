@@ -1,12 +1,17 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 
 import {
   getAttemptById,
   getAttemptVideoProcessingProgressByTrackingId,
 } from '../shared/api/attemptApi';
 import { toAttemptBreakdownLabel } from '../shared/presentation/attemptBreakdown';
-import { buildDurableProgressSnapshotFromAttempt } from '../shared/presentation/durableProgress';
+import {
+  buildDurableProgressCompletionStrategyLabel,
+  buildDurableProgressElapsedTimeLabel,
+  buildDurableProgressRefreshMessage,
+  buildDurableProgressSnapshotFromAttempt,
+} from '../shared/presentation/durableProgress';
 import type {
   AttemptBreakdownArea,
   AttemptProcessingMode,
@@ -54,6 +59,7 @@ type ChallengeComparison = {
 
 export function AttemptResultPage() {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
   const [attempt, setAttempt] = useState<AttemptSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -73,6 +79,8 @@ export function AttemptResultPage() {
     async function loadAttempt() {
       setLoading(true);
       setError(null);
+      setJobProgress(null);
+      setProgressMessage(null);
       try {
         const nextAttempt = await getAttemptById(Number(id));
         if (!cancelled) {
@@ -128,7 +136,29 @@ export function AttemptResultPage() {
     try {
       const progress = await getAttemptVideoProcessingProgressByTrackingId(attempt.pendingTrackingId);
       setJobProgress(progress);
-      setProgressMessage(buildProgressRefreshMessage(progress));
+      let nextMessage = buildDurableProgressRefreshMessage(progress);
+
+      if (progress.status === 'COMPLETED') {
+        const resolvedAttemptId = progress.resultAttemptId ?? attempt.id;
+        if (progress.resultAttemptId != null && progress.resultAttemptId !== attempt.id) {
+          setProgressMessage(`Processing completed. Opening result #${progress.resultAttemptId}.`);
+          navigate(`/attempts/${progress.resultAttemptId}/result`);
+          return;
+        }
+
+        const nextAttempt = await getAttemptById(resolvedAttemptId);
+        setAttempt(nextAttempt);
+        nextMessage =
+          progress.resultAttemptId != null && progress.resultAttemptId === attempt.id
+            ? `Processing completed. Result #${progress.resultAttemptId} has been refreshed.`
+            : 'Processing completed. The latest result details have been refreshed.';
+      } else if (progress.status === 'FAILED') {
+        const nextAttempt = await getAttemptById(attempt.id);
+        setAttempt(nextAttempt);
+        nextMessage = `${buildDurableProgressRefreshMessage(progress)} Result details were refreshed.`;
+      }
+
+      setProgressMessage(nextMessage);
     } catch (loadError) {
       setProgressMessage(loadError instanceof Error ? loadError.message : 'Failed to refresh processing status.');
     } finally {
@@ -328,11 +358,11 @@ export function AttemptResultPage() {
               </div>
               <div>
                 <dt>Completion strategy</dt>
-                <dd>{buildCompletionStrategyLabel(effectiveProgress.completionStrategy)}</dd>
+                <dd>{buildDurableProgressCompletionStrategyLabel(effectiveProgress.completionStrategy)}</dd>
               </div>
               <div>
                 <dt>Elapsed time</dt>
-                <dd>{buildElapsedLabel(effectiveProgress.elapsedSeconds)}</dd>
+                <dd>{buildDurableProgressElapsedTimeLabel(effectiveProgress.elapsedSeconds)}</dd>
               </div>
               <div>
                 <dt>Original file</dt>
@@ -858,60 +888,19 @@ function buildProcessFeedToneClass(progress: AttemptVideoProcessingJobProgress |
   }
 }
 
-function buildProgressRefreshMessage(progress: AttemptVideoProcessingJobProgress) {
-  if (progress.status === 'COMPLETED') {
-    return progress.resultAttemptId
-      ? `Processing completed. Result #${progress.resultAttemptId} is ready to open.`
-      : 'Processing completed.';
-  }
-
-  if (progress.status === 'FAILED') {
-    return progress.processingNotice ?? 'Processing failed. Check bridge and backend logs for the detailed cause.';
-  }
-
-  if (progress.status === 'PROCESSING') {
-    return 'Analysis and scoring are still running. Refresh again shortly.';
-  }
-
-  return 'The job is still queued. Refresh again shortly.';
-}
-
 function buildProgressStatusLabel(status: AttemptVideoProcessingJobProgress['status']) {
   switch (status) {
     case 'PENDING':
-      return 'Pending';
+      return 'Queued for analysis';
     case 'PROCESSING':
-      return 'Processing';
+      return 'Analysis in progress';
     case 'COMPLETED':
-      return 'Completed';
+      return 'Result ready';
     case 'FAILED':
-      return 'Failed';
+      return 'Failure needs inspection';
     default:
       return status;
   }
-}
-
-function buildCompletionStrategyLabel(strategy: AttemptVideoProcessingJobProgress['completionStrategy']) {
-  switch (strategy) {
-    case 'AUTO_RUNNER':
-      return 'Background auto-runner';
-    case 'MANUAL_COMPLETION':
-      return 'Manual completion';
-    case 'INLINE_FLOW':
-      return 'Inline processing';
-    default:
-      return 'Checking';
-  }
-}
-
-function buildElapsedLabel(elapsedSeconds: number) {
-  if (elapsedSeconds < 60) {
-    return `${elapsedSeconds}s`;
-  }
-
-  const minutes = Math.floor(elapsedSeconds / 60);
-  const seconds = elapsedSeconds % 60;
-  return seconds === 0 ? `${minutes}m` : `${minutes}m ${seconds}s`;
 }
 
 function buildAnalyzerLabel(attempt: AttemptSummary) {

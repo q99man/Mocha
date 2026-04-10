@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 
 import { AttemptHistoryList } from '../features/attempts/AttemptHistoryList';
@@ -22,32 +22,44 @@ export function AttemptsPage() {
   const [activeWeaknessFilter, setActiveWeaknessFilter] = useState<AttemptWeaknessFilter>('ALL');
   const [activeChallengeFilter, setActiveChallengeFilter] = useState<AttemptChallengeFilter>(() => parseChallengeFilter(searchParams.get('challengeId')));
   const [activeSort, setActiveSort] = useState<AttemptSort>('RECENT');
+  const isMountedRef = useRef(true);
 
-  useEffect(() => {
-    let active = true;
+  async function loadAttemptsFromServer(options?: { silent?: boolean }) {
+    const silent = options?.silent ?? false;
 
-    async function loadAttempts() {
+    if (!silent) {
       setLoading(true);
       setError(null);
-      try {
-        const response = await getAttempts();
-        if (active) {
-          setAttempts(response);
-        }
-      } catch (loadError) {
-        if (active) {
-          setError(loadError instanceof Error ? loadError.message : 'Failed to load attempts.');
-        }
-      } finally {
-        if (active) {
-          setLoading(false);
-        }
-      }
     }
 
-    void loadAttempts();
+    try {
+      const response = await getAttempts();
+      if (isMountedRef.current) {
+        setAttempts(response);
+        if (!silent) {
+          setError(null);
+        }
+      }
+    } catch (loadError) {
+      const message = loadError instanceof Error ? loadError.message : 'Failed to load attempts.';
+      if (isMountedRef.current && !silent) {
+        setError(message);
+      }
+      if (silent) {
+        throw new Error(message);
+      }
+    } finally {
+      if (isMountedRef.current && !silent) {
+        setLoading(false);
+      }
+    }
+  }
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    void loadAttemptsFromServer();
     return () => {
-      active = false;
+      isMountedRef.current = false;
     };
   }, []);
 
@@ -585,7 +597,11 @@ export function AttemptsPage() {
           </div>
         </section>
       ) : (
-        <AttemptHistoryList attempts={filteredAttempts} comparisonDeltaByAttemptId={comparisonDeltaRecord} />
+        <AttemptHistoryList
+          attempts={filteredAttempts}
+          comparisonDeltaByAttemptId={comparisonDeltaRecord}
+          onArchiveRefreshRequested={() => loadAttemptsFromServer({ silent: true })}
+        />
       )}
     </div>
   );

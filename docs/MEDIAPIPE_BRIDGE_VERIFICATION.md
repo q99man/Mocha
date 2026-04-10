@@ -49,8 +49,8 @@ Upload an attempt video through the start page or API.
 Expected:
 - upload and scoring still use the same runtime vocabulary
 - `SCORING_COMPLETED` works as before
-- result analyzer name comes from FastAPI response
-- attempt analyzer name should also be `mediapipe-fastapi-pose-v1`
+- in `sync-inline` mode, upload response analyzer name should be `mediapipe-fastapi-pose-v1`
+- in `async-pending-stub` mode, the initial upload response stays `async-pending-stub`, and the terminal attempt detail should complete through the real FastAPI bridge path after progress polling
 
 Useful API checks:
 ```powershell
@@ -77,6 +77,9 @@ If you omit `-AttemptVideoPath`, the script reuses the reference video path for 
 cd C:\SpringWork\Mocha
 .\verify-mediapipe-stack.ps1 -ReferenceVideoPath 'C:\path\to\reference.mp4' -ForceProvisionChallenge -ForceUploadAttempt
 ```
+
+If the upload returns `pendingTrackingId`, the script now polls the direct progress endpoint until the job reaches a terminal `COMPLETED` or `FAILED` state before it validates the final attempt detail and motion session.
+Use `-PendingPollIntervalSeconds` and `-PendingPollTimeoutSeconds` if you need a slower or longer wait budget.
 
 ## 5. Failure Checks
 If Spring cannot reach FastAPI:

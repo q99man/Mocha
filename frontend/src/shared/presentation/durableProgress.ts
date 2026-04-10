@@ -11,13 +11,13 @@ export function buildDurableProgressHeadline(progress: AttemptVideoProcessingJob
 
   switch (progress.status) {
     case 'PENDING':
-      return 'Processing queued';
+      return 'Queued for analysis';
     case 'PROCESSING':
-      return 'Analysis in progress';
+      return 'Analysis and scoring in progress';
     case 'COMPLETED':
-      return 'Processing completed';
+      return 'Result ready';
     case 'FAILED':
-      return progress.failureSeverity === 'HIGH' ? 'Failure needs attention' : 'Retry may help';
+      return progress.failureSeverity === 'HIGH' ? 'Failure needs inspection' : 'Retry available';
     default:
       return 'Processing status';
   }
@@ -25,20 +25,22 @@ export function buildDurableProgressHeadline(progress: AttemptVideoProcessingJob
 
 export function buildDurableProgressSummary(progress: AttemptVideoProcessingJobProgress | null) {
   if (!progress) {
-    return 'The latest durable progress snapshot is not available yet.';
+    return 'Waiting for the first durable progress snapshot.';
   }
 
   switch (progress.status) {
     case 'PENDING':
-      return 'Durable progress reports that the upload is still queued.';
+      return 'Upload accepted. The worker has not started analysis yet.';
     case 'PROCESSING':
-      return 'Durable progress reports that analysis and scoring are still running.';
+      return 'Analysis is running now. Refresh if you want a newer snapshot.';
     case 'COMPLETED':
       return progress.resultAttemptId
-        ? `Durable progress completed. Result #${progress.resultAttemptId} is ready.`
-        : 'Durable progress completed.';
+        ? `Result #${progress.resultAttemptId} is ready to open.`
+        : 'Processing finished and the result is ready.';
     case 'FAILED':
-      return progress.processingNotice ?? 'Durable progress reports a failed processing state.';
+      return progress.failureSeverity === 'HIGH'
+        ? 'Processing failed and needs inspection before another attempt.'
+        : 'Processing failed, but another retry may help.';
     default:
       return 'Durable progress was refreshed.';
   }
@@ -47,15 +49,15 @@ export function buildDurableProgressSummary(progress: AttemptVideoProcessingJobP
 export function buildDurableProgressFailureAction(action: AttemptVideoProcessingJobProgress['failureAction']) {
   switch (action) {
     case 'RETRY_UPLOAD':
-      return 'Retry the upload after checking the selected file.';
+      return 'Retry the upload after confirming the selected file is correct.';
     case 'CHECK_STORAGE':
-      return 'Check local storage and uploaded file availability.';
+      return 'Check storage access and confirm the uploaded file is still available.';
     case 'RETRY_ANALYSIS':
-      return 'Retry the analysis step.';
+      return 'Retry analysis from this screen.';
     case 'RETRY_SCORING':
-      return 'Retry the scoring step.';
+      return 'Retry scoring from this screen.';
     default:
-      return 'Review the failure notice and try again.';
+      return 'Review the failure notice, then try again.';
   }
 }
 

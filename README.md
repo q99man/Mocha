@@ -83,6 +83,9 @@ cd C:\SpringWork\Mocha
 .\verify-mediapipe-stack.ps1 -ReferenceVideoPath 'C:\path\to\reference.mp4' -ForceProvisionChallenge -ForceUploadAttempt
 ```
 
+If the backend returns `pendingTrackingId`, the script now polls `/api/attempts/video-processing-progress/{trackingId}` until it reaches `COMPLETED` or `FAILED`.
+You can tune this with `-PendingPollIntervalSeconds` and `-PendingPollTimeoutSeconds`.
+
 Detailed verification steps are in [docs/MEDIAPIPE_BRIDGE_VERIFICATION.md](C:\SpringWork\Mocha\docs\MEDIAPIPE_BRIDGE_VERIFICATION.md).
 
 ### Docker-backed infra run

@@ -23,9 +23,14 @@ import type {
 type AttemptHistoryListProps = {
   attempts: AttemptSummary[];
   comparisonDeltaByAttemptId?: Record<number, number>;
+  onArchiveRefreshRequested?: () => Promise<void>;
 };
 
-export function AttemptHistoryList({ attempts, comparisonDeltaByAttemptId = {} }: AttemptHistoryListProps) {
+export function AttemptHistoryList({
+  attempts,
+  comparisonDeltaByAttemptId = {},
+  onArchiveRefreshRequested,
+}: AttemptHistoryListProps) {
   const [progressByAttemptId, setProgressByAttemptId] = useState<Record<number, AttemptVideoProcessingJobProgress | null>>({});
   const [progressMessageByAttemptId, setProgressMessageByAttemptId] = useState<Record<number, string | null>>({});
   const [loadingAttemptId, setLoadingAttemptId] = useState<number | null>(null);
@@ -45,11 +50,31 @@ export function AttemptHistoryList({ attempts, comparisonDeltaByAttemptId = {} }
     try {
       const progress = await getAttemptVideoProcessingProgressByTrackingId(attempt.pendingTrackingId);
       setProgressByAttemptId((current) => ({ ...current, [attempt.id]: progress }));
+
+      let nextMessage = buildDurableProgressRefreshMessage(progress, {
+        sourceLabel: 'Tracking id lookup',
+      });
+
+      if (
+        onArchiveRefreshRequested &&
+        (progress.status === 'COMPLETED' || progress.status === 'FAILED')
+      ) {
+        try {
+          await onArchiveRefreshRequested();
+          nextMessage =
+            progress.status === 'COMPLETED'
+              ? `${nextMessage} Archive refreshed with the latest result state.`
+              : `${nextMessage} Archive refreshed with the latest failure state.`;
+        } catch (refreshError) {
+          const refreshMessage =
+            refreshError instanceof Error ? refreshError.message : 'Archive refresh failed after the progress check.';
+          nextMessage = `${nextMessage} ${refreshMessage}`;
+        }
+      }
+
       setProgressMessageByAttemptId((current) => ({
         ...current,
-        [attempt.id]: buildDurableProgressRefreshMessage(progress, {
-          sourceLabel: 'Tracking id lookup',
-        }),
+        [attempt.id]: nextMessage,
       }));
     } catch (error) {
       setProgressMessageByAttemptId((current) => ({

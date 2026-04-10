@@ -1205,6 +1205,26 @@ pm.cmd run build)?????怨뺣빰 ?嶺뚮Ĳ?됮????뫢????亦???怨?????덊렡
 ### 筌왖疫??닌듼?癒?퐣 ?ル뿭釉섓쭪???- ?遺얇늺?癒?퐣 癰귣똻????怨밴묶 ?얜㈇??? ?⑤벊??fetch helper揶쎛 ??????癒?쑎 ?얜㈇?꾢첎? ??揶쏆늿? ??쇱뱽 ?⑤벊???띿쓺 ?癒?뮸??덈뼄.
 - ??쇱벉 ??쎈솭 UX 癰귣떯而??臾믩씜???????⑤벊??helper????쇰뻻 ??苡?椰꾨?諭띄뵳?揶쎛?關苑??餓κ쑴肉??щ빍??
 
+## 2026-04-10 Document Recovery Note
+### Recovered summary for the 2026-04-07 handoff block below
+- Part of the old 2026-04-07 handoff text was mojibaked, so this note restores the main intent in readable form.
+- The banner tone pass aligned status copy between `AttemptResultPage` and `AttemptHistoryList`, then rechecked the frontend with `npm.cmd run build`.
+- The durable progress draft/mapping/create passes moved async pending uploads from the old registry-first model toward durable `AttemptProcessingJob` progress.
+- `trackingId`, challenge metadata, processing mode/runtime state, processing notice, and media metadata became the main durable progress payload carried through the backend.
+- `AsyncPendingAttemptVideoProcessingDispatcher`, `AsyncPendingAttemptCompletionService`, and `AttemptProcessingJobDraftFactory` were the key backend pieces introduced in that sequence.
+- `ChallengeVideoAsyncPendingFlowIntegrationTest` was the main proof that pending uploads could move through `PENDING`, completion, and `resultAttemptId` resolution.
+- The handoff state at that time was: upload accepted -> async pending stub -> completion -> result screen, with `ASYNC_JOB_PENDING` and `pendingTrackingId` already exposed to the UI.
+- The main unfinished work was to clean up registry-era wording, make direct progress refresh easier to reach in the UI, and continue polishing the durable progress surface.
+- Key files repeatedly referenced in that handoff were:
+- `backend/src/main/java/com/motionchallenge/attempt/application/AsyncPendingAttemptVideoProcessingDispatcher.java`
+- `backend/src/main/java/com/motionchallenge/scoring/application/AsyncPendingAttemptCompletionService.java`
+- `backend/src/main/java/com/motionchallenge/attempt/entity/AttemptProcessingJob.java`
+- `backend/src/main/java/com/motionchallenge/attempt/application/AttemptProcessingJobDraftFactory.java`
+- `backend/src/test/java/com/motionchallenge/challenge/controller/ChallengeVideoAsyncPendingFlowIntegrationTest.java`
+- `frontend/src/features/motion/CameraPermissionPanel.tsx`
+- `frontend/src/pages/AttemptsPage.tsx`
+- `frontend/src/pages/AttemptResultPage.tsx`
+
 ## 2026-04-07 Banner Tone Alignment Pass
 ### ??苡??臾믩씜?癒?퐣 ?袁⑥┷????곸뒠
 - AttemptResultPage?? AttemptHistoryList???怨룸뼊 獄쏄퀡瑗?獄?`?袁⑹삺 ??ｍ? ?온???얜㈇?꾤몴???쇰뻻 ?類ｂ봺?? ??뽰삂 ?遺얇늺?癒?퐣 ??곷선筌왖??筌ｌ꼶???怨밴묶 ??븍궢 ????쑴???띿쓺 筌띿쉸???щ빍??
@@ -1640,3 +1660,9 @@ pm.cmd run build)를 다시 통과시켰다.
 - 2026-04-08: Upgraded the FastAPI bridge scaffold from contract-only stub to dual-mode analysis (`stub` / `mediapipe`) with real pose extraction logic in `mediapipe-bridge/app/analysis.py`.
 - 2026-04-08: Added `backend/run-mediapipe-http.ps1` so Spring MediaPipe HTTP mode can be started with one command instead of manual environment setup.
 - 2026-04-08: Added `verify-mediapipe-stack.ps1` to quickly validate bridge health, backend health, challenge list, and motion session after starting the MediaPipe HTTP stack.
+
+## 2026-04-10 Result And Archive Direct Re-check Pass
+- `AttemptResultPage` now treats a durable progress refresh as a state transition instead of a read-only message. When direct progress finishes with a different `resultAttemptId`, the page navigates straight to that result; when it finishes on the same id, the page reloads the current attempt summary so the pending card disappears without a manual revisit.
+- `AttemptHistoryList` now asks `AttemptsPage` for a silent archive reload whenever a direct progress re-check reaches `COMPLETED` or `FAILED`, so the card list can swap pending entries for the latest completed or terminal state without forcing a full-page loading reset.
+- Added frontend regression coverage with Vitest and Testing Library for both flows: result-page direct re-check navigation/refresh and archive silent reload after a completed tracking-id refresh.
+- Verification: `frontend npm.cmd run test`, `frontend npm.cmd run build`.

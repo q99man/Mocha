@@ -254,99 +254,35 @@
 - [x] `PROCESSING JOB` 燁삳?諭??failure action ??뽯뻻 ?곕떽?
 - [x] async pending progress ?臾먮뼗??`processingAttempts`, `retryCount` ?곕떽?
 - [x] `PROCESSING JOB` 燁삳?諭??attempts/retries ??뽯뻻 ?곕떽?
-- [x] async pending ???????`processingAttempts=2`, `retryCount=1` 野꺜筌????뮞???곕떽?
-- [x] `PROCESSING JOB` 燁삳?諭??`REPEATED FAILURE` 獄쏄퀣? ?곕떽?
-- [x] repeated high-severity failure ??곸겫 野껋럡???곕떽?
-- [x] repeated high-severity failure ??`OPS MODE: INSPECT` 獄쏄퀡瑗??곕떽?
-- [x] repeated high-severity failure ???怨룸뼊 status strip??`OPS MODE: INSPECT` ?곕떽?
-- [x] repeated high-severity failure ??癰귣챶揆 筌롫뗄?놅쭪???inspection-first ??쇱몵嚥??袁れ넎
-- [x] auto runner ?????筌왖??獄?筌ㅼ뮆? ??뺣즲 ??쏅땾 ??쇱젟 ?곕떽?
-- [x] auto runner 1????쎈솭 ??background ??????袁⑥┷ ???뮞???곕떽?
-- [x] async pending ??쇱젟??`AttemptAsyncPendingProperties`嚥??類ｂ봺
-- [x] progress ?臾먮뼗??auto retry budget 筌롫?? ?곕떽?
-- [x] motion analysis provider `mock / mediapipe` ?袁れ넎 ?닌듼??곕떽?
-- [x] MediaPipe adapter stub 獄??⑤벏??result schema factory ?곕떽?
-- [x] `MEDIAPIPE_ADAPTER_PLAN.md` ?얜챷苑??곕떽?
-- [x] MediaPipe stub provider ?袁⑹뒠 integration test ?곕떽?
+- [x] Cover the async pending retry path where `processingAttempts=2` and `retryCount=1`.
+- [x] Add a `REPEATED FAILURE` treatment to the `PROCESSING JOB` card.
+- [x] Surface repeated high-severity failures more clearly in the UI.
+- [x] Add `OPS MODE: INSPECT` for repeated high-severity failures.
+- [x] Reflect `OPS MODE: INSPECT` in the shared status strip for repeated failures.
+- [x] Shift repeated-failure guidance toward an inspection-first flow.
+- [x] Add an auto-runner path for async pending completion.
+- [x] Cover the first successful background auto-runner completion path.
+- [x] Introduce `AttemptAsyncPendingProperties` for async pending runtime controls.
+- [x] Expose the auto-retry budget through the progress payload.
+- [x] Support switching the motion analysis provider between `mock` and `mediapipe`.
+- [x] Add the MediaPipe adapter result schema factory for the stub path.
+- [x] Document the adapter rollout in `MEDIAPIPE_ADAPTER_PLAN.md`.
+- [x] Add integration coverage for the MediaPipe stub provider.
 - [x] Keep async pending job failure/completion state transitions persisted even when completion requests throw, so progress polling can read `FAILED`, `processingAttempts`, and `retryCount` correctly.
-- [x] `pendingTrackingId`留뚯쑝濡?議고쉶 媛?ν븳 理쒖냼 progress endpoint 異붽? (`GET /api/attempts/video-processing-progress/{trackingId}`)
-- [ ] 시작 화면에서 `pendingTrackingId` 기준 direct progress 재조회 버튼을 안전하게 연결
-
-- [x] ����Ʈ �ٽ� ȭ��� attempt ���� ��� ������ ���� API �������� �����ϰ� ��带 �ٽ� �����Ŵ
-- [ ] ���� ȭ�鿡�� pendingTrackingId direct progress ����ȸ �׼��� ���� ��ư���� �����ϰ� ����
-
-- [x] ���� ȭ�鿡�� pendingTrackingId ���� direct progress ����ȸ �׼��� �����ϰ� �����ϰ�, �Ϸ�/����/��� ���º� �ȳ� �޽����� �б���
-- [ ] direct progress ����ȸ ����� ���� ȭ���� processing job ī�� ������ �� ���ϰ� ����
-
-- [x] async pending completion�� �޸� registry�� �� AttemptProcessingJob�� ����� ���ε� ��Ÿ�� �̾������� fallback ��θ� �߰���
-- [ ] progress ��ȸ�� completion ��θ� ���������� AttemptProcessingJob �߽����� �ű� ���� ��ȯ ���� ����
-- [x] auto runner�� registry ��Ʈ���� ��� trackingId, challengeId, notes�� AttemptProcessingJob ��Ÿ������ completion�� �̾���� ��ȯ��
-- [ ] progress ��ȸ source�� registry �켱���� AttemptProcessingJob �켱���� õõ�� �ű� ��ȯ ���� ����
-- [x] progress ��ȸ�� async pending completion�� challenge ���� �ֽ� AttemptProcessingJob(updatedAt)�� durable ���ε� ��Ÿ�� �켱 source�� ������ 1�� ��ȯ��
-- [ ] pending ���� �������� registry ���̵� ������ �ּ� path�� ����
-- [x] async pending ���� �� durable AttemptProcessingJob �ʾ��� ���� �����ϰ�, registry�� ���� ĳ��ó�� �ڿ��� ����ϵ��� ��ȯ��
-- [ ] �޸� registry ���̵� �����ϴ� progress ��ȸ/�Ϸ� �ּ� path�� �����ϰ�, ���� ������ ����ȭ
-- [x] async pending ������ �Ϸᰡ registry ���̵� AttemptProcessingJob ��Ÿ������ �����ϴ� �ּ� path�� ������
-- [ ] �޸� registry ���� ������ ������ �ڵ� �������� ��Ȯ�� ����
-- [x] �޸� registry ���� ������ ������ �ڵ� �ּ� �������� ��Ȯ�� ������
-- [ ] registry ����� ���� �ڵ忡�� ��� 1�� ����
-- [x] PendingAttemptVideoJobRegistry Ŭ������ ������ �����ϰ�, �׽�Ʈ�� durable AttemptProcessingJob �������� ������
-- [ ] registry ���� ���� ���� progress/completion ��ȯ ������ �� �� �� ����
-
-- [x] registry 제거 이후 남아 있던 PendingAttemptVideoJob 헬퍼와 draft factory 과도기 오버로드를 정리하고, async pending completion을 durable StoredVideo 복원 기준으로 단순화함
-- [ ] AttemptProcessingJob 중심 progress 구조 기준으로 남은 오래된 TODO/문서 표현을 한 번 더 정리
-
-- [x] 시작 화면 direct progress 재조회 결과가 pendingJobProgress 상태를 기준으로 버튼/결과 링크 상태까지 실제로 갱신되도록 연결함
-- [ ] AttemptProcessingJob 기반 progress 응답을 시작 화면에서 더 직접적으로 보여주는 상태 요약 문구 정리
-
-- [x] 시작 화면 CameraPermissionPanel을 현재 durable progress 계약 기준의 안정 버전으로 다시 정리하고, direct progress 재조회 결과가 버튼/링크 상태에 실제 반영되도록 연결함
-- [ ] AttemptProcessingJob 기반 progress 정보를 시작 화면에서 더 직접적으로 요약해 주는 최소 문구 정리
-
-- [x] AttemptProcessingJob 기반 progress 상태를 시작 화면에서 한 줄 요약으로 직접 읽을 수 있게 정리함
-- [ ] progress 응답의 failure/severity 정보를 시작 화면 상단 메시지와 더 자연스럽게 연결
-
-- [x] AttemptProcessingJob 기반 progress 상태를 시작 화면에서 한 줄 요약으로 직접 읽을 수 있게 정리함
-- [ ] progress 응답의 failure/severity 정보를 시작 화면 상단 메시지와 더 자연스럽게 연결
-
-- [x] progress 응답의 failureSeverity, failureAction 정보를 시작 화면 상단 메시지와 직접 연결해 실패 대응을 더 분명하게 만듦
-- [ ] progress 상태 변경 시 시작 화면 상단 메시지와 서버 상태 요약 카드의 강조 기준을 더 일치시킴
-
-- [x] progress 응답의 failureSeverity, failureAction 정보를 시작 화면 상단 메시지와 직접 연결해 실패 대응을 더 분명하게 만듦
-- [ ] progress 상태 변경 시 시작 화면 상단 메시지와 서버 상태 요약 카드의 강조 기준을 더 일치시킴
-
-- [x] 시작 화면 상단 메시지와 서버 상태 요약 카드가 FAILED 상태에서 같은 경고 톤을 쓰도록 정리함
-- [ ] progress 실패 상태에서 최근 서버 상태 변화 블록도 같은 강조 규칙으로 맞춤
-- [x] CameraPermissionPanel을 현재 durable progress 계약 기준의 안정 버전으로 다시 세우고, pendingTrackingId direct progress 재조회와 실패 경고 톤을 빌드 가능한 상태로 복구함
-- [ ] durable progress 재조회 결과를 시작 화면 PROCESSING JOB 카드 강조와 더 직접적으로 연결- [x] durable progress 재조회 결과를 시작 화면 PROCESSING JOB 카드 강조와 직접 연결해서 대기/처리 중/완료/실패 상태가 카드 톤으로 바로 드러나게 함
-- [ ] durable progress 실패 상태에서 failureAction 안내를 PROCESSING JOB 카드 안에서 더 직접적으로 보여주기- [x] durable progress 실패 상태에서 failureAction 안내를 PROCESSING JOB 카드 안에 별도 액션 블록으로 직접 노출함
-- [ ] durable progress 완료 상태에서 resultAttemptId 연결을 PROCESSING JOB 카드에서 더 직접적으로 보여주기- [x] durable progress 완료 상태에서 resultAttemptId 연결을 PROCESSING JOB 카드 안에 직접 노출해서 결과 화면 이동 지점을 바로 보여줌
-- [ ] 시작 화면 PROCESSING JOB 카드와 결과 화면의 처리 이력 요약 문구를 durable progress 기준으로 더 정확히 맞추기- [x] 시작 화면 PROCESSING JOB 카드와 결과 화면의 처리 이력 요약 문구를 durable progress 기준으로 더 정확히 맞춤
-- [ ] 기록 목록 카드의 현재 단계 문구도 같은 durable progress 기준으로 한 번 더 정리- [x] 기록 목록 카드의 현재 단계 문구를 시작 화면과 결과 화면의 durable progress 기준 언어에 맞게 다시 정리함
-- [ ] 시작 화면과 결과 화면의 성공/완료 안내 문구를 한 번 더 같은 톤으로 맞추기- [x] 기록 목록 카드의 현재 단계 문구를 durable progress 기준으로 다시 정리해서 시작 화면과 결과 화면의 흐름 설명과 맞춤
-- [ ] 시작 화면과 결과 화면의 성공/완료 안내 문구를 한 번 더 같은 톤으로 맞추기
-- [x] 시작 화면과 결과 화면의 durable progress 문구/상태 흐름을 현재 공용 계약 기준으로 복구
-- [ ] 시작 화면의 success/completion 안내와 결과 화면 상단 배너 문구를 같은 톤으로 최종 정리
-
-- [x] 시작 화면과 결과 화면의 success/completion 안내 문구를 같은 톤으로 최종 정리
-- [ ] 시작 화면과 결과 화면의 failure/warning 안내 문구도 같은 톤으로 맞추기
-
-- [x] 시작 화면과 결과 화면의 failure/warning 안내 문구를 같은 톤으로 맞추기
-- [ ] 시작 화면과 결과 화면의 pending/processing 안내 문구도 같은 톤으로 최종 정리
-
-- [x] 시작 화면과 결과 화면의 pending/processing 안내 문구를 같은 톤으로 최종 정리
-- [ ] 기록 목록 화면의 pending/processing 안내 문구도 같은 톤으로 최종 정리
-
-- [x] 남아 있던 시작 화면/결과 화면/기록 목록의 상태 안내 문구를 같은 톤으로 한 번에 정리
-- [ ] durable progress 상태를 결과 화면과 기록 목록에서 더 직접 재조회할 최소 흐름 정리
-
-- [x] durable progress 상태를 결과 화면과 기록 목록에서 더 직접 재조회할 최소 흐름 정리
-- [ ] durable progress 재조회 결과가 완료 상태일 때 결과 링크를 더 직접 갱신하는 흐름 정리
-
-- [x] durable progress 재조회 결과가 완료 상태일 때 결과 링크를 더 직접 갱신하는 흐름 정리
-- [ ] durable progress 재조회 결과를 시작 화면, 결과 화면, 기록 목록에서 같은 규칙으로 공용화
-
-- [x] durable progress 재조회 결과를 시작 화면, 결과 화면, 기록 목록에서 같은 규칙으로 공용화
-- [ ] durable progress 재조회 흐름에서 challengeId 기반 조회를 trackingId 기반 direct 조회로 점진 전환
+- [x] Add the direct progress endpoint keyed by `pendingTrackingId` (`GET /api/attempts/video-processing-progress/{trackingId}`).
+- [x] Restore direct progress refresh so the start screen can re-check pending uploads by `pendingTrackingId`.
+- [x] Move async pending completion fallback to durable `AttemptProcessingJob` / `StoredVideo` recovery instead of the old in-memory registry path.
+- [x] Prioritize `pendingTrackingId` direct refresh across the start, result, and history screens.
+- [x] Remove the unnecessary `challengeId` fallback from the pending refresh UI.
+- [x] Surface durable progress state, failure severity/action, and result links more directly in the `PROCESSING JOB` card.
+- [x] Align durable progress wording across the start, result, and history screens.
+- [ ] Finish replacing the remaining registry-era TODO/document wording with `AttemptProcessingJob` terminology.
+- [ ] Polish the start-screen summary copy so durable progress is easier to scan at a glance.
+- [ ] Align failure severity/action wording between the top banner and the server status / `PROCESSING JOB` card.
+- [ ] Align success/completion wording between the start screen and result screen one more time.
+- [ ] Align pending/processing wording across the start, result, and history screens one more time.
+- [x] Expose a minimal direct re-check flow for durable progress from the result and history screens.
+- [ ] Fully retire `challengeId`-based progress refresh in favor of `trackingId` direct refresh wherever possible.
 
 - [x] durable progress 재조회 흐름에서 result/archive 화면이 pendingTrackingId direct 조회를 우선 사용하도록 전환
 
