@@ -20,6 +20,19 @@ public record AttemptResultResponse(
         String videoOriginalFileName,
         String videoContentType,
         long videoSize,
+        Integer poseSimilarity,
+        Integer timingSimilarity,
+        Integer stabilitySimilarity,
+        String strongestArea,
+        String weakestArea,
+        String coachingTeaser,
+        Long previousAttemptId,
+        Integer previousAttemptScore,
+        LocalDateTime previousAttemptedAt,
+        Integer scoreDeltaFromPrevious,
+        Integer poseDeltaFromPrevious,
+        Integer timingDeltaFromPrevious,
+        Integer stabilityDeltaFromPrevious,
         LocalDateTime attemptedAt) {
 
     public AttemptResultResponse withProcessingState(
@@ -44,6 +57,19 @@ public record AttemptResultResponse(
                 videoOriginalFileName,
                 videoContentType,
                 videoSize,
+                poseSimilarity,
+                timingSimilarity,
+                stabilitySimilarity,
+                strongestArea,
+                weakestArea,
+                coachingTeaser,
+                previousAttemptId,
+                previousAttemptScore,
+                previousAttemptedAt,
+                scoreDeltaFromPrevious,
+                poseDeltaFromPrevious,
+                timingDeltaFromPrevious,
+                stabilityDeltaFromPrevious,
                 attemptedAt);
     }
 }

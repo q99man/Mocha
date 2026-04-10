@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { getChallengeById } from '../shared/api/challengeApi';
-import type { Challenge } from '../shared/types/challenge';
+import { toAttemptBreakdownLabel } from '../shared/presentation/attemptBreakdown';
+import type { Challenge, ChallengeBreakdownArea } from '../shared/types/challenge';
 
 export function ChallengeDetailPage() {
   const { id = '' } = useParams();
@@ -17,14 +18,14 @@ export function ChallengeDetailPage() {
       setError(null);
 
       try {
-        const response = await getChallengeById(id);
+        const challengeResponse = await getChallengeById(id);
         if (active) {
-          setChallenge(response);
+          setChallenge(challengeResponse);
         }
       } catch (loadError) {
         if (active) {
           setChallenge(null);
-          setError(loadError instanceof Error ? loadError.message : '챌린지 정보를 불러오지 못했습니다.');
+          setError(loadError instanceof Error ? loadError.message : 'Could not load the challenge detail page.');
         }
       } finally {
         if (active) {
@@ -34,7 +35,6 @@ export function ChallengeDetailPage() {
     }
 
     void loadChallenge();
-
     return () => {
       active = false;
     };
@@ -46,8 +46,8 @@ export function ChallengeDetailPage() {
         <div className="section-heading">
           <span className="section-heading__code">LOADING</span>
           <div>
-            <h2>챌린지 상세 정보를 불러오는 중입니다</h2>
-            <p>선택한 모션의 메타 데이터와 준비 상태를 정리하고 있습니다.</p>
+            <h2>Loading challenge detail</h2>
+            <p>Collecting reference readiness and recent retry signals.</p>
           </div>
         </div>
       </section>
@@ -60,12 +60,12 @@ export function ChallengeDetailPage() {
         <div className="section-heading">
           <span className="section-heading__code">ERROR</span>
           <div>
-            <h2>챌린지 정보를 확인할 수 없습니다</h2>
+            <h2>Could not load the challenge detail</h2>
             <p>{error}</p>
           </div>
         </div>
         <Link className="button-link" to="/challenges">
-          목록으로 돌아가기
+          Back to challenge list
         </Link>
       </section>
     );
@@ -77,16 +77,18 @@ export function ChallengeDetailPage() {
         <div className="section-heading">
           <span className="section-heading__code">EMPTY</span>
           <div>
-            <h2>챌린지를 찾을 수 없습니다</h2>
-            <p>선택한 챌린지가 존재하지 않거나 현재 비활성 상태입니다.</p>
+            <h2>Challenge not found</h2>
+            <p>The selected challenge does not exist or is no longer active.</p>
           </div>
         </div>
         <Link className="button-link" to="/challenges">
-          목록으로 돌아가기
+          Back to challenge list
         </Link>
       </section>
     );
   }
+
+  const recentRetry = challenge.latestRetrySummary;
 
   return (
     <div className="page">
@@ -107,7 +109,7 @@ export function ChallengeDetailPage() {
           <div className="challenge-card__meta">
             <span className="pill">{challenge.category}</span>
             <span className="pill">{challenge.difficulty}</span>
-            <span className="pill">{challenge.durationSec}초 플레이</span>
+            <span className="pill">{challenge.durationSec}s track</span>
           </div>
 
           <div className="signal-panel">
@@ -118,10 +120,10 @@ export function ChallengeDetailPage() {
 
           <div className="inline-actions">
             <Link className="button-link" to={`/challenges/${challenge.id}/start`}>
-              도전 시작
+              Start challenge
             </Link>
-            <Link className="button-link button-link--secondary" to="/attempts">
-              기록 보기
+            <Link className="button-link button-link--secondary" to={`/attempts?challengeId=${challenge.id}`}>
+              Open challenge archive
             </Link>
           </div>
         </div>
@@ -132,10 +134,11 @@ export function ChallengeDetailPage() {
           <div className="section-heading">
             <span className="section-heading__code">01</span>
             <div>
-              <h2>시스템 판독</h2>
-              <p>실제 업로드 기반 흐름으로 바로 이어질 수 있는지 빠르게 읽는 영역입니다.</p>
+              <h2>Reference readiness</h2>
+              <p>Check whether the challenge is ready for real upload scoring.</p>
             </div>
           </div>
+
           <div className="signal-grid">
             <div className="signal-grid__item">
               <span>ANALYSIS</span>
@@ -145,17 +148,21 @@ export function ChallengeDetailPage() {
             <div className="signal-grid__item">
               <span>REFERENCE</span>
               <strong>{challenge.referenceVideoUploaded ? 'UP' : 'WAIT'}</strong>
-              <p>{challenge.referenceVideoUploaded ? '레퍼런스 비디오 업로드 완료' : '레퍼런스 비디오 업로드 전'}</p>
+              <p>{challenge.referenceVideoUploaded ? 'Reference video uploaded' : 'Reference video missing'}</p>
             </div>
             <div className="signal-grid__item">
               <span>PROFILE</span>
               <strong>{challenge.referenceMotionProfileReady ? 'READY' : 'PENDING'}</strong>
-              <p>{challenge.referenceMotionProfileReady ? '모션 프로필 준비 완료' : '분석 완료 전'}</p>
+              <p>{challenge.referenceMotionProfileReady ? 'Motion profile ready' : 'Waiting for profile generation'}</p>
             </div>
             <div className="signal-grid__item">
               <span>LAST SCAN</span>
               <strong>{challenge.referenceAnalyzedAt ? 'LOGGED' : 'NONE'}</strong>
-              <p>{challenge.referenceAnalyzedAt ? new Date(challenge.referenceAnalyzedAt).toLocaleString('ko-KR') : '아직 분석 이력 없음'}</p>
+              <p>
+                {challenge.referenceAnalyzedAt
+                  ? new Date(challenge.referenceAnalyzedAt).toLocaleString('ko-KR')
+                  : 'No analysis history yet'}
+              </p>
             </div>
           </div>
         </article>
@@ -164,78 +171,200 @@ export function ChallengeDetailPage() {
           <div className="section-heading">
             <span className="section-heading__code">02</span>
             <div>
-              <h2>진입 가이드</h2>
-              <p>지금 이 챌린지를 어떤 방식으로 확인하면 좋은지 정리합니다.</p>
+              <h2>Entry guide</h2>
+              <p>Use this sequence to move from detail view into a fresh scored retry.</p>
             </div>
           </div>
+
           <div className="detail-flow detail-flow--stack">
-            <div className="detail-flow__item">1. 준비 상태를 확인하고 시작 화면으로 이동</div>
-            <div className="detail-flow__item">2. 카메라 권한 또는 비디오 업로드 흐름 선택</div>
-            <div className="detail-flow__item">3. 결과 화면에서 점수와 헤드라인 판독</div>
+            <div className="detail-flow__item">1. Confirm reference readiness and the latest retry trend</div>
+            <div className="detail-flow__item">2. Open the start console and choose the upload path</div>
+            <div className="detail-flow__item">3. Review the result page and compare against the previous scored run</div>
           </div>
+
           <ul className="detail-list">
             <li>
-              <strong>가이드 영상</strong>
-              {challenge.guideVideoUrl ? '가이드 영상을 별도 탭으로 열어 동작 흐름을 먼저 확인할 수 있습니다.' : '아직 연결된 가이드 영상은 없지만, 준비/결과 흐름은 먼저 확인할 수 있습니다.'}
+              <strong>Guide video</strong>
+              {challenge.guideVideoUrl
+                ? 'A guide video is linked, so you can review the target move before recording again.'
+                : 'No guide video is linked, but the reference readiness and retry history are still available.'}
             </li>
             <li>
-              <strong>현재 추천</strong>
-              {challenge.referenceMotionProfileReady ? '시작 화면에서 실제 업로드 기반 자동 채점 흐름을 바로 확인해 보세요.' : '레퍼런스 분석이 끝나기 전이라도 시작 화면에서 준비 기록과 샘플 결과 흐름을 먼저 검증할 수 있습니다.'}
+              <strong>Recommended next step</strong>
+              {challenge.referenceMotionProfileReady
+                ? 'Open the start console and test another live upload with the same framing.'
+                : 'Finish the reference analysis in the admin console before attempting a real comparison.'}
             </li>
           </ul>
+
           {challenge.guideVideoUrl ? (
             <a className="button-link button-link--secondary" href={challenge.guideVideoUrl} target="_blank" rel="noreferrer">
-              가이드 영상 열기
+              Open guide video
             </a>
           ) : null}
+        </article>
+      </section>
+
+      <section className="dashboard-grid dashboard-grid--retry">
+        <article className="panel panel--section challenge-start__retry-panel">
+          <div className="section-heading">
+            <span className="section-heading__code">03</span>
+            <div>
+              <h2>Recent retry flow</h2>
+              <p>Review the latest auto-scored result for this challenge before starting another attempt.</p>
+            </div>
+          </div>
+
+          {recentRetry ? (
+            <>
+              <div className="challenge-start__retry-summary">
+                <div>
+                  <span>Latest score</span>
+                  <strong>{recentRetry.latestScore} pts</strong>
+                </div>
+                <div>
+                  <span>Trend</span>
+                  <strong className={buildDeltaToneClass(recentRetry.scoreDeltaFromPrevious)}>
+                    {formatDelta(recentRetry.scoreDeltaFromPrevious)}
+                  </strong>
+                </div>
+                <div>
+                  <span>Weak area</span>
+                  <strong>
+                    {recentRetry.weakestArea ? toAttemptBreakdownLabel(recentRetry.weakestArea) : 'Not enough data'}
+                  </strong>
+                </div>
+              </div>
+
+              <ul className="detail-list challenge-start__retry-list">
+                <li>
+                  <strong>Retry note</strong>
+                  {buildRetryNote(recentRetry.retryFocus, recentRetry.weakestArea)}
+                </li>
+                <li>
+                  <strong>Keep stable</strong>
+                  {buildKeepStableNote(recentRetry.keepStableFocus, recentRetry.strongestArea)}
+                </li>
+                <li>
+                  <strong>Teaser</strong>
+                  {recentRetry.coachingTeaser ?? 'Open the latest result for the full comparison summary.'}
+                </li>
+                <li>
+                  <strong>Latest result</strong>
+                  {formatAttemptedAt(recentRetry.latestAttemptedAt)}
+                </li>
+              </ul>
+
+              <div className="inline-actions">
+                <Link className="button-link button-link--secondary" to={`/attempts/${recentRetry.latestAttemptId}/result`}>
+                  Open latest result
+                </Link>
+                <Link className="button-link button-link--secondary" to={`/challenges/${challenge.id}/start`}>
+                  Retry this challenge
+                </Link>
+              </div>
+            </>
+          ) : (
+            <div className="challenge-start__empty-state">
+              <strong>No auto-scored history exists for this challenge yet.</strong>
+              <p>The first live upload will become the baseline for future retries.</p>
+            </div>
+          )}
         </article>
       </section>
     </div>
   );
 }
 
-function analysisStatusLabel(status: Challenge['referenceAnalysisStatus']): string {
-  switch (status) {
-    case 'COMPLETED':
-      return '레퍼런스 분석 완료';
-    case 'ANALYZING':
-      return '레퍼런스 분석 중';
-    case 'FAILED':
-      return '레퍼런스 분석 실패';
-    default:
-      return '레퍼런스 분석 전';
+function analysisStatusLabel(status: Challenge['referenceAnalysisStatus']) {
+  if (status === 'COMPLETED') {
+    return 'Reference analysis complete';
   }
+  if (status === 'ANALYZING') {
+    return 'Reference analysis running';
+  }
+  if (status === 'FAILED') {
+    return 'Reference analysis failed';
+  }
+  return 'Reference analysis pending';
 }
 
-function analysisShortLabel(status: Challenge['referenceAnalysisStatus']): string {
-  switch (status) {
-    case 'COMPLETED':
-      return 'READY';
-    case 'ANALYZING':
-      return 'SCAN';
-    case 'FAILED':
-      return 'ERROR';
-    default:
-      return 'WAIT';
+function analysisShortLabel(status: Challenge['referenceAnalysisStatus']) {
+  if (status === 'COMPLETED') {
+    return 'READY';
   }
+  if (status === 'ANALYZING') {
+    return 'SCAN';
+  }
+  if (status === 'FAILED') {
+    return 'ERROR';
+  }
+  return 'WAIT';
 }
 
-function readyHeadline(challenge: Challenge): string {
+function readyHeadline(challenge: Challenge) {
   if (challenge.referenceMotionProfileReady) {
-    return '이 챌린지는 업로드 기반 자동 채점 흐름까지 바로 확인할 수 있습니다.';
+    return 'This challenge is ready for real upload scoring.';
   }
-
   if (challenge.referenceVideoUploaded) {
-    return '레퍼런스 비디오는 올라가 있지만, 분석 완료 전이라 실제 채점 흐름은 제한될 수 있습니다.';
+    return 'The reference video is uploaded, but scoring stays limited until analysis finishes.';
   }
-
-  return '현재는 준비 흐름과 샘플 결과 중심으로 먼저 검증하는 챌린지입니다.';
+  return 'Reference setup still needs work before this challenge is fully ready.';
 }
 
-function readyDescription(challenge: Challenge): string {
+function readyDescription(challenge: Challenge) {
   if (challenge.referenceMotionProfileReady) {
-    return '시작 화면에서 카메라 준비 또는 시도 비디오 업로드 후 결과 화면까지 연결해 볼 수 있습니다.';
+    return 'Open the start console to upload a real attempt and compare it against the saved reference profile.';
   }
+  return 'You can review metadata now, but meaningful scoring starts only after the reference profile is ready.';
+}
 
-  return '실제 업로드 자동 채점이 제한되더라도 준비 상태 저장, 샘플 완료 결과 저장, 결과 화면 검증은 그대로 진행할 수 있습니다.';
+function buildRetryNote(retryFocus: string | null, weakestArea: ChallengeBreakdownArea | null) {
+  if (retryFocus) {
+    return retryFocus;
+  }
+  if (weakestArea) {
+    return `Focus on ${toAttemptBreakdownLabel(weakestArea)} first so the next retry has a clearer target.`;
+  }
+  return 'The latest result has limited guidance data. Keep the setup steady and capture one more retry.';
+}
+
+function buildKeepStableNote(keepStableFocus: string | null, strongestArea: ChallengeBreakdownArea | null) {
+  if (keepStableFocus) {
+    return keepStableFocus;
+  }
+  if (strongestArea) {
+    return `Keep ${toAttemptBreakdownLabel(strongestArea)} stable so the next retry does not lose its strongest signal.`;
+  }
+  return 'Keep the setup steady and avoid changing framing, pacing, and distance all at once.';
+}
+
+function buildDeltaToneClass(delta: number | null) {
+  if (delta == null || delta === 0) {
+    return '';
+  }
+  return delta > 0 ? 'challenge-start__trend challenge-start__trend--up' : 'challenge-start__trend challenge-start__trend--down';
+}
+
+function formatDelta(delta: number | null) {
+  if (delta == null) {
+    return 'Baseline';
+  }
+  if (delta === 0) {
+    return 'No change';
+  }
+  return `${delta > 0 ? '+' : ''}${delta} pts`;
+}
+
+function formatAttemptedAt(value: string) {
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return value;
+  }
+  return parsed.toLocaleString('ko-KR', {
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
 }

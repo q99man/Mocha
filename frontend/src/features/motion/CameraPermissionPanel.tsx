@@ -1,4 +1,4 @@
-﻿import { ChangeEvent, useEffect, useMemo, useRef, useState } from 'react';
+import { ChangeEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 
 import {
@@ -7,6 +7,8 @@ import {
   uploadAttemptVideo,
 } from '../../shared/api/attemptApi';
 import { getMotionSessionState } from '../../shared/api/motionApi';
+import { buildAttemptBreakdownMetrics, buildAttemptBreakdownSummary } from '../../shared/presentation/attemptBreakdown';
+import { buildAttemptCoachingTeaser } from '../../shared/presentation/attemptCoaching';
 import type {
   AsyncPendingCompletionRequest,
   AttemptVideoProcessingJobProgress,
@@ -49,6 +51,9 @@ export function CameraPermissionPanel({ challengeId, challengeTitle }: CameraPer
 
   const pendingTrackingId = pendingJobProgress?.trackingId ?? uploadedAttempt?.pendingTrackingId ?? null;
   const uploadedAttemptResultId = uploadedAttempt?.attemptId ?? pendingJobProgress?.resultAttemptId ?? null;
+  const uploadedAttemptBreakdownSummary = uploadedAttempt ? buildAttemptBreakdownSummary(uploadedAttempt) : null;
+  const uploadedAttemptBreakdownMetrics = uploadedAttempt ? buildAttemptBreakdownMetrics(uploadedAttempt) : [];
+  const uploadedAttemptCoachingTeaser = uploadedAttempt ? buildAttemptCoachingTeaser(uploadedAttempt) : null;
   const canContinueWithoutCamera =
     cameraState === 'denied' || cameraState === 'unavailable' || cameraState === 'error';
   const canOpenUploadStage = cameraState === 'ready' || canContinueWithoutCamera;
@@ -393,6 +398,24 @@ export function CameraPermissionPanel({ challengeId, challengeTitle }: CameraPer
               </div>
               <p>{uploadedAttempt.resultSummary}</p>
               <p className="camera-panel__meta">{uploadedAttempt.processingNotice}</p>
+              {uploadedAttemptBreakdownSummary ? (
+                <div className="camera-panel__breakdown">
+                  <strong>{uploadedAttemptBreakdownSummary}</strong>
+                  {uploadedAttempt.scoreDeltaFromPrevious != null ? (
+                    <p className="camera-panel__meta">
+                      Compared with previous scored run: {uploadedAttempt.scoreDeltaFromPrevious >= 0 ? '+' : ''}{uploadedAttempt.scoreDeltaFromPrevious} pts
+                    </p>
+                  ) : null}
+                  {uploadedAttemptBreakdownMetrics.length > 0 ? (
+                    <div className="camera-panel__breakdown-metrics">
+                      {uploadedAttemptBreakdownMetrics.map((metric) => (
+                        <span key={metric.label}>{metric.label} {metric.value}</span>
+                      ))}
+                    </div>
+                  ) : null}
+                  {uploadedAttemptCoachingTeaser ? <p className="camera-panel__coaching">{uploadedAttemptCoachingTeaser}</p> : null}
+                </div>
+              ) : null}
               {uploadedAttemptResultId ? (
                 <p className="camera-panel__success">
                   <Link to={`/attempts/${uploadedAttemptResultId}/result`}>Open result page</Link>

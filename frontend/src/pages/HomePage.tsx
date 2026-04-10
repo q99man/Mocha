@@ -1,121 +1,194 @@
-﻿import { Link } from 'react-router-dom';
+import { useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
+import { getChallenges } from '../shared/api/challengeApi';
+import { toAttemptBreakdownLabel } from '../shared/presentation/attemptBreakdown';
+import type { Challenge } from '../shared/types/challenge';
+
+type RetrySpotlight = { challenge: Challenge; delta: number | null };
 
 export function HomePage() {
+  const [challenges, setChallenges] = useState<Challenge[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let active = true;
+    async function loadHomeSignals() {
+      setLoading(true);
+      try {
+        const challengeResponse = await getChallenges().catch(() => []);
+        if (active) {
+          setChallenges(challengeResponse);
+        }
+      } finally {
+        if (active) {
+          setLoading(false);
+        }
+      }
+    }
+    void loadHomeSignals();
+    return () => { active = false; };
+  }, []);
+
+  const retrySpotlights = useMemo(() => {
+    return challenges
+      .filter((challenge) => challenge.latestRetrySummary)
+      .map((challenge) => ({
+        challenge,
+        delta: challenge.latestRetrySummary?.scoreDeltaFromPrevious ?? null,
+      }))
+      .sort(
+        (left, right) =>
+          Date.parse(right.challenge.latestRetrySummary?.latestAttemptedAt ?? '') -
+          Date.parse(left.challenge.latestRetrySummary?.latestAttemptedAt ?? ''),
+      );
+  }, [challenges]);
+
+  const recentSpotlight = retrySpotlights[0] ?? null;
+  const topImprovement = useMemo(
+    () =>
+      retrySpotlights
+        .filter((item) => item.delta != null && item.delta > 0)
+        .sort((left, right) => (right.delta ?? 0) - (left.delta ?? 0))[0] ?? null,
+    [retrySpotlights],
+  );
+  const readyCount = challenges.filter((challenge) => challenge.referenceVideoUploaded && challenge.referenceMotionProfileReady).length;
+  const scoredCount = retrySpotlights.length;
+
   return (
     <div className="page">
       <section className="hero hero--stage">
         <div className="hero__content">
           <span className="hero__eyebrow">STAGE ENTRY / WEB MVP</span>
-          <h2>움직임을 선택하고, 준비 상태를 점검하고, 결과를 무대처럼 확인하는 모션 챌린지 콘솔</h2>
-          <p>
-            Mocha는 짧은 동작 챌린지를 탐색하고, 실제 업로드 기반 자동 채점 흐름과 프로토타입 결과 화면을 한 번에 확인할 수 있는 데모형 웹 서비스입니다.
-          </p>
+          <h2>Select a challenge, verify the setup, and review scored retries from one motion console</h2>
+          <p>Mocha is a lightweight web console for browsing motion challenges, uploading real attempts, and comparing retry results in a single flow.</p>
           <div className="inline-actions">
-            <Link className="button-link" to="/challenges">
-              챌린지 선택하기
-            </Link>
-            <Link className="button-link button-link--secondary" to="/attempts">
-              기록 아카이브 보기
-            </Link>
+            <Link className="button-link" to="/challenges">Open challenge library</Link>
+            <Link className="button-link button-link--secondary" to="/attempts">Open archive</Link>
           </div>
         </div>
-
         <div className="hero__aside hero__aside--stage">
           <div className="signal-panel panel-lift panel-lift--accent">
             <span className="signal-panel__label">SYSTEM STATUS</span>
-            <strong>CHALLENGE FLOW READY</strong>
-            <p>목록, 상세, 시작, 업로드, 결과, 기록 화면이 하나의 흐름으로 연결되어 있습니다.</p>
+            <strong>{loading ? 'SYNCING LIVE SIGNALS' : 'CHALLENGE FLOW READY'}</strong>
+            <p>The home page, challenge flow, results, and archive now share the same retry story.</p>
           </div>
           <div className="signal-grid">
-            <div className="signal-grid__item panel-lift">
-              <span>FLOW</span>
-              <strong>05</strong>
-              <p>홈 / 목록 / 상세 / 시작 / 결과</p>
-            </div>
-            <div className="signal-grid__item panel-lift">
-              <span>MODE</span>
-              <strong>LIVE</strong>
-              <p>실제 API 계약 기준 연결</p>
-            </div>
-            <div className="signal-grid__item panel-lift">
-              <span>SCORE</span>
-              <strong>MOCK</strong>
-              <p>자동 채점 데모 가능</p>
-            </div>
-            <div className="signal-grid__item panel-lift">
-              <span>STATE</span>
-              <strong>ARCHIVE</strong>
-              <p>시도 기록 즉시 확인</p>
-            </div>
+            <div className="signal-grid__item panel-lift"><span>CHALLENGES</span><strong>{String(challenges.length).padStart(2, '0')}</strong><p>Loaded challenges</p></div>
+            <div className="signal-grid__item panel-lift"><span>READY</span><strong>{String(readyCount).padStart(2, '0')}</strong><p>Ready for live upload scoring</p></div>
+            <div className="signal-grid__item panel-lift"><span>SCORED</span><strong>{String(scoredCount).padStart(2, '0')}</strong><p>Challenges with scored history</p></div>
+            <div className="signal-grid__item panel-lift"><span>LIVE</span><strong>{loading ? '--' : 'SYNC'}</strong><p>Challenge summaries now include retry context</p></div>
           </div>
+        </div>
+      </section>
+
+      <section className="panel panel--section panel-lift home-spotlight">
+        <div className="section-heading">
+          <span className="section-heading__code">01</span>
+          <div>
+            <h2>Retry spotlight</h2>
+            <p>See the most recent scored run and the biggest improvement without opening another page first.</p>
+          </div>
+        </div>
+        <div className="dashboard-grid home-spotlight__grid">
+          <article className="panel panel--section home-spotlight__card">
+            <span className="home-spotlight__label">Most recent scored run</span>
+            {recentSpotlight && recentSpotlight.challenge.latestRetrySummary ? (
+              <>
+                <strong>{recentSpotlight.challenge.title}</strong>
+                <p>{recentSpotlight.challenge.latestRetrySummary.latestScore} pts / {formatDelta(recentSpotlight.delta)}</p>
+                <p>
+                  {recentSpotlight.challenge.latestRetrySummary.retryFocus ??
+                    (recentSpotlight.challenge.latestRetrySummary.weakestArea
+                      ? `Watch ${toAttemptBreakdownLabel(recentSpotlight.challenge.latestRetrySummary.weakestArea)} before the next retry.`
+                      : 'Open the latest result and review the breakdown before recording again.')}
+                </p>
+                <div className="inline-actions">
+                  <Link className="button-link button-link--secondary" to={`/attempts/${recentSpotlight.challenge.latestRetrySummary.latestAttemptId}/result`}>
+                    Open latest result
+                  </Link>
+                  <Link className="button-link button-link--secondary" to={`/challenges/${recentSpotlight.challenge.id}/start`}>
+                    Retry now
+                  </Link>
+                </div>
+              </>
+            ) : (
+              <>
+                <strong>No scored runs yet</strong>
+                <p>The first auto-scored upload will appear here as soon as the first real comparison is saved.</p>
+              </>
+            )}
+          </article>
+
+          <article className="panel panel--section home-spotlight__card">
+            <span className="home-spotlight__label">Best improvement</span>
+            {topImprovement && topImprovement.challenge.latestRetrySummary ? (
+              <>
+                <strong>{topImprovement.challenge.title}</strong>
+                <p>{formatDelta(topImprovement.delta)} / latest {topImprovement.challenge.latestRetrySummary.latestScore} pts</p>
+                <p>
+                  {topImprovement.challenge.latestRetrySummary.keepStableFocus ??
+                    (topImprovement.challenge.latestRetrySummary.strongestArea
+                      ? `${toAttemptBreakdownLabel(topImprovement.challenge.latestRetrySummary.strongestArea)} stayed stable in the last retry.`
+                      : 'Open the result page for the full comparison and strongest-area detail.')}
+                </p>
+                <div className="inline-actions">
+                  <Link className="button-link button-link--secondary" to={`/challenges/${topImprovement.challenge.id}`}>
+                    Open challenge detail
+                  </Link>
+                  <Link className="button-link button-link--secondary" to="/attempts">
+                    Open archive
+                  </Link>
+                </div>
+              </>
+            ) : (
+              <>
+                <strong>No improvement trend yet</strong>
+                <p>As soon as a challenge has two scored runs, the biggest score gain will appear here.</p>
+              </>
+            )}
+          </article>
         </div>
       </section>
 
       <section className="panel panel--section panel-lift">
         <div className="section-heading">
-          <span className="section-heading__code">01</span>
+          <span className="section-heading__code">02</span>
           <div>
-            <h2>지금 들어와 있는 모드</h2>
-            <p>현재 MVP는 챌린지 탐색과 사전 흐름 확인에 초점을 맞추고 있습니다.</p>
+            <h2>Current focus</h2>
+            <p>This MVP is now centered on the retry loop rather than on a one-time demo path.</p>
           </div>
         </div>
         <div className="stat-row">
-          <div className="stat-card stat-card--accent panel-lift panel-lift--accent">
-            <strong>챌린지 탐색</strong>
-            <p>목록과 상세 화면에서 난이도, 진행 시간, 레퍼런스 분석 준비 상태를 빠르게 확인할 수 있습니다.</p>
-          </div>
-          <div className="stat-card panel-lift">
-            <strong>사전 준비</strong>
-            <p>카메라 권한 확인과 업로드 기반 자동 채점 흐름을 같은 시작 화면에서 점검할 수 있습니다.</p>
-          </div>
-          <div className="stat-card panel-lift">
-            <strong>결과 아카이브</strong>
-            <p>준비 기록과 완료 결과가 같은 결과 구조를 공유해 이후 확장 방향도 분명합니다.</p>
-          </div>
+          <div className="stat-card stat-card--accent panel-lift panel-lift--accent"><strong>Challenge discovery</strong><p>Browse challenge metadata, readiness, and retry context before choosing where to go next.</p></div>
+          <div className="stat-card panel-lift"><strong>Live upload flow</strong><p>Move from the start console into a real scored upload without switching to a separate prototype path.</p></div>
+          <div className="stat-card panel-lift"><strong>Retry comparison</strong><p>Review score deltas, breakdowns, and coaching hints across result pages and archive cards.</p></div>
         </div>
       </section>
 
       <section className="dashboard-grid">
         <article className="panel panel--section panel-lift">
-          <div className="section-heading">
-            <span className="section-heading__code">02</span>
-            <div>
-              <h2>현재 추천 진입 순서</h2>
-              <p>DJMAX풍 선택 UI를 Mocha 흐름에 맞게 단계적으로 옮기기 위한 기본 루트입니다.</p>
-            </div>
-          </div>
+          <div className="section-heading"><span className="section-heading__code">03</span><div><h2>Recommended path</h2><p>The most useful flow now starts by reviewing the latest retry and then moving back into the same challenge.</p></div></div>
           <div className="detail-flow detail-flow--stack">
-            <div className="detail-flow__item">1. 챌린지 선택 화면에서 메타 정보 확인</div>
-            <div className="detail-flow__item">2. 상세 화면에서 준비 상태와 가이드 확인</div>
-            <div className="detail-flow__item">3. 시작 화면에서 카메라 또는 업로드 흐름 진입</div>
-            <div className="detail-flow__item">4. 결과 화면에서 점수와 헤드라인 확인</div>
+            <div className="detail-flow__item">1. Check the home spotlight for the latest scored run or best improvement</div>
+            <div className="detail-flow__item">2. Open the challenge detail or start console for the same challenge</div>
+            <div className="detail-flow__item">3. Upload a fresh attempt with the same setup</div>
+            <div className="detail-flow__item">4. Compare score delta, breakdown, and coaching on the result page</div>
           </div>
         </article>
 
         <article className="panel panel--section panel-lift">
-          <div className="section-heading">
-            <span className="section-heading__code">03</span>
-            <div>
-              <h2>다음 리디자인 방향</h2>
-              <p>지금부터는 카드형 UI보다 선택형 리듬 게임 HUD에 더 가까운 질감으로 밀어갑니다.</p>
-            </div>
-          </div>
+          <div className="section-heading"><span className="section-heading__code">04</span><div><h2>Next completeness target</h2><p>The next step is to turn the collected retry signals into even stronger coaching and guidance.</p></div></div>
           <ul className="detail-list">
-            <li>
-              <strong>시각 톤</strong>
-              네온 스테이지 배경, 유리 패널, 글로우 중심 톤으로 계속 정리합니다.
-            </li>
-            <li>
-              <strong>정보 위계</strong>
-              점수, 상태, 진행 시간처럼 빠르게 읽히는 메트릭을 우선 배치합니다.
-            </li>
-            <li>
-              <strong>흐름 구조</strong>
-              선택, 준비, 결과가 하나의 콘솔 경험처럼 이어지도록 통일합니다.
-            </li>
+            <li><strong>Retry continuity</strong>Keep the same challenge context visible across home, list, detail, start, result, and archive.</li>
+            <li><strong>Coaching quality</strong>Turn weak-area and score-delta signals into clearer capture advice for the next retry.</li>
+            <li><strong>Operational clarity</strong>Keep the model, reference, and scored-run state readable from the UI without hidden assumptions.</li>
           </ul>
         </article>
       </section>
     </div>
   );
+}
+
+function formatDelta(delta: number | null) {
+  return delta == null ? 'Baseline' : delta === 0 ? 'No change' : `${delta > 0 ? '+' : ''}${delta} pts`;
 }

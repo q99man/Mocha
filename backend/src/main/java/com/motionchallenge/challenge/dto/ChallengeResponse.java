@@ -16,5 +16,6 @@ public record ChallengeResponse(
         boolean referenceVideoUploaded,
         boolean referenceMotionProfileReady,
         String referenceVideoOriginalFileName,
-        LocalDateTime referenceAnalyzedAt) {
+        LocalDateTime referenceAnalyzedAt,
+        ChallengeLatestRetrySummaryResponse latestRetrySummary) {
 }

@@ -7,6 +7,7 @@ import com.motionchallenge.attempt.repository.AttemptRepository;
 import com.motionchallenge.attempt.repository.AttemptVideoRepository;
 import com.motionchallenge.challenge.dto.ChallengeAnalysisResponse;
 import com.motionchallenge.challenge.dto.ChallengeCreateRequest;
+import com.motionchallenge.challenge.dto.ChallengeLatestRetrySummaryResponse;
 import com.motionchallenge.challenge.dto.ChallengeResponse;
 import com.motionchallenge.challenge.dto.MotionSessionStateResponse;
 import com.motionchallenge.challenge.entity.Challenge;
@@ -21,8 +22,12 @@ import com.motionchallenge.motion.service.MotionAnalysisService;
 import com.motionchallenge.video.service.StoredVideo;
 import com.motionchallenge.video.service.VideoStorageService;
 import java.time.LocalDateTime;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -74,21 +79,19 @@ public class ChallengeService {
     }
 
     public List<ChallengeResponse> getChallenges() {
-        return challengeRepository.findAllByIsActiveTrueOrderByCreatedAtDesc().stream()
-                .map(this::toResponse)
-                .toList();
+        List<Challenge> challenges = challengeRepository.findAllByIsActiveTrueOrderByCreatedAtDesc();
+        return toResponses(challenges);
     }
 
     public List<ChallengeResponse> getPopularChallenges() {
-        List<ChallengeResponse> fallback = challengeRepository.findTop3ByIsActiveTrueOrderByCreatedAtDesc().stream()
-                .map(this::toResponse)
-                .toList();
+        List<Challenge> fallbackChallenges = challengeRepository.findTop3ByIsActiveTrueOrderByCreatedAtDesc();
+        List<ChallengeResponse> fallback = toResponses(fallbackChallenges);
         return challengeCacheService.getPopularChallenges(fallback);
     }
 
     public Optional<ChallengeResponse> getChallenge(Long id) {
         return challengeRepository.findByIdAndIsActiveTrue(id)
-                .map(this::toResponse);
+                .map(challenge -> toResponses(List.of(challenge)).get(0));
     }
 
     public Optional<MotionSessionStateResponse> getMotionSessionState(Long id) {
@@ -147,7 +150,7 @@ public class ChallengeService {
                 storedVideo.contentType(),
                 storedVideo.size()));
 
-        return toResponse(challenge);
+        return toResponses(List.of(challenge)).get(0);
     }
 
     @Transactional(noRollbackFor = ResponseStatusException.class)
@@ -213,10 +216,30 @@ public class ChallengeService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Challenge not found."));
     }
 
-    private ChallengeResponse toResponse(Challenge challenge) {
-        Optional<ChallengeVideo> challengeVideo = challengeVideoRepository.findByChallengeId(challenge.getId());
-        boolean profileReady = challengeMotionProfileRepository.findByChallengeId(challenge.getId()).isPresent();
+    private List<ChallengeResponse> toResponses(List<Challenge> challenges) {
+        if (challenges.isEmpty()) {
+            return List.of();
+        }
 
+        Map<Long, ChallengeVideo> videoByChallengeId = buildChallengeVideoByChallengeId(challenges);
+        Set<Long> profileReadyChallengeIds = buildProfileReadyChallengeIds(challenges);
+        Map<Long, ChallengeLatestRetrySummaryResponse> retrySummaryByChallengeId =
+                buildLatestRetrySummaryByChallengeId(challenges);
+
+        return challenges.stream()
+                .map(challenge -> toResponse(
+                        challenge,
+                        videoByChallengeId.get(challenge.getId()),
+                        profileReadyChallengeIds.contains(challenge.getId()),
+                        retrySummaryByChallengeId.get(challenge.getId())))
+                .toList();
+    }
+
+    private ChallengeResponse toResponse(
+            Challenge challenge,
+            ChallengeVideo challengeVideo,
+            boolean profileReady,
+            ChallengeLatestRetrySummaryResponse latestRetrySummary) {
         return new ChallengeResponse(
                 challenge.getId(),
                 challenge.getTitle(),
@@ -228,9 +251,221 @@ public class ChallengeService {
                 challenge.getDurationSec(),
                 challenge.isActive(),
                 challenge.getReferenceAnalysisStatus().name(),
-                challengeVideo.isPresent(),
+                challengeVideo != null,
                 profileReady,
-                challengeVideo.map(ChallengeVideo::getOriginalFileName).orElse(null),
-                challenge.getReferenceAnalyzedAt());
+                challengeVideo != null ? challengeVideo.getOriginalFileName() : null,
+                challenge.getReferenceAnalyzedAt(),
+                latestRetrySummary);
+    }
+
+    private Map<Long, ChallengeVideo> buildChallengeVideoByChallengeId(List<Challenge> challenges) {
+        Set<Long> challengeIds = toChallengeIds(challenges);
+        Map<Long, ChallengeVideo> videoByChallengeId = new HashMap<>();
+        for (ChallengeVideo challengeVideo : challengeVideoRepository.findByChallengeIdIn(challengeIds)) {
+            videoByChallengeId.put(challengeVideo.getChallenge().getId(), challengeVideo);
+        }
+        return videoByChallengeId;
+    }
+
+    private Set<Long> buildProfileReadyChallengeIds(List<Challenge> challenges) {
+        Set<Long> challengeIds = toChallengeIds(challenges);
+        return new HashSet<>(challengeMotionProfileRepository.findChallengeIdsByChallengeIdIn(challengeIds));
+    }
+
+    private Map<Long, ChallengeLatestRetrySummaryResponse> buildLatestRetrySummaryByChallengeId(List<Challenge> challenges) {
+        Set<Long> challengeIds = toChallengeIds(challenges);
+        List<Attempt> relevantAttempts =
+                attemptRepository.findByChallengeIdInWithChallengeOrderByCreatedAtAsc(List.copyOf(challengeIds));
+        Set<Long> uploadedAttemptIds = findUploadedAttemptIds(relevantAttempts);
+        Map<Long, ChallengeLatestRetrySummaryResponse> summaryByChallengeId = new HashMap<>();
+        Map<Long, Attempt> previousScoredAttemptByChallengeId = new HashMap<>();
+
+        relevantAttempts.forEach(attempt -> {
+            if (!isAutoScoredAttempt(attempt, uploadedAttemptIds)) {
+                return;
+            }
+
+            Attempt previousAttempt = previousScoredAttemptByChallengeId.get(attempt.getChallenge().getId());
+            summaryByChallengeId.put(
+                    attempt.getChallenge().getId(),
+                    new ChallengeLatestRetrySummaryResponse(
+                            attempt.getId(),
+                            attempt.getScore(),
+                            attempt.getCreatedAt(),
+                            previousAttempt == null ? null : attempt.getScore() - previousAttempt.getScore(),
+                            normalizeDisplayText(attempt.getStrongestArea()),
+                            normalizeDisplayText(attempt.getWeakestArea()),
+                            buildCoachingTeaser(attempt, previousAttempt),
+                            buildRetryFocus(attempt, previousAttempt),
+                            buildKeepStableFocus(attempt, previousAttempt)));
+            previousScoredAttemptByChallengeId.put(attempt.getChallenge().getId(), attempt);
+        });
+
+        return summaryByChallengeId;
+    }
+
+    private Set<Long> toChallengeIds(List<Challenge> challenges) {
+        Set<Long> challengeIds = new HashSet<>();
+        for (Challenge challenge : challenges) {
+            challengeIds.add(challenge.getId());
+        }
+        return challengeIds;
+    }
+
+    private Set<Long> findUploadedAttemptIds(List<Attempt> attempts) {
+        if (attempts.isEmpty()) {
+            return Set.of();
+        }
+
+        Set<Long> attemptIds = new HashSet<>();
+        for (Attempt attempt : attempts) {
+            attemptIds.add(attempt.getId());
+        }
+
+        return new HashSet<>(attemptVideoRepository.findAttemptIdsByAttemptIdIn(attemptIds));
+    }
+
+    private boolean isAutoScoredAttempt(Attempt attempt, Set<Long> uploadedAttemptIds) {
+        return "Completed".equals(attempt.getStatus()) && uploadedAttemptIds.contains(attempt.getId());
+    }
+
+    private String buildCoachingTeaser(Attempt attempt, Attempt previousAttempt) {
+        String weakestArea = normalizeDisplayText(attempt.getWeakestArea());
+        String strongestArea = normalizeDisplayText(attempt.getStrongestArea());
+        DeltaMetric bestMetric = buildPrimaryDeltaMetric(attempt, previousAttempt, true);
+        DeltaMetric worstMetric = buildPrimaryDeltaMetric(attempt, previousAttempt, false);
+
+        if ("timing".equals(weakestArea)) {
+            return "Next retry: tighten timing first." + buildDeltaTail(bestMetric, worstMetric);
+        }
+        if ("detection stability".equals(weakestArea)) {
+            return "Next retry: clean up framing before changing the move itself." + buildDeltaTail(bestMetric, worstMetric);
+        }
+        if ("pose similarity".equals(weakestArea)) {
+            return "Next retry: recover the big body shapes before adjusting speed." + buildDeltaTail(bestMetric, worstMetric);
+        }
+        if (attempt.getScore() >= 85 && strongestArea != null) {
+            return "Strong run overall. Keep " + strongestArea + " steady." + buildDeltaTail(bestMetric, worstMetric);
+        }
+        if (previousAttempt != null) {
+            return "Keep the same camera setup and change one variable at a time. Score trend: "
+                    + formatSignedDelta(attempt.getScore() - previousAttempt.getScore())
+                    + " pts."
+                    + buildDeltaTail(bestMetric, worstMetric);
+        }
+        return "Next retry: keep the same camera setup and change only one variable so the next score shift is easier to read.";
+    }
+
+    private String buildRetryFocus(Attempt attempt, Attempt previousAttempt) {
+        String weakestArea = normalizeDisplayText(attempt.getWeakestArea());
+        DeltaMetric worstMetric = buildPrimaryDeltaMetric(attempt, previousAttempt, false);
+
+        if (weakestArea != null) {
+            String message = "Focus the next retry on " + weakestArea + " first.";
+            if (worstMetric != null && worstMetric.delta() < 0) {
+                message += " " + worstMetric.label() + " also moved " + formatSignedDelta(worstMetric.delta()) + ".";
+            }
+            return message;
+        }
+
+        if (previousAttempt != null) {
+            return "Keep the capture setup stable and isolate one variable. Latest score trend: "
+                    + formatSignedDelta(attempt.getScore() - previousAttempt.getScore())
+                    + " pts.";
+        }
+
+        return "Use the next retry to create a clean baseline with the same camera setup.";
+    }
+
+    private String buildKeepStableFocus(Attempt attempt, Attempt previousAttempt) {
+        String strongestArea = normalizeDisplayText(attempt.getStrongestArea());
+        DeltaMetric bestMetric = buildPrimaryDeltaMetric(attempt, previousAttempt, true);
+
+        if (strongestArea != null) {
+            String message = "Keep " + strongestArea + " stable on the next retry.";
+            if (bestMetric != null && bestMetric.delta() > 0) {
+                message += " " + bestMetric.label() + " improved " + formatSignedDelta(bestMetric.delta()) + ".";
+            }
+            return message;
+        }
+
+        if (bestMetric != null && bestMetric.delta() > 0) {
+            return "Preserve the setup that improved " + bestMetric.label() + " by " + formatSignedDelta(bestMetric.delta()) + ".";
+        }
+
+        return "Keep the current framing, lighting, and tempo as consistent as possible across retries.";
+    }
+
+    private DeltaMetric buildPrimaryDeltaMetric(Attempt attempt, Attempt previousAttempt, boolean best) {
+        if (previousAttempt == null) {
+            return null;
+        }
+
+        DeltaMetric[] metrics = new DeltaMetric[] {
+            buildDeltaMetric("Pose", computeDelta(attempt.getPoseSimilarity(), previousAttempt.getPoseSimilarity())),
+            buildDeltaMetric("Timing", computeDelta(attempt.getTimingSimilarity(), previousAttempt.getTimingSimilarity())),
+            buildDeltaMetric("Stability", computeDelta(attempt.getStabilitySimilarity(), previousAttempt.getStabilitySimilarity()))
+        };
+
+        DeltaMetric selected = null;
+        for (DeltaMetric metric : metrics) {
+            if (metric == null) {
+                continue;
+            }
+            if (selected == null) {
+                selected = metric;
+                continue;
+            }
+            if (best && metric.delta() > selected.delta()) {
+                selected = metric;
+            }
+            if (!best && metric.delta() < selected.delta()) {
+                selected = metric;
+            }
+        }
+        return selected;
+    }
+
+    private DeltaMetric buildDeltaMetric(String label, Integer delta) {
+        return delta == null ? null : new DeltaMetric(label, delta);
+    }
+
+    private Integer computeDelta(Integer currentValue, Integer previousValue) {
+        if (currentValue == null || previousValue == null) {
+            return null;
+        }
+        return currentValue - previousValue;
+    }
+
+    private String buildDeltaTail(DeltaMetric bestMetric, DeltaMetric worstMetric) {
+        StringBuilder tail = new StringBuilder();
+        if (bestMetric != null && bestMetric.delta() > 0) {
+            tail.append(" ").append(bestMetric.label()).append(" improved ").append(formatSignedDelta(bestMetric.delta())).append(".");
+        }
+        if (worstMetric != null && worstMetric.delta() < 0) {
+            tail.append(" ").append(worstMetric.label()).append(" slipped ").append(formatSignedDelta(worstMetric.delta())).append(".");
+        }
+        return tail.toString();
+    }
+
+    private String formatSignedDelta(int delta) {
+        return (delta >= 0 ? "+" : "") + delta;
+    }
+
+    private String normalizeDisplayText(String value) {
+        if (value == null || value.isBlank()) {
+            return value;
+        }
+        if (looksGarbled(value)) {
+            return null;
+        }
+        return value;
+    }
+
+    private boolean looksGarbled(String value) {
+        return value.contains("??") || value.contains("\uFFFD");
+    }
+
+    private record DeltaMetric(String label, int delta) {
     }
 }

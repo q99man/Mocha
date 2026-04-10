@@ -42,11 +42,26 @@ public class Attempt extends BaseTimeEntity {
     @Column(length = 1000)
     private String notes;
 
+    @Column
+    private Integer poseSimilarity;
+
+    @Column
+    private Integer timingSimilarity;
+
+    @Column
+    private Integer stabilitySimilarity;
+
+    @Column(length = 60)
+    private String strongestArea;
+
+    @Column(length = 60)
+    private String weakestArea;
+
     protected Attempt() {
     }
 
     public Attempt(Challenge challenge, Integer score, String status, String notes) {
-        this(challenge, score, status, null, false, null, notes);
+        this(challenge, score, status, null, false, null, notes, null, null, null, null, null);
     }
 
     public Attempt(
@@ -57,6 +72,22 @@ public class Attempt extends BaseTimeEntity {
             boolean processingComplete,
             String processingNotice,
             String notes) {
+        this(challenge, score, status, processingMode, processingComplete, processingNotice, notes, null, null, null, null, null);
+    }
+
+    public Attempt(
+            Challenge challenge,
+            Integer score,
+            String status,
+            String processingMode,
+            boolean processingComplete,
+            String processingNotice,
+            String notes,
+            Integer poseSimilarity,
+            Integer timingSimilarity,
+            Integer stabilitySimilarity,
+            String strongestArea,
+            String weakestArea) {
         this.challenge = challenge;
         this.score = score;
         this.status = status;
@@ -64,6 +95,11 @@ public class Attempt extends BaseTimeEntity {
         this.processingComplete = processingComplete;
         this.processingNotice = processingNotice;
         this.notes = notes;
+        this.poseSimilarity = poseSimilarity;
+        this.timingSimilarity = timingSimilarity;
+        this.stabilitySimilarity = stabilitySimilarity;
+        this.strongestArea = strongestArea;
+        this.weakestArea = weakestArea;
     }
 
     public Long getId() {
@@ -96,5 +132,25 @@ public class Attempt extends BaseTimeEntity {
 
     public String getNotes() {
         return notes;
+    }
+
+    public Integer getPoseSimilarity() {
+        return poseSimilarity;
+    }
+
+    public Integer getTimingSimilarity() {
+        return timingSimilarity;
+    }
+
+    public Integer getStabilitySimilarity() {
+        return stabilitySimilarity;
+    }
+
+    public String getStrongestArea() {
+        return strongestArea;
+    }
+
+    public String getWeakestArea() {
+        return weakestArea;
     }
 }

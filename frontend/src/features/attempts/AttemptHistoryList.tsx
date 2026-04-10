@@ -1,8 +1,10 @@
-﻿import { useState } from 'react';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 
 import { getAttemptVideoProcessingProgressByTrackingId } from '../../shared/api/attemptApi';
 import { StatusGlyph } from '../../shared/components/StatusGlyph';
+import { buildAttemptBreakdownMetrics, buildAttemptBreakdownSummary } from '../../shared/presentation/attemptBreakdown';
+import { buildAttemptCoachingTeaser } from '../../shared/presentation/attemptCoaching';
 import {
   buildDurableProgressCompletionLinkLabel,
   buildDurableProgressCompletionStrategyLabel,
@@ -20,9 +22,10 @@ import type {
 
 type AttemptHistoryListProps = {
   attempts: AttemptSummary[];
+  comparisonDeltaByAttemptId?: Record<number, number>;
 };
 
-export function AttemptHistoryList({ attempts }: AttemptHistoryListProps) {
+export function AttemptHistoryList({ attempts, comparisonDeltaByAttemptId = {} }: AttemptHistoryListProps) {
   const [progressByAttemptId, setProgressByAttemptId] = useState<Record<number, AttemptVideoProcessingJobProgress | null>>({});
   const [progressMessageByAttemptId, setProgressMessageByAttemptId] = useState<Record<number, string | null>>({});
   const [loadingAttemptId, setLoadingAttemptId] = useState<number | null>(null);
@@ -68,9 +71,13 @@ export function AttemptHistoryList({ attempts }: AttemptHistoryListProps) {
         const processingCompleteMeta = buildProcessingCompleteMeta(attempt.processingComplete);
         const pendingProcessWarning = !attempt.processingComplete || attempt.processingMode === 'ASYNC_JOB_PENDING';
         const currentStage = buildCurrentStageSummary(attempt);
+        const breakdownSummary = buildAttemptBreakdownSummary(attempt);
+        const breakdownMetrics = buildAttemptBreakdownMetrics(attempt);
+        const coachingTeaser = buildAttemptCoachingTeaser(attempt);
         const progress = progressByAttemptId[attempt.id] ?? null;
         const progressMessage = progressMessageByAttemptId[attempt.id] ?? null;
         const completedResultId = progress?.resultAttemptId ?? null;
+        const comparisonDelta = comparisonDeltaByAttemptId[attempt.id] ?? null;
 
         return (
           <article className="panel panel--section archive-card panel-lift" key={attempt.id}>
@@ -83,6 +90,13 @@ export function AttemptHistoryList({ attempts }: AttemptHistoryListProps) {
               <div className="archive-card__score">
                 <span>SCORE</span>
                 <strong>{attempt.score}</strong>
+                {comparisonDelta != null && attempt.resultSource === 'VIDEO_UPLOAD_AUTOSCORED' ? (
+                  <small
+                    className={`archive-card__delta ${comparisonDelta >= 0 ? 'archive-card__delta--good' : 'archive-card__delta--warn'}`}
+                  >
+                    {comparisonDelta >= 0 ? `+${comparisonDelta}` : comparisonDelta} vs prev
+                  </small>
+                ) : null}
               </div>
             </div>
 
@@ -117,6 +131,17 @@ export function AttemptHistoryList({ attempts }: AttemptHistoryListProps) {
               <strong>{attempt.resultHeadline}</strong>
               <p>{attempt.resultSummary}</p>
               {attempt.processingNotice ? <p>{attempt.processingNotice}</p> : null}
+              {breakdownSummary ? <p className="archive-card__breakdown-summary">{breakdownSummary}</p> : null}
+              {breakdownMetrics.length > 0 ? (
+                <div className="archive-card__breakdown-metrics">
+                  {breakdownMetrics.map((metric) => (
+                    <span key={metric.label}>{metric.label} {metric.value}</span>
+                  ))}
+                </div>
+              ) : null}
+              {coachingTeaser ? <p className="archive-card__coaching">{coachingTeaser}</p> : null}
+              {attempt.retryFocus ? <p className="archive-card__focus"><strong>Retry focus</strong>{attempt.retryFocus}</p> : null}
+              {attempt.keepStableFocus ? <p className="archive-card__focus archive-card__focus--stable"><strong>Keep stable</strong>{attempt.keepStableFocus}</p> : null}
             </div>
 
             <div className="archive-card__stage">
@@ -178,6 +203,9 @@ export function AttemptHistoryList({ attempts }: AttemptHistoryListProps) {
                 </Link>
                 <Link className="button-link button-link--secondary" to={`/challenges/${attempt.challengeId}`}>
                   Open challenge
+                </Link>
+                <Link className="button-link button-link--secondary" to={`/challenges/${attempt.challengeId}/start`}>
+                  Retry challenge
                 </Link>
               </div>
             </div>

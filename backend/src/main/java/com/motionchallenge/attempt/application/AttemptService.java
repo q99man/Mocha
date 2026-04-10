@@ -17,8 +17,12 @@ import com.motionchallenge.video.service.StoredVideo;
 import com.motionchallenge.video.service.VideoStorageService;
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -79,8 +83,15 @@ public class AttemptService {
     }
 
     public List<AttemptSummaryResponse> getAttempts() {
-        return attemptRepository.findAllByOrderByCreatedAtDesc().stream()
-                .map(this::toResponse)
+        List<Attempt> attempts = attemptRepository.findAllWithChallengeOrderByCreatedAtDesc();
+        Set<Long> uploadedAttemptIds = findUploadedAttemptIds(attempts);
+        Map<Long, AttemptComparisonSnapshot> comparisonByAttemptId = buildComparisonByAttemptId(attempts, uploadedAttemptIds);
+
+        return attempts.stream()
+                .map(attempt -> toResponse(
+                        attempt,
+                        comparisonByAttemptId.get(attempt.getId()),
+                        uploadedAttemptIds.contains(attempt.getId())))
                 .toList();
     }
 
@@ -88,7 +99,9 @@ public class AttemptService {
         Attempt attempt = attemptRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Attempt not found."));
 
-        return toResponse(attempt);
+        boolean hasUploadedVideo = findUploadedAttemptIds(List.of(attempt)).contains(attempt.getId());
+        AttemptComparisonSnapshot comparison = buildComparisonSnapshot(attempt, hasUploadedVideo);
+        return toResponse(attempt, comparison, hasUploadedVideo);
     }
 
     public AttemptProcessingJobProgressResponse getAttemptVideoProcessingProgressFallback(Long challengeId, String trackingId) {
@@ -132,7 +145,7 @@ public class AttemptService {
                 PROCESSING_NOTICE_PREPARED,
                 normalizePreparedNotes(notes)));
 
-        return toResponse(attempt);
+        return toResponse(attempt, null, false);
     }
 
     @Transactional
@@ -149,7 +162,7 @@ public class AttemptService {
                 PROCESSING_NOTICE_SAMPLE,
                 normalizeCompletedNotes(command.notes())));
 
-        return toResponse(attempt);
+        return toResponse(attempt, null, false);
     }
 
     @Transactional
@@ -253,9 +266,11 @@ public class AttemptService {
                 processingJob.getUpdatedAt(),
                 elapsedSeconds);
     }
-
-    private AttemptSummaryResponse toResponse(Attempt attempt) {
-        String resultSource = resolveResultSource(attempt);
+    private AttemptSummaryResponse toResponse(
+            Attempt attempt,
+            AttemptComparisonSnapshot comparison,
+            boolean hasUploadedVideo) {
+        String resultSource = resolveResultSource(attempt, hasUploadedVideo);
         String displayStatus = resolveDisplayStatus(attempt, resultSource);
         SimpleScoringResult scoringResult = simpleScoringPreviewService.buildResult(displayStatus, attempt.getScore());
         String processingMode = resolvePersistedProcessingMode(attempt, resultSource);
@@ -284,20 +299,273 @@ public class AttemptService {
                 latestProcessingJob != null ? resolveRemainingAutoRetryCount(latestProcessingJob) : 0,
                 latestProcessingJob != null && resolveAutoRetryExhausted(latestProcessingJob),
                 latestProcessingJob != null ? latestProcessingJob.getOriginalFileName() : null,
+                attempt.getPoseSimilarity(),
+                attempt.getTimingSimilarity(),
+                attempt.getStabilitySimilarity(),
+                normalizeDisplayText(attempt.getStrongestArea()),
+                normalizeDisplayText(attempt.getWeakestArea()),
+                buildCoachingTeaser(attempt, comparison, hasUploadedVideo),
+                buildRetryFocus(attempt, comparison, hasUploadedVideo),
+                buildKeepStableFocus(attempt, comparison, hasUploadedVideo),
+                comparison != null ? comparison.previousAttemptId() : null,
+                comparison != null ? comparison.previousAttemptScore() : null,
+                comparison != null ? comparison.previousAttemptedAt() : null,
+                comparison != null ? comparison.scoreDeltaFromPrevious() : null,
+                comparison != null ? comparison.poseDeltaFromPrevious() : null,
+                comparison != null ? comparison.timingDeltaFromPrevious() : null,
+                comparison != null ? comparison.stabilityDeltaFromPrevious() : null,
                 attempt.getCreatedAt());
     }
 
-    private String resolveResultSource(Attempt attempt) {
+    private Map<Long, AttemptComparisonSnapshot> buildComparisonByAttemptId(
+            List<Attempt> attempts,
+            Set<Long> uploadedAttemptIds) {
+        Map<Long, AttemptComparisonSnapshot> comparisonByAttemptId = new HashMap<>();
+        Map<Long, Attempt> latestScoredAttemptByChallengeId = new HashMap<>();
+
+        attempts.stream()
+                .sorted((left, right) -> {
+                    int createdAtComparison = left.getCreatedAt().compareTo(right.getCreatedAt());
+                    if (createdAtComparison != 0) {
+                        return createdAtComparison;
+                    }
+                    return left.getId().compareTo(right.getId());
+                })
+                .forEach(attempt -> {
+                    if (!isAutoScoredAttempt(attempt, uploadedAttemptIds)) {
+                        return;
+                    }
+
+                    Attempt previousAttempt = latestScoredAttemptByChallengeId.get(attempt.getChallenge().getId());
+                    if (previousAttempt != null) {
+                        comparisonByAttemptId.put(attempt.getId(), AttemptComparisonSnapshot.from(previousAttempt, attempt));
+                    }
+
+                    latestScoredAttemptByChallengeId.put(attempt.getChallenge().getId(), attempt);
+                });
+
+        return comparisonByAttemptId;
+    }
+
+    private AttemptComparisonSnapshot buildComparisonSnapshot(Attempt attempt, boolean hasUploadedVideo) {
+        if (!isAutoScoredAttempt(attempt, hasUploadedVideo)) {
+            return null;
+        }
+
+        List<Attempt> attempts = attemptRepository.findByChallengeIdWithChallengeOrderByCreatedAtAsc(attempt.getChallenge().getId());
+        Set<Long> uploadedAttemptIds = findUploadedAttemptIds(attempts);
+        Attempt previousAttempt = null;
+        for (Attempt candidate : attempts) {
+            if (candidate.getId().equals(attempt.getId())) {
+                break;
+            }
+            if (!isAutoScoredAttempt(candidate, uploadedAttemptIds)) {
+                continue;
+            }
+            previousAttempt = candidate;
+        }
+
+        return previousAttempt == null ? null : AttemptComparisonSnapshot.from(previousAttempt, attempt);
+    }
+
+    private record AttemptComparisonSnapshot(
+            Long previousAttemptId,
+            Integer previousAttemptScore,
+            LocalDateTime previousAttemptedAt,
+            Integer scoreDeltaFromPrevious,
+            Integer poseDeltaFromPrevious,
+            Integer timingDeltaFromPrevious,
+            Integer stabilityDeltaFromPrevious) {
+
+        private static AttemptComparisonSnapshot from(Attempt previousAttempt, Attempt currentAttempt) {
+            return new AttemptComparisonSnapshot(
+                    previousAttempt.getId(),
+                    previousAttempt.getScore(),
+                    previousAttempt.getCreatedAt(),
+                    currentAttempt.getScore() - previousAttempt.getScore(),
+                    computeDelta(currentAttempt.getPoseSimilarity(), previousAttempt.getPoseSimilarity()),
+                    computeDelta(currentAttempt.getTimingSimilarity(), previousAttempt.getTimingSimilarity()),
+                    computeDelta(currentAttempt.getStabilitySimilarity(), previousAttempt.getStabilitySimilarity()));
+        }
+
+        private static Integer computeDelta(Integer currentValue, Integer previousValue) {
+            if (currentValue == null || previousValue == null) {
+                return null;
+            }
+            return currentValue - previousValue;
+        }
+    }
+
+    private String buildCoachingTeaser(
+            Attempt attempt,
+            AttemptComparisonSnapshot comparison,
+            boolean hasUploadedVideo) {
+        if (!isAutoScoredAttempt(attempt, hasUploadedVideo)) {
+            return null;
+        }
+
+        String weakestArea = normalizeDisplayText(attempt.getWeakestArea());
+        String strongestArea = normalizeDisplayText(attempt.getStrongestArea());
+        AttemptDeltaMetric bestMetric = buildPrimaryDeltaMetric(comparison, true);
+        AttemptDeltaMetric worstMetric = buildPrimaryDeltaMetric(comparison, false);
+
+        if ("timing".equals(weakestArea)) {
+            return "Next retry: tighten timing first." + buildDeltaTail(bestMetric, worstMetric);
+        }
+        if ("detection stability".equals(weakestArea)) {
+            return "Next retry: clean up framing before changing the move itself." + buildDeltaTail(bestMetric, worstMetric);
+        }
+        if ("pose similarity".equals(weakestArea)) {
+            return "Next retry: recover the big body shapes before adjusting speed." + buildDeltaTail(bestMetric, worstMetric);
+        }
+        if (attempt.getScore() >= 85 && strongestArea != null) {
+            return "Strong run overall. Keep " + strongestArea + " steady." + buildDeltaTail(bestMetric, worstMetric);
+        }
+        if (comparison != null && comparison.scoreDeltaFromPrevious() != null) {
+            return "Keep the same camera setup and change one variable at a time. Score trend: "
+                    + formatSignedDelta(comparison.scoreDeltaFromPrevious())
+                    + " pts."
+                    + buildDeltaTail(bestMetric, worstMetric);
+        }
+        return "Next retry: keep the same camera setup and change only one variable so the next score shift is easier to read.";
+    }
+
+    private AttemptDeltaMetric buildPrimaryDeltaMetric(AttemptComparisonSnapshot comparison, boolean best) {
+        if (comparison == null) {
+            return null;
+        }
+
+        AttemptDeltaMetric[] metrics = new AttemptDeltaMetric[] {
+            buildDeltaMetric("Pose", comparison.poseDeltaFromPrevious()),
+            buildDeltaMetric("Timing", comparison.timingDeltaFromPrevious()),
+            buildDeltaMetric("Stability", comparison.stabilityDeltaFromPrevious())
+        };
+
+        AttemptDeltaMetric selected = null;
+        for (AttemptDeltaMetric metric : metrics) {
+            if (metric == null) {
+                continue;
+            }
+            if (selected == null) {
+                selected = metric;
+                continue;
+            }
+            if (best && metric.delta() > selected.delta()) {
+                selected = metric;
+            }
+            if (!best && metric.delta() < selected.delta()) {
+                selected = metric;
+            }
+        }
+        return selected;
+    }
+
+    private AttemptDeltaMetric buildDeltaMetric(String label, Integer delta) {
+        return delta == null ? null : new AttemptDeltaMetric(label, delta);
+    }
+
+    private String buildDeltaTail(AttemptDeltaMetric bestMetric, AttemptDeltaMetric worstMetric) {
+        StringBuilder tail = new StringBuilder();
+        if (bestMetric != null && bestMetric.delta() > 0) {
+            tail.append(" ").append(bestMetric.label()).append(" improved ").append(formatSignedDelta(bestMetric.delta())).append(".");
+        }
+        if (worstMetric != null && worstMetric.delta() < 0) {
+            tail.append(" ").append(worstMetric.label()).append(" slipped ").append(formatSignedDelta(worstMetric.delta())).append(".");
+        }
+        return tail.toString();
+    }
+
+    private String formatSignedDelta(int delta) {
+        return (delta >= 0 ? "+" : "") + delta;
+    }
+
+    private record AttemptDeltaMetric(String label, int delta) {
+    }
+    private String buildRetryFocus(
+            Attempt attempt,
+            AttemptComparisonSnapshot comparison,
+            boolean hasUploadedVideo) {
+        if (!isAutoScoredAttempt(attempt, hasUploadedVideo)) {
+            return null;
+        }
+
+        String weakestArea = normalizeDisplayText(attempt.getWeakestArea());
+        AttemptDeltaMetric worstMetric = buildPrimaryDeltaMetric(comparison, false);
+
+        if (weakestArea != null) {
+            String message = "Focus the next retry on " + weakestArea + " first.";
+            if (worstMetric != null && worstMetric.delta() < 0) {
+                message += " " + worstMetric.label() + " also moved " + formatSignedDelta(worstMetric.delta()) + ".";
+            }
+            return message;
+        }
+
+        if (comparison != null && comparison.scoreDeltaFromPrevious() != null) {
+            return "Keep the capture setup stable and isolate one variable. Latest score trend: "
+                    + formatSignedDelta(comparison.scoreDeltaFromPrevious())
+                    + " pts.";
+        }
+
+        return "Use the next retry to create a clean baseline with the same camera setup.";
+    }
+
+    private String buildKeepStableFocus(
+            Attempt attempt,
+            AttemptComparisonSnapshot comparison,
+            boolean hasUploadedVideo) {
+        if (!isAutoScoredAttempt(attempt, hasUploadedVideo)) {
+            return null;
+        }
+
+        String strongestArea = normalizeDisplayText(attempt.getStrongestArea());
+        AttemptDeltaMetric bestMetric = buildPrimaryDeltaMetric(comparison, true);
+
+        if (strongestArea != null) {
+            String message = "Keep " + strongestArea + " stable on the next retry.";
+            if (bestMetric != null && bestMetric.delta() > 0) {
+                message += " " + bestMetric.label() + " improved " + formatSignedDelta(bestMetric.delta()) + ".";
+            }
+            return message;
+        }
+
+        if (bestMetric != null && bestMetric.delta() > 0) {
+            return "Preserve the setup that improved " + bestMetric.label() + " by " + formatSignedDelta(bestMetric.delta()) + ".";
+        }
+
+        return "Keep the current framing, lighting, and tempo as consistent as possible across retries.";
+    }
+
+    private String resolveResultSource(Attempt attempt, boolean hasUploadedVideo) {
         if (!AttemptStatus.COMPLETED.equals(attempt.getStatus())) {
             return AttemptResultSource.PREPARED_FLOW;
         }
 
-        boolean hasUploadedVideo = attemptVideoRepository.findByAttemptId(attempt.getId()).isPresent();
         if (hasUploadedVideo) {
             return AttemptResultSource.VIDEO_UPLOAD_AUTOSCORED;
         }
 
         return AttemptResultSource.SAMPLE_SCORING_PREVIEW;
+    }
+
+    private Set<Long> findUploadedAttemptIds(List<Attempt> attempts) {
+        if (attempts.isEmpty()) {
+            return Set.of();
+        }
+
+        Set<Long> attemptIds = new HashSet<>();
+        for (Attempt attempt : attempts) {
+            attemptIds.add(attempt.getId());
+        }
+
+        return new HashSet<>(attemptVideoRepository.findAttemptIdsByAttemptIdIn(attemptIds));
+    }
+
+    private boolean isAutoScoredAttempt(Attempt attempt, Set<Long> uploadedAttemptIds) {
+        return isAutoScoredAttempt(attempt, uploadedAttemptIds.contains(attempt.getId()));
+    }
+
+    private boolean isAutoScoredAttempt(Attempt attempt, boolean hasUploadedVideo) {
+        return AttemptStatus.COMPLETED.equals(attempt.getStatus()) && hasUploadedVideo;
     }
 
     private String resolveResultSummary(Attempt attempt, SimpleScoringResult scoringResult) {
@@ -332,14 +600,7 @@ public class AttemptService {
     }
 
     private boolean looksGarbled(String value) {
-        return value.contains("??")
-                || value.contains("\uFFFD")
-                || value.contains("餓")
-                || value.contains("筌")
-                || value.contains("癲")
-                || value.contains("꾨")
-                || value.contains("繞")
-                || value.contains("嶺");
+        return value.contains("??") || value.contains("\uFFFD");
     }
 
     private String resolvePendingTrackingId(Attempt attempt) {
@@ -390,7 +651,6 @@ public class AttemptService {
         }
         return PROCESSING_NOTICE_PREPARED;
     }
-
     private String normalizeRecordType(String recordType) {
         if (AttemptRecordType.COMPLETED.equalsIgnoreCase(recordType)) {
             return AttemptRecordType.COMPLETED;

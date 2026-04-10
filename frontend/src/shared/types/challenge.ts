@@ -1,4 +1,17 @@
-﻿export type ChallengeAnalysisStatus = 'NOT_ANALYZED' | 'ANALYZING' | 'COMPLETED' | 'FAILED';
+export type ChallengeAnalysisStatus = 'NOT_ANALYZED' | 'ANALYZING' | 'COMPLETED' | 'FAILED';
+export type ChallengeBreakdownArea = 'pose similarity' | 'timing' | 'detection stability';
+
+export type ChallengeLatestRetrySummary = {
+  latestAttemptId: number;
+  latestScore: number;
+  latestAttemptedAt: string;
+  scoreDeltaFromPrevious: number | null;
+  strongestArea: ChallengeBreakdownArea | null;
+  weakestArea: ChallengeBreakdownArea | null;
+  coachingTeaser: string | null;
+  retryFocus: string | null;
+  keepStableFocus: string | null;
+};
 
 export type Challenge = {
   id: number;
@@ -15,6 +28,7 @@ export type Challenge = {
   referenceMotionProfileReady: boolean;
   referenceVideoOriginalFileName: string | null;
   referenceAnalyzedAt: string | null;
+  latestRetrySummary: ChallengeLatestRetrySummary | null;
 };
 
 export type ChallengeCreateInput = {

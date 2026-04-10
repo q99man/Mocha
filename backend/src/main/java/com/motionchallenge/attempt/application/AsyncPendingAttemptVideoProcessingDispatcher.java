@@ -3,8 +3,8 @@ package com.motionchallenge.attempt.application;
 import com.motionchallenge.attempt.repository.AttemptProcessingJobRepository;
 import java.time.LocalDateTime;
 import java.util.UUID;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -14,10 +14,10 @@ public class AsyncPendingAttemptVideoProcessingDispatcher implements AttemptVide
     private static final String PROCESSING_MODE = "ASYNC_JOB_PENDING";
     private static final String RUNTIME_STATE = "UPLOAD_PENDING";
     private static final String PROCESSING_NOTICE =
-            "현재는 비동기 대기 stub 모드입니다. 실제 백그라운드 작업은 아직 완전히 연결되지 않았습니다.";
-    private static final String PENDING_HEADLINE = "업로드가 접수되었습니다.";
+            "Async pending stub mode is active. The real background worker has not finished this upload yet.";
+    private static final String PENDING_HEADLINE = "Upload accepted.";
     private static final String PENDING_SUMMARY =
-            "분석과 채점은 비동기 작업으로 전환될 예정이고, 지금은 대기 상태만 확인할 수 있습니다.";
+            "Analysis and scoring were deferred to the async pending flow. Only the pending state is available right now.";
     private static final String PENDING_ANALYZER_NAME = "async-pending-stub";
 
     private final AttemptProcessingJobDraftFactory attemptProcessingJobDraftFactory;
@@ -68,6 +68,19 @@ public class AsyncPendingAttemptVideoProcessingDispatcher implements AttemptVide
                 command.storedVideo().originalFileName(),
                 command.storedVideo().contentType(),
                 command.storedVideo().size(),
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
                 LocalDateTime.now());
     }
 }

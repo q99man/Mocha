@@ -43,6 +43,7 @@ frontend/vite.config.d.ts
 
 # Python / MediaPipe bridge
 mediapipe-bridge/.venv/
+mediapipe-bridge/.cache/
 mediapipe-bridge/**/__pycache__/
 mediapipe-bridge/**/*.pyc
 mediapipe-bridge/models/*.task

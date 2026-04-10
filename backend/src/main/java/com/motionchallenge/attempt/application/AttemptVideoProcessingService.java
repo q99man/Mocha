@@ -56,9 +56,12 @@ public class AttemptVideoProcessingService {
                 PROCESSING_MODE_SYNC_INLINE,
                 true,
                 PROCESSING_NOTICE_AUTOSCORED,
-                notes == null || notes.isBlank()
-                        ? scoringResult.summary()
-                        : notes));
+                notes == null || notes.isBlank() ? scoringResult.summary() : notes,
+                scoringResult.poseSimilarity(),
+                scoringResult.timingSimilarity(),
+                scoringResult.stabilitySimilarity(),
+                scoringResult.strongestArea(),
+                scoringResult.weakestArea()));
 
         attemptVideoRepository.save(new AttemptVideo(
                 attempt,
@@ -70,6 +73,8 @@ public class AttemptVideoProcessingService {
         SimpleScoringResult previewResult = simpleScoringPreviewService.buildResult(
                 attempt.getStatus(),
                 scoringResult.score());
+
+        Attempt previousAttempt = resolvePreviousScoredAttempt(challenge.getId(), attempt.getId());
 
         return new AttemptResultResponse(
                 attempt.getId(),
@@ -89,6 +94,39 @@ public class AttemptVideoProcessingService {
                 storedVideo.originalFileName(),
                 storedVideo.contentType(),
                 storedVideo.size(),
+                scoringResult.poseSimilarity(),
+                scoringResult.timingSimilarity(),
+                scoringResult.stabilitySimilarity(),
+                scoringResult.strongestArea(),
+                scoringResult.weakestArea(),
+                null,
+                previousAttempt != null ? previousAttempt.getId() : null,
+                previousAttempt != null ? previousAttempt.getScore() : null,
+                previousAttempt != null ? previousAttempt.getCreatedAt() : null,
+                previousAttempt != null ? scoringResult.score() - previousAttempt.getScore() : null,
+                computeDelta(scoringResult.poseSimilarity(), previousAttempt != null ? previousAttempt.getPoseSimilarity() : null),
+                computeDelta(scoringResult.timingSimilarity(), previousAttempt != null ? previousAttempt.getTimingSimilarity() : null),
+                computeDelta(scoringResult.stabilitySimilarity(), previousAttempt != null ? previousAttempt.getStabilitySimilarity() : null),
                 attempt.getCreatedAt());
+    }
+
+    private Attempt resolvePreviousScoredAttempt(Long challengeId, Long currentAttemptId) {
+        Attempt previousAttempt = null;
+        for (Attempt candidate : attemptRepository.findByChallengeIdOrderByCreatedAtAsc(challengeId)) {
+            if (candidate.getId().equals(currentAttemptId)) {
+                break;
+            }
+            if (attemptVideoRepository.findByAttemptId(candidate.getId()).isPresent()) {
+                previousAttempt = candidate;
+            }
+        }
+        return previousAttempt;
+    }
+
+    private Integer computeDelta(Integer currentValue, Integer previousValue) {
+        if (currentValue == null || previousValue == null) {
+            return null;
+        }
+        return currentValue - previousValue;
     }
 }

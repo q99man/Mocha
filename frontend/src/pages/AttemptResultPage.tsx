@@ -5,8 +5,10 @@ import {
   getAttemptById,
   getAttemptVideoProcessingProgressByTrackingId,
 } from '../shared/api/attemptApi';
+import { toAttemptBreakdownLabel } from '../shared/presentation/attemptBreakdown';
 import { buildDurableProgressSnapshotFromAttempt } from '../shared/presentation/durableProgress';
 import type {
+  AttemptBreakdownArea,
   AttemptProcessingMode,
   AttemptResultSource,
   AttemptSummary,
@@ -23,6 +25,33 @@ type InsightCard = {
   body: string;
 };
 
+type BreakdownCard = {
+  title: string;
+  tone: 'strong' | 'warn' | 'neutral';
+  badge: string;
+  body: string;
+};
+
+type CoachingCard = {
+  title: string;
+  tone: 'accent' | 'warn' | 'neutral';
+  body: string;
+  checklist: string[];
+};
+
+type ChallengeComparisonMetric = {
+  label: string;
+  delta: number;
+};
+
+type ChallengeComparison = {
+  previousAttemptId: number;
+  previousAttemptedAt: string | null;
+  scoreDelta: number;
+  summary: string;
+  metrics: ChallengeComparisonMetric[];
+};
+
 export function AttemptResultPage() {
   const { id } = useParams<{ id: string }>();
   const [attempt, setAttempt] = useState<AttemptSummary | null>(null);
@@ -34,7 +63,7 @@ export function AttemptResultPage() {
 
   useEffect(() => {
     if (!id) {
-      setError('결과를 확인할 시도 ID가 없습니다.');
+      setError('Result id is missing.');
       setLoading(false);
       return;
     }
@@ -51,7 +80,7 @@ export function AttemptResultPage() {
         }
       } catch (loadError) {
         if (!cancelled) {
-          setError(loadError instanceof Error ? loadError.message : '결과를 불러오지 못했습니다.');
+          setError(loadError instanceof Error ? loadError.message : 'Failed to load the attempt result.');
         }
       } finally {
         if (!cancelled) {
@@ -78,7 +107,10 @@ export function AttemptResultPage() {
   const currentStage = useMemo(() => buildCurrentStageSummary(attempt), [attempt]);
   const heroDescription = useMemo(() => buildHeroDescription(attempt), [attempt]);
   const methodologyNote = useMemo(() => buildMethodologyNote(attempt), [attempt]);
-  const insightCards = useMemo(() => buildInsightCards(attempt), [attempt]);
+  const comparison = useMemo(() => buildChallengeComparison(attempt), [attempt]);
+  const insightCards = useMemo(() => buildInsightCards(attempt, comparison), [attempt, comparison]);
+  const breakdownCards = useMemo(() => buildBreakdownCards(attempt), [attempt]);
+  const coachingCards = useMemo(() => buildCoachingCards(attempt), [attempt]);
   const pendingProcessWarning =
     !!attempt && (!attempt.processingComplete || attempt.processingMode === 'ASYNC_JOB_PENDING');
   const effectiveProgress = jobProgress ?? buildDurableProgressSnapshotFromAttempt(attempt);
@@ -87,7 +119,7 @@ export function AttemptResultPage() {
 
   async function reloadDurableProgress() {
     if (!attempt?.pendingTrackingId) {
-      setProgressMessage('다시 조회할 trackingId가 아직 없습니다.');
+      setProgressMessage('No tracking id is available for this result yet.');
       return;
     }
 
@@ -98,7 +130,7 @@ export function AttemptResultPage() {
       setJobProgress(progress);
       setProgressMessage(buildProgressRefreshMessage(progress));
     } catch (loadError) {
-      setProgressMessage(loadError instanceof Error ? loadError.message : '진행 상태를 다시 확인하지 못했습니다.');
+      setProgressMessage(loadError instanceof Error ? loadError.message : 'Failed to refresh processing status.');
     } finally {
       setProgressLoading(false);
     }
@@ -107,7 +139,7 @@ export function AttemptResultPage() {
   if (loading) {
     return (
       <section className="result-page">
-        <p>결과를 불러오는 중입니다...</p>
+        <p>Loading result...</p>
       </section>
     );
   }
@@ -117,11 +149,11 @@ export function AttemptResultPage() {
       <section className="result-page">
         <div className="result-page__hero">
           <p className="result-page__eyebrow">Attempt Result</p>
-          <h1>결과를 확인하지 못했습니다.</h1>
-          <p>{error ?? '요청한 시도 기록을 찾지 못했습니다.'}</p>
+          <h1>Result unavailable</h1>
+          <p>{error ?? 'The requested attempt could not be found.'}</p>
           <div className="result-page__actions">
             <Link to="/attempts" className="button">
-              기록 목록으로 이동
+              Back to attempts
             </Link>
           </div>
         </div>
@@ -135,7 +167,7 @@ export function AttemptResultPage() {
         <div className="result-page__headline-row">
           <div>
             <p className="result-page__eyebrow">Attempt Result</p>
-            <h1>{attempt.resultHeadline || '도전 결과'}</h1>
+            <h1>{attempt.resultHeadline || 'Attempt result'}</h1>
             <p>{heroDescription}</p>
           </div>
           <div className="result-scoreboard">
@@ -146,18 +178,20 @@ export function AttemptResultPage() {
         </div>
         <div className="result-page__actions">
           <Link to={`/challenges/${attempt.challengeId}/start`} className="button">
-            같은 챌린지 다시 도전
+            Retry this challenge
           </Link>
-          <Link to="/attempts" className="button button--secondary">
-            기록 목록 보기
+          <Link to={`/attempts?challengeId=${attempt.challengeId}`} className="button button--secondary">
+            Open challenge archive
           </Link>
         </div>
       </header>
 
       {pendingProcessWarning ? (
         <div className="result-warning-feed">
-          <strong>처리 확인이 더 필요합니다</strong>
-          <p>{attempt.processingNotice ?? '처리 상태를 다시 확인한 뒤 결과를 이어서 확인해 주세요.'}</p>
+          <strong>Processing follow-up needed</strong>
+          <p>
+            {attempt.processingNotice ?? 'This result still needs a progress refresh before the final result is ready.'}
+          </p>
           <div className="inline-actions">
             <button
               type="button"
@@ -165,11 +199,11 @@ export function AttemptResultPage() {
               onClick={() => void reloadDurableProgress()}
               disabled={progressLoading}
             >
-              {progressLoading ? '진행 상태 확인 중...' : '진행 상태 새로고침'}
+              {progressLoading ? 'Refreshing...' : 'Refresh processing status'}
             </button>
             {progressResultAttemptId ? (
               <Link to={`/attempts/${progressResultAttemptId}/result`} className="button-link">
-                완료 결과 열기
+                Open completed result
               </Link>
             ) : null}
           </div>
@@ -200,6 +234,41 @@ export function AttemptResultPage() {
         </div>
       </section>
 
+      {comparison ? (
+        <section className="result-page__comparison-grid">
+          <article className={`result-page__comparison-card result-page__comparison-card--${comparison.scoreDelta >= 0 ? 'good' : 'warn'}`}>
+            <span className="result-page__comparison-label">Previous attempt check</span>
+            <h2>{comparison.scoreDelta >= 0 ? `+${comparison.scoreDelta} points` : `${comparison.scoreDelta} points`}</h2>
+            <p>{comparison.summary}</p>
+            {comparison.metrics.length > 0 ? (
+              <div className="result-page__comparison-metrics">
+                {comparison.metrics.map((metric) => (
+                  <span
+                    key={metric.label}
+                    className={metric.delta >= 0 ? 'result-page__comparison-chip result-page__comparison-chip--good' : 'result-page__comparison-chip result-page__comparison-chip--warn'}
+                  >
+                    {metric.label} {metric.delta >= 0 ? `+${metric.delta}` : metric.delta}
+                  </span>
+                ))}
+              </div>
+            ) : null}
+            <p className="result-page__detail-note">
+              Compared against attempt #{comparison.previousAttemptId} from {formatAttemptedAt(comparison.previousAttemptedAt ?? null)}.
+            </p>
+          </article>
+        </section>
+      ) : null}
+
+      <section className="result-page__breakdown-grid">
+        {breakdownCards.map((card) => (
+          <article key={card.title} className={`result-breakdown-card result-breakdown-card--${card.tone}`}>
+            <span className="result-breakdown-card__badge">{card.badge}</span>
+            <h2>{card.title}</h2>
+            <p>{card.body}</p>
+          </article>
+        ))}
+      </section>
+
       <section className="result-page__insights">
         {insightCards.map((card) => (
           <article key={card.title} className="result-page__insight-card">
@@ -209,23 +278,37 @@ export function AttemptResultPage() {
         ))}
       </section>
 
+      <section className="result-page__coach-grid">
+        {coachingCards.map((card) => (
+          <article key={card.title} className={`result-page__coach-card result-page__coach-card--${card.tone}`}>
+            <h2>{card.title}</h2>
+            <p>{card.body}</p>
+            <ul className="result-page__coach-list">
+              {card.checklist.map((item) => (
+                <li key={item}>{item}</li>
+              ))}
+            </ul>
+          </article>
+        ))}
+      </section>
+
       <section className={`result-process-feed ${processFeedToneClass}`}>
-        <strong>채점 방식 설명</strong>
+        <strong>How this score was produced</strong>
         <div className="result-process-feed__grid">
           <div>
-            <span>현재 단계</span>
+            <span>Current stage</span>
             <strong>{currentStage}</strong>
           </div>
           <div>
-            <span>분석기</span>
+            <span>Analyzer</span>
             <strong>{buildAnalyzerLabel(attempt)}</strong>
           </div>
           <div>
-            <span>점수 산정 기준</span>
-            <strong>동작 시그니처 + 길이 + 샘플 수</strong>
+            <span>Score basis</span>
+            <strong>Pose similarity + timing + detection stability</strong>
           </div>
           <div>
-            <span>해석 팁</span>
+            <span>Interpretation</span>
             <strong>{methodologyNote}</strong>
           </div>
         </div>
@@ -233,62 +316,66 @@ export function AttemptResultPage() {
 
       <section className="result-page__detail-grid">
         <article className="result-page__detail-card">
-          <h2>결과 안내</h2>
+          <h2>Result summary</h2>
           <p>{attempt.resultSummary}</p>
           <p className="result-page__detail-note">{methodologyNote}</p>
           {attempt.processingNotice ? <p className="result-page__detail-note">{attempt.processingNotice}</p> : null}
           {effectiveProgress ? (
             <dl className="result-progress-meta">
               <div>
-                <dt>진행 상태</dt>
+                <dt>Processing status</dt>
                 <dd>{buildProgressStatusLabel(effectiveProgress.status)}</dd>
               </div>
               <div>
-                <dt>완료 방식</dt>
+                <dt>Completion strategy</dt>
                 <dd>{buildCompletionStrategyLabel(effectiveProgress.completionStrategy)}</dd>
               </div>
               <div>
-                <dt>경과 시간</dt>
+                <dt>Elapsed time</dt>
                 <dd>{buildElapsedLabel(effectiveProgress.elapsedSeconds)}</dd>
               </div>
               <div>
-                <dt>업로드 파일</dt>
-                <dd>{effectiveProgress.originalFileName ?? '파일명 없음'}</dd>
+                <dt>Original file</dt>
+                <dd>{effectiveProgress.originalFileName ?? 'Unknown file'}</dd>
               </div>
             </dl>
           ) : null}
         </article>
 
         <article className="result-page__detail-card">
-          <h2>상세 정보</h2>
+          <h2>Attempt details</h2>
           <dl className="result-page__detail-list">
             <div>
-              <dt>시도 ID</dt>
+              <dt>Attempt id</dt>
               <dd>#{attempt.id}</dd>
             </div>
             <div>
-              <dt>챌린지</dt>
-              <dd>{attempt.challengeTitle || `챌린지 #${attempt.challengeId}`}</dd>
+              <dt>Challenge</dt>
+              <dd>{attempt.challengeTitle || `Challenge #${attempt.challengeId}`}</dd>
             </div>
             <div>
-              <dt>결과 출처</dt>
+              <dt>Result source</dt>
               <dd>{resultSourceMeta.value}</dd>
             </div>
             <div>
-              <dt>처리 방식</dt>
+              <dt>Processing mode</dt>
               <dd>{processingModeMeta.value}</dd>
             </div>
             <div>
-              <dt>현재 단계</dt>
-              <dd>{currentStage}</dd>
+              <dt>Strongest area</dt>
+              <dd>{attempt.strongestArea ? toAreaLabel(attempt.strongestArea) : 'Waiting for analysis'}</dd>
             </div>
             <div>
-              <dt>업로드 시각</dt>
+              <dt>Weakest area</dt>
+              <dd>{attempt.weakestArea ? toAreaLabel(attempt.weakestArea) : 'Waiting for analysis'}</dd>
+            </div>
+            <div>
+              <dt>Uploaded at</dt>
               <dd>{formatAttemptedAt(attempt.attemptedAt)}</dd>
             </div>
             <div>
-              <dt>업로드 파일</dt>
-              <dd>{attempt.originalFileName ?? '파일명 없음'}</dd>
+              <dt>Original file</dt>
+              <dd>{attempt.originalFileName ?? 'Unknown file'}</dd>
             </div>
           </dl>
         </article>
@@ -296,24 +383,24 @@ export function AttemptResultPage() {
 
       <section className="result-page__actions-grid">
         <article className="result-page__action-card">
-          <h3>같은 챌린지 다시 도전하기</h3>
-          <p>구도와 타이밍을 조정한 뒤 다시 업로드하면 점수 차이를 바로 비교하기 쉽습니다.</p>
+          <h3>Retry with the same challenge</h3>
+          <p>Keep the reference challenge fixed and adjust only one thing at a time so the score trend is easier to read.</p>
           <Link to={`/challenges/${attempt.challengeId}/start`} className="button button--secondary">
-            시작 화면으로 이동
+            Go to challenge start
           </Link>
         </article>
         <article className="result-page__action-card">
-          <h3>기록 목록에서 비교하기</h3>
-          <p>이전 시도들과 함께 보면 어떤 업로드가 더 안정적으로 점수를 받았는지 확인할 수 있습니다.</p>
-          <Link to="/attempts" className="button button--secondary">
-            기록 목록 보기
+          <h3>Compare from the archive</h3>
+          <p>Use the attempts archive to compare this result against older retries, low-score runs, or the same weakness axis.</p>
+          <Link to={`/attempts?challengeId=${attempt.challengeId}`} className="button button--secondary">
+            Open challenge archive
           </Link>
         </article>
         <article className="result-page__action-card">
-          <h3>챌린지 상세 확인</h3>
-          <p>레퍼런스가 실제 영상 기반인지, 현재 어떤 챌린지를 기준으로 비교했는지 다시 확인할 수 있습니다.</p>
+          <h3>Review challenge setup</h3>
+          <p>Check the challenge again if you want to confirm the reference source, runtime state, or model-backed analysis setup.</p>
           <Link to={`/challenges/${attempt.challengeId}`} className="button button--secondary">
-            챌린지 상세로 이동
+            Open challenge details
           </Link>
         </article>
       </section>
@@ -323,137 +410,432 @@ export function AttemptResultPage() {
 
 function buildHeroDescription(attempt: AttemptSummary | null) {
   if (!attempt) {
-    return '결과를 준비하는 중입니다.';
+    return 'Preparing result view.';
   }
 
   if (!attempt.processingComplete || attempt.processingMode === 'ASYNC_JOB_PENDING') {
-    return '분석과 채점이 아직 진행 중입니다. 아래 진행 상태를 새로고침하면서 완료 여부를 확인해 주세요.';
+    return 'Analysis is still running. Refresh the progress state below to continue once the final result is ready.';
   }
 
   if (attempt.resultSource === 'VIDEO_UPLOAD_AUTOSCORED') {
-    return '레퍼런스 영상과 업로드 영상을 자동 비교한 결과입니다. 지금 점수는 현재 분석 엔진 기준의 비교 결과입니다.';
+    return 'This result comes from a real video upload compared against the saved challenge reference. The score and breakdown use the current analyzer output directly.';
   }
 
-  return '저장된 시도 결과를 불러왔습니다.';
+  return 'This is a saved attempt record loaded from the archive.';
 }
 
 function buildMethodologyNote(attempt: AttemptSummary | null) {
   if (!attempt) {
-    return '결과를 확인하는 중입니다.';
+    return 'Checking result details.';
   }
 
   if (attempt.resultSource !== 'VIDEO_UPLOAD_AUTOSCORED') {
-    return '이 결과는 실제 영상 비교가 아닌 준비/샘플 흐름일 수 있습니다.';
+    return 'This entry is not a real video-to-reference comparison, so breakdown guidance is limited.';
   }
 
-  return '현재 엔진은 포즈 기반 요약값을 비교합니다. 화면 구도, 검출 안정성, 영상 길이 차이도 점수에 영향을 줄 수 있습니다.';
+  return 'The current scoring model combines pose similarity, timing alignment, and detection stability. Camera framing and landmark detection quality can affect all three.';
 }
 
-function buildInsightCards(attempt: AttemptSummary | null): InsightCard[] {
+function buildChallengeComparison(attempt: AttemptSummary | null): ChallengeComparison | null {
+  if (
+    !attempt ||
+    attempt.resultSource !== 'VIDEO_UPLOAD_AUTOSCORED' ||
+    !attempt.scoreAvailable ||
+    attempt.previousAttemptId == null ||
+    attempt.scoreDeltaFromPrevious == null
+  ) {
+    return null;
+  }
+
+  const metrics = buildComparisonMetrics(attempt);
+  const summary =
+    attempt.scoreDeltaFromPrevious > 0
+      ? `This retry improved over the previous run. ${buildAreaShiftSummary(attempt)}`
+      : attempt.scoreDeltaFromPrevious < 0
+        ? `This retry scored lower than the previous run. ${buildAreaShiftSummary(attempt)}`
+        : `This retry landed on the same score as the previous run. ${buildAreaShiftSummary(attempt)}`;
+
+  return {
+    previousAttemptId: attempt.previousAttemptId,
+    previousAttemptedAt: attempt.previousAttemptedAt,
+    scoreDelta: attempt.scoreDeltaFromPrevious,
+    summary,
+    metrics,
+  };
+}
+
+function buildAreaShiftSummary(current: AttemptSummary) {
+  if (current.weakestArea) {
+    return `${toAreaLabel(current.weakestArea)} is still the clearest place to focus next.`;
+  }
+
+  if (current.strongestArea) {
+    return `${toAreaLabel(current.strongestArea)} remained the strongest axis in the latest retry.`;
+  }
+
+  return 'The analyzer still benefits from another retry with a stable capture setup.';
+}
+
+function buildComparisonMetrics(current: AttemptSummary): ChallengeComparisonMetric[] {
+  return [
+    buildComparisonMetric('Pose', current.poseDeltaFromPrevious),
+    buildComparisonMetric('Timing', current.timingDeltaFromPrevious),
+    buildComparisonMetric('Stability', current.stabilityDeltaFromPrevious),
+  ].filter((metric): metric is ChallengeComparisonMetric => metric !== null);
+}
+
+function buildComparisonMetric(label: string, delta: number | null): ChallengeComparisonMetric | null {
+  if (delta == null) {
+    return null;
+  }
+
+  return {
+    label,
+    delta,
+  };
+}
+
+function buildMetricDeltaSummary(
+  metrics: ChallengeComparisonMetric[],
+  mode: 'best' | 'worst',
+): ChallengeComparisonMetric | null {
+  if (metrics.length === 0) {
+    return null;
+  }
+
+  const sorted = [...metrics].sort((left, right) => left.delta - right.delta);
+  return mode === 'best' ? sorted[sorted.length - 1] : sorted[0];
+}
+
+function formatMetricDelta(delta: number) {
+  return delta >= 0 ? `+${delta}` : `${delta}`;
+}
+
+function buildInsightCards(attempt: AttemptSummary | null, comparison: ChallengeComparison | null): InsightCard[] {
   if (!attempt) {
     return [];
   }
 
   const score = attempt.score;
+  const strongestArea = resolveBreakdownArea(attempt, 'strongest');
+  const weakestArea = resolveBreakdownArea(attempt, 'weakest');
+  const mostImprovedMetric = comparison ? buildMetricDeltaSummary(comparison.metrics, 'best') : null;
+  const mostDroppedMetric = comparison ? buildMetricDeltaSummary(comparison.metrics, 'worst') : null;
+
   const scoreCard: InsightCard = {
-    title: '점수 해석',
+    title: 'Score readout',
     body: attempt.scoreAvailable
       ? score >= 90
-        ? '레퍼런스와 매우 가깝게 인식된 결과입니다. 같은 영상이거나, 길이와 포즈 패턴이 거의 동일하게 잡혔을 가능성이 높습니다.'
+        ? 'The run is very close to the reference on the current analyzer. This usually means the same clip or a very tightly matched retry.'
         : score >= 75
-          ? '전체 흐름은 꽤 비슷하게 인식됐습니다. 세부 타이밍이나 자세 안정성에서 약간의 차이가 있었을 수 있습니다.'
+          ? 'The overall movement is close, but there is still a visible difference in one or two scoring axes.'
           : score >= 55
-            ? '비슷한 동작은 감지됐지만 차이도 분명히 있었습니다. 구도, 검출된 프레임 수, 자세 유지가 점수에 영향을 줬을 가능성이 큽니다.'
-            : '현재 엔진 기준으로는 차이가 큰 편으로 잡혔습니다. 다른 동작이거나, 검출이 불안정했던 업로드일 수 있습니다.'
-      : '점수가 아직 확정되지 않았습니다. 처리 완료 후 다시 확인해 주세요.',
+            ? 'The movement partially matches, but timing, framing, or landmark stability is still pulling the score down.'
+            : 'The analyzer sees a clear mismatch compared with the reference. This can come from a different motion, weak detection, or a very different camera setup.'
+      : 'The score is not final yet. Refresh processing status once the result finishes.' ,
   };
 
   const engineCard: InsightCard = {
-    title: '왜 이런 점수가 나왔나',
+    title: 'Why the score moved',
     body:
       attempt.resultSource === 'VIDEO_UPLOAD_AUTOSCORED'
-        ? '지금 점수는 포즈 요약 시그니처, 영상 길이 차이, 검출 샘플 수 차이를 함께 반영합니다. 즉 사람이 보기엔 비슷해도 검출 안정성이 다르면 점수가 내려갈 수 있습니다.'
-        : '이 결과는 실제 영상 자동 비교보다는 준비/샘플 흐름 설명에 가깝습니다.',
+        ? `This result blends pose, timing, and stability together.${strongestArea ? ` The cleanest axis was ${toAreaLabel(strongestArea)}.` : ''}${weakestArea ? ` The biggest drag came from ${toAreaLabel(weakestArea)}.` : ''}`
+        : 'This result did not come from a full auto-scored upload, so the explanation is lighter than a real comparison.',
   };
 
   const nextActionCard: InsightCard = {
-    title: '다음에 해볼 것',
-    body:
-      !attempt.scoreAvailable
-        ? '처리가 끝난 뒤 다시 결과를 확인해 주세요.'
-        : score >= 85
-          ? '이제는 다른 사람, 다른 구도, 다른 속도의 영상으로 점수 분리도가 충분한지 비교해보는 단계가 좋습니다.'
-          : score >= 60
-            ? '카메라 구도와 시작 타이밍을 더 맞춘 뒤 다시 업로드해 보세요. 같은 동작이어도 점수가 꽤 달라질 수 있습니다.'
-            : '레퍼런스와 최대한 같은 시작 지점, 같은 전신 구도, 같은 속도로 다시 촬영해 보세요. 현재 엔진은 그 차이에 민감합니다.',
+    title: 'What changed from the last retry',
+    body: comparison
+      ? `${mostImprovedMetric ? `${mostImprovedMetric.label} improved the most (${formatMetricDelta(mostImprovedMetric.delta)}). ` : ''}${mostDroppedMetric && mostDroppedMetric.delta < 0 ? `${mostDroppedMetric.label} slipped the most (${formatMetricDelta(mostDroppedMetric.delta)}).` : 'No axis dropped sharply versus the previous retry.'}`
+      : 'This is the first scored retry for this challenge, so future runs will compare back to this one.',
   };
 
   return [scoreCard, engineCard, nextActionCard];
 }
 
+function buildCoachingCards(attempt: AttemptSummary | null): CoachingCard[] {
+  if (!attempt || attempt.resultSource !== 'VIDEO_UPLOAD_AUTOSCORED' || !attempt.scoreAvailable) {
+    return [
+      {
+        title: 'Coaching becomes available after scoring',
+        tone: 'neutral',
+        body: 'Once a real auto-scored upload finishes, this section will turn the breakdown into concrete retry advice.',
+        checklist: ['Upload a real challenge video', 'Wait for the final score', 'Open the result again'],
+      },
+    ];
+  }
+
+  const weakestArea = resolveBreakdownArea(attempt, 'weakest');
+  const strongestArea = resolveBreakdownArea(attempt, 'strongest');
+  const improvementMetric = buildPrimaryDeltaMetric(attempt, 'best');
+  const dropMetric = buildPrimaryDeltaMetric(attempt, 'worst');
+
+  const retryCard: CoachingCard = {
+    title: 'Next retry plan',
+    tone: weakestArea ? 'warn' : 'accent',
+    body: attempt.retryFocus ?? (weakestArea
+      ? `${toAreaLabel(weakestArea)} is the fastest place to improve on the next take.${dropMetric && dropMetric.delta < 0 ? ` ${dropMetric.label} also dropped ${formatMetricDelta(dropMetric.delta)} versus the previous retry.` : ''}`
+      : 'No single weak axis dominated this result, so keep the whole capture setup consistent on the next take.'),
+    checklist: buildRetryChecklist(weakestArea, dropMetric),
+  };
+
+  const keepCard: CoachingCard = {
+    title: 'What to keep stable',
+    tone: 'accent',
+    body: attempt.keepStableFocus ?? (strongestArea
+      ? `${toAreaLabel(strongestArea)} held up best, so preserve that part while fixing the weaker area.${improvementMetric && improvementMetric.delta > 0 ? ` ${improvementMetric.label} improved ${formatMetricDelta(improvementMetric.delta)} from the last retry.` : ''}`
+      : 'The current result does not expose a clear strongest axis yet, so preserve the whole setup across retries.'),
+    checklist: buildKeepChecklist(strongestArea, improvementMetric),
+  };
+
+  const captureCard: CoachingCard = {
+    title: 'Capture checklist',
+    tone: 'neutral',
+    body:
+      attempt.scoreDeltaFromPrevious == null
+        ? 'Use the same simple capture checklist on every retry so score changes are easier to interpret.'
+        : `This run changed ${attempt.scoreDeltaFromPrevious >= 0 ? 'upward' : 'downward'} by ${formatMetricDelta(attempt.scoreDeltaFromPrevious)} against the previous retry, so keep the capture variables controlled.`,
+    checklist: [
+      'Keep the whole body visible from head to foot',
+      'Match the reference start moment before moving',
+      'Avoid heavy backlight or fast camera movement',
+    ],
+  };
+
+  return [retryCard, keepCard, captureCard];
+}
+
+function buildRetryChecklist(weakestArea: AttemptBreakdownArea | null, dropMetric: ChallengeComparisonMetric | null) {
+  switch (weakestArea) {
+    case 'timing':
+      return [
+        'Start the move at the same beat or cue as the reference',
+        'Match the full sequence length instead of rushing the ending',
+        'Keep pauses and transitions consistent across retries',
+        ...(dropMetric?.label === 'Timing' && dropMetric.delta < 0 ? ['Do one take focused only on timing recovery before changing pose size.'] : []),
+      ];
+    case 'detection stability':
+      return [
+        'Step back until the whole body stays inside the frame',
+        'Use steadier light and avoid clutter crossing the body outline',
+        'Reduce motion blur with a stable phone position if possible',
+        ...(dropMetric?.label === 'Stability' && dropMetric.delta < 0 ? ['Do not change framing and lighting at the same time on the next retry.'] : []),
+      ];
+    case 'pose similarity':
+      return [
+        'Match the big body shapes before worrying about speed',
+        'Check arm and leg endpoints at the main poses',
+        'Hold the finish positions long enough for the camera to read them',
+        ...(dropMetric?.label === 'Pose' && dropMetric.delta < 0 ? ['Run one slower take to recover body shape accuracy before increasing speed again.'] : []),
+      ];
+    default:
+      return [
+        'Keep the next take close to the reference camera setup',
+        'Change only one variable at a time between retries',
+        'Review the archive after each retry to see which axis moved',
+        ...(dropMetric && dropMetric.delta < 0 ? [`Check why ${dropMetric.label} moved ${formatMetricDelta(dropMetric.delta)} before changing more variables.`] : []),
+      ];
+  }
+}
+
+function buildKeepChecklist(strongestArea: AttemptBreakdownArea | null, improvementMetric: ChallengeComparisonMetric | null) {
+  switch (strongestArea) {
+    case 'timing':
+      return [
+        'Keep the same rhythm and pacing on the next take',
+        'Do not trade timing accuracy for larger motions unless needed',
+        ...(improvementMetric?.label === 'Timing' && improvementMetric.delta > 0 ? ['Keep the same cueing and sequence length on the next retry.'] : []),
+      ];
+    case 'detection stability':
+      return [
+        'Reuse the same camera distance and lighting setup',
+        'Protect the clean frame while adjusting the movement itself',
+        ...(improvementMetric?.label === 'Stability' && improvementMetric.delta > 0 ? ['Reuse the same camera distance because it clearly helped this retry.'] : []),
+      ];
+    case 'pose similarity':
+      return [
+        'Preserve the current body shapes and endpoint positions',
+        'Only fine-tune timing or framing on the next pass',
+        ...(improvementMetric?.label === 'Pose' && improvementMetric.delta > 0 ? ['Keep the same body-shape emphasis because it improved the latest run.'] : []),
+      ];
+    default:
+      return [
+        'Keep the same camera placement',
+        'Repeat in similar light and room conditions',
+        ...(improvementMetric && improvementMetric.delta > 0 ? [`Preserve the condition that improved ${improvementMetric.label} by ${formatMetricDelta(improvementMetric.delta)}.`] : []),
+      ];
+  }
+}
+
+function buildPrimaryDeltaMetric(
+  attempt: AttemptSummary,
+  mode: 'best' | 'worst',
+): ChallengeComparisonMetric | null {
+  const metrics = buildComparisonMetrics(attempt);
+  if (metrics.length === 0) {
+    return null;
+  }
+
+  return buildMetricDeltaSummary(metrics, mode);
+}
+
+function buildBreakdownCards(attempt: AttemptSummary | null): BreakdownCard[] {
+  if (!attempt || attempt.resultSource !== 'VIDEO_UPLOAD_AUTOSCORED' || !attempt.scoreAvailable) {
+    return [
+      {
+        title: 'Breakdown unavailable',
+        tone: 'neutral',
+        badge: 'Waiting',
+        body: 'Detailed breakdown cards appear after a real auto-scored upload result is ready.',
+      },
+    ];
+  }
+
+  const strongestArea = resolveBreakdownArea(attempt, 'strongest');
+  const weakestArea = resolveBreakdownArea(attempt, 'weakest');
+
+  return [
+    buildBreakdownCard('pose similarity', strongestArea, weakestArea, attempt.poseSimilarity),
+    buildBreakdownCard('timing', strongestArea, weakestArea, attempt.timingSimilarity),
+    buildBreakdownCard('detection stability', strongestArea, weakestArea, attempt.stabilitySimilarity),
+  ];
+}
+
+function buildBreakdownCard(
+  area: AttemptBreakdownArea,
+  strongestArea: AttemptBreakdownArea | null,
+  weakestArea: AttemptBreakdownArea | null,
+  scoreValue: number | null,
+): BreakdownCard {
+  if (strongestArea === area) {
+    return {
+      title: toAreaLabel(area),
+      tone: 'strong',
+      badge: scoreValue == null ? 'Strongest' : `${scoreValue} / 100`,
+      body: `${toAreaLabel(area)} was the most stable match in this run. Keep this part consistent while you improve the weaker axis.`,
+    };
+  }
+
+  if (weakestArea === area) {
+    return {
+      title: toAreaLabel(area),
+      tone: 'warn',
+      badge: scoreValue == null ? 'Needs work' : `${scoreValue} / 100`,
+      body: `${toAreaLabel(area)} created the biggest gap against the reference. This is the best place to focus on the next retry.`,
+    };
+  }
+
+  return {
+    title: toAreaLabel(area),
+    tone: 'neutral',
+    badge: scoreValue == null ? 'Measured' : `${scoreValue} / 100`,
+    body:
+      scoreValue != null && scoreValue >= 80
+        ? `${toAreaLabel(area)} stayed fairly strong and was not the main source of score loss.`
+        : `${toAreaLabel(area)} stayed in the middle range. It is not the top issue, but there is still room to tighten it up.`,
+  };
+}
+
+function resolveBreakdownArea(
+  attempt: AttemptSummary,
+  mode: 'strongest' | 'weakest',
+): AttemptBreakdownArea | null {
+  const direct = mode === 'strongest' ? attempt.strongestArea : attempt.weakestArea;
+  if (direct) {
+    return direct;
+  }
+
+  const strongestMatch = attempt.resultSummary.match(/Strongest area: ([^.]+)\./i);
+  const weakestMatch =
+    attempt.resultSummary.match(/while ([^.]+) pulled the score down\./i) ??
+    attempt.resultSummary.match(/but ([^.]+) still differs\./i) ??
+    attempt.resultSummary.match(/Weakest area: ([^.]+)\./i);
+
+  const raw = mode === 'strongest' ? strongestMatch?.[1] : weakestMatch?.[1];
+  if (!raw) {
+    return null;
+  }
+
+  const normalized = raw.trim().toLowerCase();
+  if (normalized.includes('pose')) {
+    return 'pose similarity';
+  }
+  if (normalized.includes('timing')) {
+    return 'timing';
+  }
+  if (normalized.includes('stability')) {
+    return 'detection stability';
+  }
+  return null;
+}
+
+function toAreaLabel(area: AttemptBreakdownArea) {
+  return toAttemptBreakdownLabel(area);
+}
+
 function buildResultStatusMeta(attempt: AttemptSummary | null): ResultMeta {
   return {
-    label: '결과 상태',
-    value: attempt?.status ?? '확인 중',
+    label: 'Result status',
+    value: attempt?.status ?? 'Checking',
   };
 }
 
 function buildScoreStateMeta(attempt: AttemptSummary | null): ResultMeta {
   return {
-    label: '점수 상태',
-    value: attempt?.scoreAvailable ? '점수 확인 가능' : '점수 준비 중',
+    label: 'Score state',
+    value: attempt?.scoreAvailable ? 'Score available' : 'Score pending',
   };
 }
 
 function buildResultSourceMeta(source: AttemptResultSource | null | undefined): ResultMeta {
   switch (source) {
     case 'VIDEO_UPLOAD_AUTOSCORED':
-      return { label: '결과 출처', value: '실제 영상 자동 비교' };
+      return { label: 'Result source', value: 'Auto-scored upload' };
     case 'SAMPLE_SCORING_PREVIEW':
-      return { label: '결과 출처', value: '샘플 미리보기' };
+      return { label: 'Result source', value: 'Sample preview' };
     case 'PREPARED_FLOW':
-      return { label: '결과 출처', value: '준비 단계 기록' };
+      return { label: 'Result source', value: 'Prepared flow' };
     default:
-      return { label: '결과 출처', value: '정보 없음' };
+      return { label: 'Result source', value: 'Unknown source' };
   }
 }
 
 function buildProcessingModeMeta(mode: AttemptProcessingMode | null | undefined): ResultMeta {
   switch (mode) {
     case 'SYNC_INLINE':
-      return { label: '처리 방식', value: '즉시 처리' };
+      return { label: 'Processing mode', value: 'Inline processing' };
     case 'ASYNC_JOB_PENDING':
-      return { label: '처리 방식', value: '비동기 대기' };
+      return { label: 'Processing mode', value: 'Async pending' };
     default:
-      return { label: '처리 방식', value: '프로토타입/기본 흐름' };
+      return { label: 'Processing mode', value: 'Default flow' };
   }
 }
 
 function buildProcessingCompleteMeta(processingComplete: boolean | null | undefined): ResultMeta {
   return {
-    label: '진행 상태',
-    value: processingComplete ? '처리 완료' : '처리 확인 필요',
+    label: 'Processing state',
+    value: processingComplete ? 'Completed' : 'Needs review',
   };
 }
 
 function buildCurrentStageSummary(attempt: AttemptSummary | null) {
   if (!attempt) {
-    return '결과를 불러오는 중입니다.';
+    return 'Loading result state.';
   }
 
   if (!attempt.processingComplete || attempt.processingMode === 'ASYNC_JOB_PENDING') {
-    return '업로드는 되었고, 분석 또는 채점이 아직 진행 중입니다.';
+    return 'Upload accepted, but analysis or scoring is still in progress.';
   }
 
   if (attempt.resultSource === 'VIDEO_UPLOAD_AUTOSCORED') {
-    return '레퍼런스와 자동 비교가 끝났습니다.';
+    return 'Reference comparison is complete.';
   }
 
   if (attempt.resultSource === 'SAMPLE_SCORING_PREVIEW') {
-    return '샘플 결과가 저장된 상태입니다.';
+    return 'Saved preview result.';
   }
 
-  return '준비 상태 기록입니다.';
+  return 'Prepared record only.';
 }
 
 function buildProcessFeedToneClass(progress: AttemptVideoProcessingJobProgress | null) {
@@ -479,31 +861,31 @@ function buildProcessFeedToneClass(progress: AttemptVideoProcessingJobProgress |
 function buildProgressRefreshMessage(progress: AttemptVideoProcessingJobProgress) {
   if (progress.status === 'COMPLETED') {
     return progress.resultAttemptId
-      ? `처리가 완료되었습니다. 결과 #${progress.resultAttemptId}로 바로 이동할 수 있습니다.`
-      : '처리가 완료되었습니다.';
+      ? `Processing completed. Result #${progress.resultAttemptId} is ready to open.`
+      : 'Processing completed.';
   }
 
   if (progress.status === 'FAILED') {
-    return progress.processingNotice ?? '처리가 실패했습니다. 브리지와 백엔드 로그를 함께 확인해 주세요.';
+    return progress.processingNotice ?? 'Processing failed. Check bridge and backend logs for the detailed cause.';
   }
 
   if (progress.status === 'PROCESSING') {
-    return '분석과 채점이 진행 중입니다. 잠시 후 다시 확인해 주세요.';
+    return 'Analysis and scoring are still running. Refresh again shortly.';
   }
 
-  return '처리 대기 중입니다. 잠시 후 다시 확인해 주세요.';
+  return 'The job is still queued. Refresh again shortly.';
 }
 
 function buildProgressStatusLabel(status: AttemptVideoProcessingJobProgress['status']) {
   switch (status) {
     case 'PENDING':
-      return '대기 중';
+      return 'Pending';
     case 'PROCESSING':
-      return '분석/채점 진행 중';
+      return 'Processing';
     case 'COMPLETED':
-      return '처리 완료';
+      return 'Completed';
     case 'FAILED':
-      return '처리 실패';
+      return 'Failed';
     default:
       return status;
   }
@@ -512,33 +894,38 @@ function buildProgressStatusLabel(status: AttemptVideoProcessingJobProgress['sta
 function buildCompletionStrategyLabel(strategy: AttemptVideoProcessingJobProgress['completionStrategy']) {
   switch (strategy) {
     case 'AUTO_RUNNER':
-      return '백그라운드 자동 완료';
+      return 'Background auto-runner';
     case 'MANUAL_COMPLETION':
-      return '수동 완료 처리';
+      return 'Manual completion';
     case 'INLINE_FLOW':
-      return '즉시 처리';
+      return 'Inline processing';
     default:
-      return '확인 중';
+      return 'Checking';
   }
 }
 
 function buildElapsedLabel(elapsedSeconds: number) {
   if (elapsedSeconds < 60) {
-    return `${elapsedSeconds}초`;
+    return `${elapsedSeconds}s`;
   }
+
   const minutes = Math.floor(elapsedSeconds / 60);
   const seconds = elapsedSeconds % 60;
-  return seconds === 0 ? `${minutes}분` : `${minutes}분 ${seconds}초`;
+  return seconds === 0 ? `${minutes}m` : `${minutes}m ${seconds}s`;
 }
 
 function buildAnalyzerLabel(attempt: AttemptSummary) {
   if (attempt.resultSource !== 'VIDEO_UPLOAD_AUTOSCORED') {
-    return '기본 결과 해석';
+    return 'Saved result view';
   }
   return 'MediaPipe pose analyzer';
 }
 
-function formatAttemptedAt(value: string) {
+function formatAttemptedAt(value: string | null) {
+  if (!value) {
+    return '-';
+  }
+
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) {
     return value;

@@ -6,6 +6,8 @@ export type AttemptResultSource =
   | 'SAMPLE_SCORING_PREVIEW'
   | 'VIDEO_UPLOAD_AUTOSCORED';
 
+export type AttemptBreakdownArea = 'pose similarity' | 'timing' | 'detection stability';
+
 export type AttemptSummary = {
   id: number;
   challengeId: number;
@@ -27,6 +29,21 @@ export type AttemptSummary = {
   remainingAutoRetryCount: number;
   autoRetryExhausted: boolean;
   originalFileName: string | null;
+  poseSimilarity: number | null;
+  timingSimilarity: number | null;
+  stabilitySimilarity: number | null;
+  strongestArea: AttemptBreakdownArea | null;
+  weakestArea: AttemptBreakdownArea | null;
+  coachingTeaser: string | null;
+  retryFocus: string | null;
+  keepStableFocus: string | null;
+  previousAttemptId: number | null;
+  previousAttemptScore: number | null;
+  previousAttemptedAt: string | null;
+  scoreDeltaFromPrevious: number | null;
+  poseDeltaFromPrevious: number | null;
+  timingDeltaFromPrevious: number | null;
+  stabilityDeltaFromPrevious: number | null;
   attemptedAt: string;
 };
 
@@ -61,6 +78,21 @@ export type AttemptVideoResult = {
   videoOriginalFileName: string;
   videoContentType: string;
   videoSize: number;
+  poseSimilarity: number | null;
+  timingSimilarity: number | null;
+  stabilitySimilarity: number | null;
+  strongestArea: AttemptBreakdownArea | null;
+  weakestArea: AttemptBreakdownArea | null;
+  coachingTeaser: string | null;
+  retryFocus: string | null;
+  keepStableFocus: string | null;
+  previousAttemptId: number | null;
+  previousAttemptScore: number | null;
+  previousAttemptedAt: string | null;
+  scoreDeltaFromPrevious: number | null;
+  poseDeltaFromPrevious: number | null;
+  timingDeltaFromPrevious: number | null;
+  stabilityDeltaFromPrevious: number | null;
   attemptedAt: string;
 };
 

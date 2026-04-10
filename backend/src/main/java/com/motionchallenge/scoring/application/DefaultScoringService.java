@@ -19,9 +19,18 @@ public class DefaultScoringService implements ScoringService {
 
         double weightedScore = poseSimilarity * 0.65 + timingSimilarity * 0.20 + stabilitySimilarity * 0.15;
         int score = clamp((int) Math.round(weightedScore), 0, 100);
-        String summary = buildSummary(score, poseSimilarity, timingSimilarity, stabilitySimilarity);
+        String strongestArea = resolveStrongestArea(poseSimilarity, timingSimilarity, stabilitySimilarity);
+        String weakestArea = resolveWeakestArea(poseSimilarity, timingSimilarity, stabilitySimilarity);
+        String summary = buildSummary(score, strongestArea, weakestArea, poseSimilarity, timingSimilarity, stabilitySimilarity);
 
-        return new ScoringResult(score, summary);
+        return new ScoringResult(
+                score,
+                summary,
+                poseSimilarity,
+                timingSimilarity,
+                stabilitySimilarity,
+                strongestArea,
+                weakestArea);
     }
 
     private double ratioGap(long referenceValue, long attemptValue) {
@@ -34,10 +43,13 @@ public class DefaultScoringService implements ScoringService {
         return clamp(100 - penalty, 0, 100);
     }
 
-    private String buildSummary(int score, int poseSimilarity, int timingSimilarity, int stabilitySimilarity) {
-        String strongestArea = resolveStrongestArea(poseSimilarity, timingSimilarity, stabilitySimilarity);
-        String weakestArea = resolveWeakestArea(poseSimilarity, timingSimilarity, stabilitySimilarity);
-
+    private String buildSummary(
+            int score,
+            String strongestArea,
+            String weakestArea,
+            int poseSimilarity,
+            int timingSimilarity,
+            int stabilitySimilarity) {
         if (score >= 90) {
             return "Very close match. Strongest area: " + strongestArea + ".";
         }
