@@ -3,31 +3,16 @@ import { Link } from 'react-router-dom';
 
 import {
   completeAsyncPendingAttempt,
-  createAttempt,
   getAttemptVideoProcessingProgressByTrackingId,
   uploadAttemptVideo,
 } from '../../shared/api/attemptApi';
 import { getMotionSessionState } from '../../shared/api/motionApi';
 import type {
   AsyncPendingCompletionRequest,
-  AttemptSummary,
   AttemptVideoProcessingJobProgress,
   AttemptVideoResult,
-  AttemptProcessingMode,
 } from '../../shared/types/attempt';
 import type { MotionSessionState } from '../../shared/types/motion';
-import {
-  buildDurableProgressCompletionLinkDescription,
-  buildDurableProgressCompletionLinkLabel,
-  buildDurableProgressCompletionStrategyLabel,
-  buildDurableProgressElapsedTimeLabel,
-  buildDurableProgressFailureAction,
-  buildDurableProgressHeadline,
-  buildDurableProgressOriginalFileLabel,
-  buildDurableProgressRefreshMessage,
-  buildDurableProgressRetryWindowLabel,
-  buildDurableProgressSummary,
-} from '../../shared/presentation/durableProgress';
 
 type CameraState = 'idle' | 'ready' | 'denied' | 'unavailable' | 'error';
 type FlowStage = 'camera' | 'upload';
@@ -48,11 +33,9 @@ export function CameraPermissionPanel({ challengeId, challengeTitle }: CameraPer
   const [sessionLoading, setSessionLoading] = useState(true);
   const [sessionRefreshing, setSessionRefreshing] = useState(false);
   const [sessionError, setSessionError] = useState<string | null>(null);
-  const [message, setMessage] = useState('카메라 준비 상태를 확인한 뒤, 결과 화면까지 바로 이어서 확인할 수 있습니다.');
-
-  const [saveLoading, setSaveLoading] = useState(false);
-  const [saveError, setSaveError] = useState<string | null>(null);
-  const [savedAttempt, setSavedAttempt] = useState<AttemptSummary | null>(null);
+  const [message, setMessage] = useState<string>(
+    'Check the runtime state first, then upload a real attempt video for scoring.',
+  );
 
   const [selectedVideo, setSelectedVideo] = useState<File | null>(null);
   const [uploadLoading, setUploadLoading] = useState(false);
@@ -66,7 +49,8 @@ export function CameraPermissionPanel({ challengeId, challengeTitle }: CameraPer
 
   const pendingTrackingId = pendingJobProgress?.trackingId ?? uploadedAttempt?.pendingTrackingId ?? null;
   const uploadedAttemptResultId = uploadedAttempt?.attemptId ?? pendingJobProgress?.resultAttemptId ?? null;
-  const canContinueWithoutCamera = cameraState === 'denied' || cameraState === 'unavailable' || cameraState === 'error';
+  const canContinueWithoutCamera =
+    cameraState === 'denied' || cameraState === 'unavailable' || cameraState === 'error';
   const canOpenUploadStage = cameraState === 'ready' || canContinueWithoutCamera;
   const pendingUploadAwaitingCompletion =
     uploadedAttempt?.processingMode === 'ASYNC_JOB_PENDING' && uploadedAttempt.processingComplete === false;
@@ -74,12 +58,6 @@ export function CameraPermissionPanel({ challengeId, challengeTitle }: CameraPer
     () => (sessionState?.serverRuntimeTrace ?? []).slice(0, 3),
     [sessionState?.serverRuntimeTrace],
   );
-  const pendingStageSummary = buildDurableProgressSummary(pendingJobProgress);
-  const messageToneClass = buildMessageToneClass(pendingJobProgress, sessionState, message);
-  const serverStatusToneClass = buildServerStatusToneClass(pendingJobProgress, sessionState);
-  const processingJobToneClass = buildProcessingJobToneClass(pendingJobProgress);
-  const processingJobActionToneClass = buildProcessingJobActionToneClass(pendingJobProgress);
-  const sessionTerminalActive = sessionState?.terminalState === 'AUTO_RETRY_EXHAUSTED';
 
   useEffect(() => {
     mountedRef.current = true;
@@ -87,36 +65,16 @@ export function CameraPermissionPanel({ challengeId, challengeTitle }: CameraPer
 
     return () => {
       mountedRef.current = false;
-      stopStream();
+      stopCameraStream();
     };
   }, [challengeId]);
 
-  useEffect(() => {
-    if (!pendingUploadAwaitingCompletion || !pendingTrackingId) {
-      return;
-    }
-
-    const timer = window.setInterval(() => {
-      void loadPendingJobProgressByTrackingId(pendingTrackingId, { silent: true });
-    }, 4000);
-
-    return () => window.clearInterval(timer);
-  }, [pendingTrackingId, pendingUploadAwaitingCompletion]);
-
-  useEffect(() => {
-    if (!trackingIdCopied) {
-      return;
-    }
-
-    const timer = window.setTimeout(() => setTrackingIdCopied(false), 1800);
-    return () => window.clearTimeout(timer);
-  }, [trackingIdCopied]);
-
-  async function loadMotionSessionState({ silent }: { silent: boolean }) {
-    if (!silent) {
+  async function loadMotionSessionState(options?: { silent?: boolean }) {
+    if (options?.silent) {
+      setSessionRefreshing(true);
+    } else {
       setSessionLoading(true);
     }
-    setSessionRefreshing(silent);
     setSessionError(null);
 
     try {
@@ -125,11 +83,12 @@ export function CameraPermissionPanel({ challengeId, challengeTitle }: CameraPer
         return;
       }
       setSessionState(nextState);
+      setMessage(nextState.message || buildSessionMessage(nextState));
     } catch (error) {
       if (!mountedRef.current) {
         return;
       }
-      setSessionError(error instanceof Error ? error.message : '세션 상태를 다시 불러오지 못했습니다.');
+      setSessionError(error instanceof Error ? error.message : 'Failed to load the runtime state.');
     } finally {
       if (!mountedRef.current) {
         return;
@@ -139,241 +98,183 @@ export function CameraPermissionPanel({ challengeId, challengeTitle }: CameraPer
     }
   }
 
-  function syncUploadedAttemptFromProgress(progress: AttemptVideoProcessingJobProgress) {
-    setPendingJobProgress(progress);
-
-    if (progress.status === 'COMPLETED' && progress.resultAttemptId) {
-      setUploadedAttempt((current) => ({
-        challengeId,
-        challengeTitle,
-        attemptId: progress.resultAttemptId,
-        score: current?.score ?? 0,
-        status: current?.status ?? '완료됨',
-        resultSummary:
-          current?.resultSummary ??
-          progress.processingNotice ??
-          '처리가 완료되어 결과 화면에서 바로 이어서 확인할 수 있습니다.',
-        resultHeadline: current?.resultHeadline ?? '결과 준비 완료',
-        analyzerName: current?.analyzerName ?? 'async-pending-completion',
-        videoOriginalFileName: current?.videoOriginalFileName ?? progress.originalFileName ?? 'uploaded-video.mp4',
-        videoContentType: current?.videoContentType ?? 'video/mp4',
-        videoSize: current?.videoSize ?? 0,
-        attemptedAt: current?.attemptedAt ?? new Date().toISOString(),
-        scoreAvailable: true,
-        processingMode: current?.processingMode ?? 'ASYNC_JOB_PENDING',
-        processingComplete: true,
-        processingNotice:
-          progress.processingNotice ??
-          '처리가 완료되어 결과 화면에서 바로 이어서 확인할 수 있습니다.',
-        pendingTrackingId: null,
-        resultSource: current?.resultSource ?? 'VIDEO_UPLOAD_AUTOSCORED',
-      }));
+  async function requestCameraAccess() {
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setCameraState('unavailable');
+      setMessage('Camera access is not available in this browser.');
       return;
     }
 
-    setUploadedAttempt((current) => {
-      if (!current || current.pendingTrackingId !== progress.trackingId) {
-        return current;
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+      if (!mountedRef.current) {
+        stream.getTracks().forEach((track) => track.stop());
+        return;
+      }
+      stopCameraStream();
+      streamRef.current = stream;
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+      }
+      setCameraState('ready');
+      setMessage('Camera access is ready. You can move to the upload step now.');
+    } catch (error) {
+      const nextState = resolveCameraErrorState(error);
+      setCameraState(nextState);
+      setMessage(buildCameraErrorMessage(nextState));
+    }
+  }
+
+  function stopCameraStream() {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
+    }
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
+  }
+
+  function moveToUploadStage() {
+    setFlowStage('upload');
+    setMessage('Upload a real attempt video to start analysis and scoring.');
+  }
+
+  function continueWithoutCamera() {
+    setFlowStage('upload');
+    setMessage('Continuing without camera. Upload a real attempt video when ready.');
+  }
+
+  function onSelectVideo(event: ChangeEvent<HTMLInputElement>) {
+    const nextFile = event.target.files?.[0] ?? null;
+    setSelectedVideo(nextFile);
+    setUploadError(null);
+    setUploadedAttempt(null);
+    setPendingJobProgress(null);
+    setTrackingIdCopied(false);
+  }
+
+  async function submitAttemptVideo() {
+    if (!selectedVideo) {
+      setUploadError('Select a video file first.');
+      return;
+    }
+    if (sessionState && !sessionState.uploadEnabled) {
+      setUploadError('Uploads are currently disabled for this challenge state.');
+      return;
+    }
+
+    setUploadLoading(true);
+    setUploadError(null);
+    setUploadedAttempt(null);
+    setPendingJobProgress(null);
+
+    try {
+      const response = await uploadAttemptVideo({
+        challengeId,
+        notes: buildUploadNote(challengeTitle),
+        attemptVideo: selectedVideo,
+      });
+      if (!mountedRef.current) {
+        return;
+      }
+      setUploadedAttempt(response);
+      setMessage(response.processingNotice ?? 'Upload accepted. Review the result below.');
+
+      if (response.pendingTrackingId) {
+        const progress = await getAttemptVideoProcessingProgressByTrackingId(response.pendingTrackingId);
+        if (mountedRef.current) {
+          setPendingJobProgress(progress);
+        }
       }
 
-      return {
-        ...current,
-        processingMode: progress.processingMode,
-        processingComplete: progress.status === 'COMPLETED',
-        processingNotice: progress.processingNotice,
-        pendingTrackingId: progress.status === 'COMPLETED' ? null : progress.trackingId,
-      };
-    });
+      await loadMotionSessionState({ silent: true });
+    } catch (error) {
+      if (!mountedRef.current) {
+        return;
+      }
+      setUploadError(error instanceof Error ? error.message : 'Failed to upload the attempt video.');
+    } finally {
+      if (mountedRef.current) {
+        setUploadLoading(false);
+      }
+    }
   }
 
   async function loadPendingJobProgress() {
     if (!pendingTrackingId) {
-      setMessage('다시 조회할 trackingId가 아직 없습니다.');
+      setUploadError('No tracking id is available for this upload yet.');
       return;
     }
 
     setTrackingProgressLoading(true);
     try {
       const progress = await getAttemptVideoProcessingProgressByTrackingId(pendingTrackingId);
-      syncUploadedAttemptFromProgress(progress);
-      setMessage(
-        buildDurableProgressRefreshMessage(progress, {
-          sourceLabel: 'trackingId direct progress',
-        }),
-      );
+      if (!mountedRef.current) {
+        return;
+      }
+      setPendingJobProgress(progress);
+      if (progress.status === 'COMPLETED' && progress.resultAttemptId && uploadedAttempt) {
+        setUploadedAttempt({
+          ...uploadedAttempt,
+          attemptId: progress.resultAttemptId,
+          processingComplete: true,
+          processingNotice: progress.processingNotice ?? uploadedAttempt.processingNotice,
+        });
+      }
       await loadMotionSessionState({ silent: true });
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : '처리 상태를 다시 확인하지 못했습니다.');
-    } finally {
-      setTrackingProgressLoading(false);
-    }
-  }
-
-  async function loadPendingJobProgressByTrackingId(trackingId: string, options?: { silent?: boolean }) {
-    const silent = options?.silent ?? false;
-    if (!silent) {
-      setTrackingProgressLoading(true);
-    }
-
-    try {
-      const progress = await getAttemptVideoProcessingProgressByTrackingId(trackingId);
-      syncUploadedAttemptFromProgress(progress);
-      setMessage(buildProgressMessage(progress));
-      await loadMotionSessionState({ silent: true });
-    } catch (error) {
-      if (!silent) {
-        setMessage(error instanceof Error ? error.message : '추적 ID로 처리 상태를 다시 확인하지 못했습니다.');
+      if (mountedRef.current) {
+        setUploadError(error instanceof Error ? error.message : 'Failed to refresh durable progress.');
       }
     } finally {
-      if (!silent) {
+      if (mountedRef.current) {
         setTrackingProgressLoading(false);
       }
     }
   }
 
-  async function requestCameraAccess() {
-    try {
-      if (!navigator.mediaDevices?.getUserMedia) {
-        setCameraState('unavailable');
-        setMessage('이 브라우저에서는 카메라 확인을 지원하지 않습니다. 영상 업로드 흐름으로 계속 진행할 수 있습니다.');
-        return;
-      }
-
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
-      stopStream();
-      streamRef.current = stream;
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-      }
-      setCameraState('ready');
-      setMessage('카메라 준비를 확인했습니다. 업로드 단계로 이동해 다음 작업을 진행할 수 있습니다.');
-    } catch (error) {
-      handleCameraError(error);
-    }
-  }
-
-  function handleCameraError(error: unknown) {
-    if (error instanceof DOMException) {
-      if (error.name === 'NotAllowedError') {
-        setCameraState('denied');
-        setMessage('카메라 권한이 거부되었습니다. 카메라 없이도 업로드 흐름을 계속 진행할 수 있습니다.');
-        return;
-      }
-      if (error.name === 'NotFoundError') {
-        setCameraState('unavailable');
-        setMessage('연결된 카메라를 찾지 못했습니다. 준비 저장 또는 영상 업로드 흐름으로 계속 진행할 수 있습니다.');
-        return;
-      }
-      if (error.name === 'NotReadableError') {
-        setCameraState('error');
-        setMessage('카메라를 지금 사용할 수 없습니다. 카메라 없이 계속하거나 잠시 후 다시 시도해 주세요.');
-        return;
-      }
-    }
-
-    setCameraState('error');
-    setMessage('카메라 준비를 확인하지 못했습니다. 카메라 없이 계속하거나 잠시 후 다시 시도해 주세요.');
-  }
-
-  function moveToUploadStage() {
-    setFlowStage('upload');
-    setMessage('이제 영상 파일 업로드나 기록 저장 중 원하는 흐름을 이어서 진행할 수 있습니다.');
-  }
-
-  function continueWithoutCamera() {
-    setFlowStage('upload');
-    setMessage('카메라 없이 진행 중입니다. 기록 저장이나 실제 영상 업로드 중 원하는 작업을 선택해 주세요.');
-  }
-
-  async function saveAttempt(recordType: 'prepared' | 'completed') {
-    setSaveLoading(true);
-    setSaveError(null);
-
-    try {
-      const attempt = await createAttempt({
-        challengeId,
-        recordType,
-        score: buildPreviewScore(recordType),
-        notes: buildAttemptNote(recordType, challengeTitle),
-      });
-      setSavedAttempt(attempt);
-      setMessage(
-        recordType === 'prepared'
-          ? '준비 기록을 저장했습니다. 이 버튼은 실제 DB 저장 동작입니다.'
-          : '샘플 완료 기록을 저장했습니다. 이 버튼은 실제 DB 저장 동작입니다.',
-      );
-      await loadMotionSessionState({ silent: true });
-    } catch (error) {
-      setSaveError(error instanceof Error ? error.message : '기록을 저장하지 못했습니다.');
-    } finally {
-      setSaveLoading(false);
-    }
-  }
-
-  function onSelectVideo(event: ChangeEvent<HTMLInputElement>) {
-    setSelectedVideo(event.target.files?.[0] ?? null);
-  }
-
-  async function submitAttemptVideo() {
-    if (!selectedVideo) {
-      setUploadError('업로드할 영상을 먼저 선택해 주세요.');
-      return;
-    }
-
-    setUploadLoading(true);
-    setUploadError(null);
-    setPendingJobProgress(null);
-    setUploadedAttempt(null);
-
-    try {
-      const result = await uploadAttemptVideo({
-        challengeId,
-        attemptVideo: selectedVideo,
-        notes: buildUploadNote(challengeTitle),
-      });
-      setUploadedAttempt(result);
-      setMessage(
-        result.processingComplete
-          ? '영상 업로드와 자동 채점이 완료되었습니다. 결과 화면으로 바로 이동할 수 있습니다.'
-          : '영상 업로드를 접수했습니다. trackingId 기반 후속 확인이 필요합니다.',
-      );
-      if (result.pendingTrackingId) {
-        await loadPendingJobProgressByTrackingId(result.pendingTrackingId, { silent: true });
-      }
-      await loadMotionSessionState({ silent: true });
-    } catch (error) {
-      setUploadError(error instanceof Error ? error.message : '영상을 업로드하지 못했습니다.');
-    } finally {
-      setUploadLoading(false);
-    }
-  }
-
   async function completePendingAttempt() {
     if (!pendingTrackingId) {
-      setMessage('먼저 대기 중인 trackingId를 확인해 주세요.');
+      setUploadError('No tracking id is available for manual completion.');
       return;
     }
 
     setPendingCompletionLoading(true);
+    setUploadError(null);
+
+    const request: AsyncPendingCompletionRequest = {
+      challengeId,
+      trackingId: pendingTrackingId,
+      notes: `Manual completion for ${challengeTitle}`,
+    };
+
     try {
-      const request: AsyncPendingCompletionRequest = {
-        trackingId: pendingTrackingId,
-        challengeId,
-        notes: buildUploadNote(challengeTitle),
-      };
-      const result = await completeAsyncPendingAttempt(request);
-      setUploadedAttempt(result);
-      setMessage('수동 완료 처리를 마쳤습니다. 결과 화면으로 바로 이동할 수 있습니다.');
-      if (result.pendingTrackingId) {
-        await loadPendingJobProgressByTrackingId(result.pendingTrackingId, { silent: true });
-      } else {
-        setPendingJobProgress(null);
+      const response = await completeAsyncPendingAttempt(request);
+      if (!mountedRef.current) {
+        return;
       }
+      setUploadedAttempt(response);
+      setPendingJobProgress((current) =>
+        current
+          ? {
+              ...current,
+              status: 'COMPLETED',
+              resultAttemptId: response.attemptId,
+              processingNotice: response.processingNotice,
+            }
+          : current,
+      );
+      setMessage(response.processingNotice ?? 'Manual completion finished.');
       await loadMotionSessionState({ silent: true });
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : '수동 완료 처리를 진행하지 못했습니다.');
+      if (mountedRef.current) {
+        setUploadError(error instanceof Error ? error.message : 'Failed to complete the pending upload.');
+      }
     } finally {
-      setPendingCompletionLoading(false);
+      if (mountedRef.current) {
+        setPendingCompletionLoading(false);
+      }
     }
   }
 
@@ -384,15 +285,18 @@ export function CameraPermissionPanel({ challengeId, challengeTitle }: CameraPer
 
     try {
       await navigator.clipboard.writeText(pendingTrackingId);
+      if (!mountedRef.current) {
+        return;
+      }
       setTrackingIdCopied(true);
+      window.setTimeout(() => {
+        if (mountedRef.current) {
+          setTrackingIdCopied(false);
+        }
+      }, 1500);
     } catch {
-      setMessage('trackingId를 복사하지 못했습니다. 직접 선택해서 복사해 주세요.');
+      setUploadError('Failed to copy the tracking id.');
     }
-  }
-
-  function stopStream() {
-    streamRef.current?.getTracks().forEach((track) => track.stop());
-    streamRef.current = null;
   }
 
   return (
@@ -400,205 +304,157 @@ export function CameraPermissionPanel({ challengeId, challengeTitle }: CameraPer
       <div className="camera-panel__header">
         <div>
           <p className="camera-panel__eyebrow">Camera Ready</p>
-          <h2>{challengeTitle} 시작 준비</h2>
-          <p className={`camera-panel__message ${messageToneClass}`}>{message}</p>
+          <h2>{challengeTitle} start console</h2>
+          <p className="camera-panel__message">{message}</p>
         </div>
-        <button type="button" className="button button--ghost" onClick={() => void loadMotionSessionState({ silent: false })}>
-          {sessionRefreshing || sessionLoading ? '세션 새로고침 중...' : '세션 새로고침'}
+        <button
+          type="button"
+          className="button button--ghost"
+          onClick={() => void loadMotionSessionState({ silent: true })}
+        >
+          {sessionRefreshing || sessionLoading ? 'Refreshing...' : 'Refresh session'}
         </button>
       </div>
 
-      <div className={`camera-panel__status ${serverStatusToneClass}`}>
-        <span>현재 서버 상태</span>
-        <strong>{sessionState?.runtimeState ?? '상태 확인 중'}</strong>
+      <div className="camera-panel__status">
+        <span>Runtime state</span>
+        <strong>{sessionState?.runtimeState ?? 'Checking runtime'}</strong>
       </div>
-
-      {sessionTerminalActive ? (
-        <div className={`camera-panel__terminal ${buildSessionTerminalToneClass(sessionState)}`}>
-          <strong>자동 재시도 소진</strong>
-          <p>{sessionState?.terminalMessage ?? '자동 재시도 예산이 모두 소진되어 점검 우선 상태로 전환되었습니다.'}</p>
-          <small>
-            {sessionState?.failureAction ? `권장 조치: ${buildDurableProgressFailureAction(sessionState.failureAction)}` : '권장 조치를 먼저 확인해 주세요.'}
-            {typeof sessionState?.retryCount === 'number' ? ` · 누적 재시도 ${sessionState.retryCount}회` : ''}
-          </small>
-        </div>
-      ) : null}
 
       {sessionError ? <p className="camera-panel__error">{sessionError}</p> : null}
 
       {recentRuntimeTrace.length > 0 ? (
         <div className="camera-runtime-feed">
-          <h3>최근 서버 상태 변화</h3>
+          <h3>Recent runtime trace</h3>
           <ul>
-            {recentRuntimeTrace.map((item, index) => {
-              const warnClass = item.runtimeState === 'FAILED_RETRYABLE' ? ' camera-runtime-feed__item--warn' : '';
-              return (
-                <li key={`${item.runtimeState}-${item.recordedAt}-${index}`} className={`camera-runtime-feed__item${warnClass}`}>
-                  <strong>{item.runtimeState}</strong>
-                  <span>{runtimeSourceLabel(item.source)}</span>
-                  <span>{formatRuntimeRecordedAt(item.recordedAt)}</span>
-                </li>
-              );
-            })}
+            {recentRuntimeTrace.map((item, index) => (
+              <li key={`${item.runtimeState}-${item.recordedAt}-${index}`} className="camera-runtime-feed__item">
+                <strong>{item.runtimeState}</strong>
+                <span>{item.source ?? 'TRACKER'}</span>
+                <span>{formatRuntimeRecordedAt(item.recordedAt)}</span>
+              </li>
+            ))}
           </ul>
         </div>
       ) : null}
 
       <div className="camera-panel__grid">
         <article className="camera-panel__card">
-          <h3>1. 카메라 확인 단계</h3>
-          <p>카메라 권한만 점검합니다. 이 카드의 버튼은 DB 저장과 무관합니다.</p>
+          <h3>1. Camera check</h3>
+          <p>Camera permission is optional. You can continue to the upload step without it.</p>
           <div className="camera-panel__video-shell">
             <video ref={videoRef} autoPlay muted playsInline className="camera-panel__video" />
           </div>
           <div className="camera-panel__actions">
             <button type="button" className="button" onClick={() => void requestCameraAccess()}>
-              카메라 권한 확인
+              Check camera
             </button>
             {canOpenUploadStage ? (
               <button type="button" className="button button--secondary" onClick={moveToUploadStage}>
-                다음: 업로드 단계 열기
+                Open upload step
               </button>
             ) : null}
             {canContinueWithoutCamera ? (
               <button type="button" className="button button--ghost" onClick={continueWithoutCamera}>
-                카메라 없이 계속
+                Continue without camera
               </button>
             ) : null}
           </div>
-          <p className="camera-panel__meta">카메라 상태: {cameraStateLabel(cameraState)}</p>
-        </article>
-
-        <article className="camera-panel__card">
-          <h3>2. 빠른 기록 저장</h3>
-          <p>이 카드의 버튼은 전부 실제 DB 저장입니다. 업로드 없이 준비/샘플 기록을 바로 남깁니다.</p>
-          <div className="camera-panel__actions">
-            <button type="button" className="button" onClick={() => void saveAttempt('prepared')} disabled={saveLoading}>
-              {saveLoading ? '저장 중...' : '준비 기록 저장'}
-            </button>
-            <button type="button" className="button button--secondary" onClick={() => void saveAttempt('completed')} disabled={saveLoading}>
-              샘플 완료 기록 저장
-            </button>
-          </div>
-          {saveError ? <p className="camera-panel__error">{saveError}</p> : null}
-          {savedAttempt ? (
-            <p className="camera-panel__success">
-              저장된 시도 #{savedAttempt.id} · <Link to={`/attempts/${savedAttempt.id}/result`}>결과 보기</Link>
-            </p>
-          ) : null}
+          <p className="camera-panel__meta">Camera state: {cameraStateLabel(cameraState)}</p>
         </article>
       </div>
 
       {flowStage === 'upload' ? (
         <article className="camera-panel__card camera-panel__card--wide">
-          <h3>3. 실제 영상 업로드</h3>
-          <p>이 카드에서는 실제 파일 업로드와 자동 채점 흐름이 진행됩니다.</p>
+          <h3>2. Upload attempt video</h3>
+          <p>Select a real challenge video and submit it for analysis and scoring.</p>
           <div className="camera-panel__upload-box">
             <input type="file" accept="video/*" onChange={onSelectVideo} />
-            <button type="button" className="button" onClick={() => void submitAttemptVideo()} disabled={uploadLoading}>
-              {uploadLoading ? '업로드 중...' : '영상 업로드'}
+            <button
+              type="button"
+              className="button"
+              onClick={() => void submitAttemptVideo()}
+              disabled={uploadLoading || (sessionState ? !sessionState.uploadEnabled : false)}
+            >
+              {uploadLoading ? 'Uploading...' : 'Upload video'}
             </button>
           </div>
-          {selectedVideo ? <p className="camera-panel__meta">선택한 파일: {selectedVideo.name}</p> : null}
+          {selectedVideo ? <p className="camera-panel__meta">Selected file: {selectedVideo.name}</p> : null}
           {uploadError ? <p className="camera-panel__error">{uploadError}</p> : null}
 
           {uploadedAttempt ? (
             <div className="camera-panel__result-box">
               <div className="camera-panel__result-header">
                 <h4>{uploadedAttempt.resultHeadline}</h4>
-                <span className="camera-panel__pill">{processingModeLabel(uploadedAttempt.processingMode)}</span>
-                <span className="camera-panel__pill">{uploadedAttempt.processingComplete ? '처리 완료' : '처리 대기'}</span>
+                <span className="camera-panel__pill">{uploadedAttempt.processingMode ?? 'SYNC_INLINE'}</span>
+                <span className="camera-panel__pill">
+                  {uploadedAttempt.processingComplete ? 'Completed' : 'Pending'}
+                </span>
               </div>
               <p>{uploadedAttempt.resultSummary}</p>
               <p className="camera-panel__meta">{uploadedAttempt.processingNotice}</p>
               {uploadedAttemptResultId ? (
                 <p className="camera-panel__success">
-                  <Link to={`/attempts/${uploadedAttemptResultId}/result`}>결과 보기</Link>
+                  <Link to={`/attempts/${uploadedAttemptResultId}/result`}>Open result page</Link>
                 </p>
               ) : (
-                <p className="camera-panel__meta">결과 화면은 처리 완료 뒤에 열립니다.</p>
+                <p className="camera-panel__meta">Result id will appear after processing completes.</p>
               )}
             </div>
           ) : null}
 
-          {pendingTrackingId ? (
-            <div className={`processing-job-card ${processingJobToneClass}`}>
-              <div className="processing-job-card__header">
+          {pendingUploadAwaitingCompletion || pendingJobProgress ? (
+            <div className="camera-panel__pending-box">
+              <div className="camera-panel__pending-header">
                 <div>
-                  <p className="camera-panel__eyebrow">Processing Job</p>
-                  <h4>{buildDurableProgressHeadline(pendingJobProgress)}</h4>
+                  <h4>{buildProgressHeadline(pendingJobProgress)}</h4>
+                  <p>{pendingJobProgress?.processingNotice ?? 'Processing state is being refreshed.'}</p>
                 </div>
                 <span className="camera-panel__pill">{pendingJobProgress?.status ?? 'PENDING'}</span>
               </div>
 
-              <p className="processing-job-card__summary">{pendingStageSummary}</p>
-              <p className="camera-panel__meta">아래 버튼은 업로드 이후 상태 확인 또는 수동 완료 처리 버튼입니다.</p>
+              <ul className="detail-list">
+                <li>
+                  <strong>trackingId</strong>
+                  {pendingTrackingId ?? 'Not available yet'}
+                </li>
+                <li>
+                  <strong>completion strategy</strong>
+                  {pendingJobProgress?.completionStrategy ?? 'MANUAL_COMPLETION'}
+                </li>
+                <li>
+                  <strong>elapsed</strong>
+                  {pendingJobProgress ? `${pendingJobProgress.elapsedSeconds}s` : 'Waiting...'}
+                </li>
+                <li>
+                  <strong>original file</strong>
+                  {pendingJobProgress?.originalFileName ?? selectedVideo?.name ?? 'unknown'}
+                </li>
+              </ul>
 
-              <div className="tracking-id-row">
-                <code>{pendingTrackingId}</code>
+              <div className="camera-panel__actions camera-panel__actions--utility">
                 <button type="button" className="button button--ghost" onClick={() => void copyTrackingId()}>
-                  {trackingIdCopied ? '복사 완료' : 'trackingId 복사'}
+                  {trackingIdCopied ? 'Tracking id copied' : 'Copy tracking id'}
                 </button>
                 <button
                   type="button"
                   className="button button--secondary"
-                  onClick={() => void loadPendingJobProgressByTrackingId(pendingTrackingId)}
+                  onClick={() => void loadPendingJobProgress()}
                   disabled={trackingProgressLoading}
                 >
-                  {trackingProgressLoading ? '다시 조회 중...' : 'trackingId로 상태 다시 조회'}
+                  {trackingProgressLoading ? 'Refreshing...' : 'Refresh progress'}
                 </button>
+                {pendingJobProgress?.status !== 'COMPLETED' ? (
+                  <button
+                    type="button"
+                    className="button"
+                    onClick={() => void completePendingAttempt()}
+                    disabled={pendingCompletionLoading}
+                  >
+                    {pendingCompletionLoading ? 'Completing...' : 'Complete manually'}
+                  </button>
+                ) : null}
               </div>
-              {trackingIdCopied ? (
-                <p className="tracking-id-feedback">trackingId가 복사되었습니다. 다른 화면이나 수동 완료 처리에 사용할 수 있습니다.</p>
-              ) : null}
-
-              <ul className="processing-job-card__meta">
-                <li>
-                  <span>완료 방식</span>
-                  <strong>{buildDurableProgressCompletionStrategyLabel(pendingJobProgress?.completionStrategy)}</strong>
-                </li>
-                <li>
-                  <span>누적 처리 시간</span>
-                  <strong>{buildDurableProgressElapsedTimeLabel(pendingJobProgress?.elapsedSeconds)}</strong>
-                </li>
-                <li>
-                  <span>재시도 가능 여부</span>
-                  <strong>{buildDurableProgressRetryWindowLabel(pendingJobProgress)}</strong>
-                </li>
-                <li>
-                  <span>업로드 파일</span>
-                  <strong>{buildDurableProgressOriginalFileLabel(pendingJobProgress)}</strong>
-                </li>
-              </ul>
-
-              {pendingJobProgress?.failureCode ? <p className="camera-panel__meta">실패 코드: {pendingJobProgress.failureCode}</p> : null}
-              {pendingJobProgress?.processingNotice ? <p className="camera-panel__meta">{pendingJobProgress.processingNotice}</p> : null}
-
-              {pendingJobProgress?.status === 'FAILED' && pendingJobProgress.failureAction ? (
-                <div className={`processing-job-action ${processingJobActionToneClass}`}>
-                  <strong>다음 확인 작업</strong>
-                  <p>{buildDurableProgressFailureAction(pendingJobProgress.failureAction)}</p>
-                </div>
-              ) : null}
-
-              {pendingJobProgress?.status === 'COMPLETED' && pendingJobProgress.resultAttemptId ? (
-                <div className="processing-job-result-link">
-                  <strong>완료된 결과</strong>
-                  <p>{buildDurableProgressCompletionLinkDescription()}</p>
-                  <Link to={`/attempts/${pendingJobProgress.resultAttemptId}/result`}>{buildDurableProgressCompletionLinkLabel()}</Link>
-                </div>
-              ) : null}
-
-              {pendingJobProgress?.status !== 'COMPLETED' ? (
-                <div className="camera-panel__actions">
-                  <button type="button" className="button button--secondary" onClick={() => void loadPendingJobProgress()} disabled={trackingProgressLoading}>
-                    {trackingProgressLoading ? '상태 확인 중...' : '진행 상태 새로고침'}
-                  </button>
-                  <button type="button" className="button" onClick={() => void completePendingAttempt()} disabled={pendingCompletionLoading}>
-                    {pendingCompletionLoading ? '완료 처리 중...' : '수동 완료 처리'}
-                  </button>
-                </div>
-              ) : null}
             </div>
           ) : null}
         </article>
@@ -607,161 +463,68 @@ export function CameraPermissionPanel({ challengeId, challengeTitle }: CameraPer
   );
 }
 
-function buildPreviewScore(recordType: 'prepared' | 'completed') {
-  return recordType === 'prepared' ? 0 : 82;
-}
-
-function buildAttemptNote(recordType: 'prepared' | 'completed', challengeTitle: string) {
-  return recordType === 'prepared'
-    ? `${challengeTitle} 준비 상태를 저장한 테스트 기록입니다.`
-    : `${challengeTitle} 샘플 완료 결과를 저장한 테스트 기록입니다.`;
-}
-
 function buildUploadNote(challengeTitle: string) {
-  return `${challengeTitle} 영상 업로드 자동 채점 테스트 기록입니다.`;
+  return `${challengeTitle} attempt video upload`;
 }
 
-function buildProgressMessage(progress: AttemptVideoProcessingJobProgress) {
-  switch (progress.status) {
+function buildSessionMessage(state: MotionSessionState) {
+  if (state.uploadEnabled) {
+    return 'The challenge is ready for upload and scoring.';
+  }
+  if (state.readinessState === 'REFERENCE_PENDING') {
+    return 'Reference analysis is still pending for this challenge.';
+  }
+  return 'Check the current runtime state before uploading.';
+}
+
+function buildProgressHeadline(progress: AttemptVideoProcessingJobProgress | null) {
+  switch (progress?.status) {
     case 'PENDING':
-      return 'trackingId 기준으로 처리 대기 상태를 확인했습니다.';
+      return 'Processing pending';
     case 'PROCESSING':
-      return 'trackingId 기준으로 분석과 채점이 진행 중입니다.';
+      return 'Analyzing and scoring';
     case 'COMPLETED':
-      return 'trackingId 기준으로 처리 완료를 확인했습니다. 결과 화면으로 이동할 수 있습니다.';
+      return 'Processing completed';
     case 'FAILED':
-      return buildFailureProgressMessage(progress);
+      return 'Processing failed';
     default:
-      return 'trackingId 기준으로 최신 처리 상태를 다시 확인했습니다.';
-  }
-}
-
-function buildFailureProgressMessage(progress: AttemptVideoProcessingJobProgress) {
-  if (progress.failureSeverity === 'HIGH') {
-    return `중요한 실패 상태를 확인했습니다. ${buildDurableProgressFailureAction(progress.failureAction)} 먼저 확인해 주세요.`;
-  }
-
-  return `재시도 가능한 실패 상태를 확인했습니다. ${buildDurableProgressFailureAction(progress.failureAction)} 먼저 확인해 주세요.`;
-}
-
-function buildMessageToneClass(
-  progress: AttemptVideoProcessingJobProgress | null,
-  sessionState: MotionSessionState | null,
-  message: string,
-) {
-  if (progress?.status === 'FAILED') {
-    return progress.failureSeverity === 'HIGH'
-      ? 'camera-panel__message camera-panel__message--danger'
-      : 'camera-panel__message camera-panel__message--warn';
-  }
-  if (sessionState?.terminalState === 'AUTO_RETRY_EXHAUSTED') {
-    return sessionState.inspectRecommended
-      ? 'camera-panel__message camera-panel__message--danger'
-      : 'camera-panel__message camera-panel__message--warn';
-  }
-  if (message.includes('실패') || message.includes('문제')) {
-    return 'camera-panel__message camera-panel__message--warn';
-  }
-  return 'camera-panel__message';
-}
-
-function buildServerStatusToneClass(progress: AttemptVideoProcessingJobProgress | null, sessionState: MotionSessionState | null) {
-  if (!progress) {
-    if (sessionState?.terminalState === 'AUTO_RETRY_EXHAUSTED') {
-      return sessionState.inspectRecommended
-        ? 'camera-panel__status camera-panel__status--danger'
-        : 'camera-panel__status camera-panel__status--warn';
-    }
-    return 'camera-panel__status';
-  }
-  if (progress.status === 'FAILED') {
-    return progress.failureSeverity === 'HIGH'
-      ? 'camera-panel__status camera-panel__status--danger'
-      : 'camera-panel__status camera-panel__status--warn';
-  }
-  return 'camera-panel__status';
-}
-
-function buildSessionTerminalToneClass(sessionState: MotionSessionState | null) {
-  if (!sessionState || sessionState.terminalState !== 'AUTO_RETRY_EXHAUSTED') {
-    return 'camera-panel__terminal';
-  }
-
-  return sessionState.inspectRecommended
-    ? 'camera-panel__terminal camera-panel__terminal--danger'
-    : 'camera-panel__terminal camera-panel__terminal--warn';
-}
-
-function buildProcessingJobToneClass(progress: AttemptVideoProcessingJobProgress | null) {
-  if (!progress) {
-    return 'processing-job-card';
-  }
-  switch (progress.status) {
-    case 'PENDING':
-      return 'processing-job-card processing-job-card--pending';
-    case 'PROCESSING':
-      return 'processing-job-card processing-job-card--processing';
-    case 'COMPLETED':
-      return 'processing-job-card processing-job-card--completed';
-    case 'FAILED':
-      return progress.failureSeverity === 'HIGH'
-        ? 'processing-job-card processing-job-card--failed-high'
-        : 'processing-job-card processing-job-card--failed-warn';
-    default:
-      return 'processing-job-card';
-  }
-}
-
-function buildProcessingJobActionToneClass(progress: AttemptVideoProcessingJobProgress | null) {
-  if (!progress || progress.status !== 'FAILED') {
-    return 'processing-job-action';
-  }
-  return progress.failureSeverity === 'HIGH'
-    ? 'processing-job-action processing-job-action--danger'
-    : 'processing-job-action processing-job-action--warn';
-}
-
-function processingModeLabel(mode: AttemptProcessingMode | null | undefined) {
-  switch (mode) {
-    case 'SYNC_INLINE':
-      return '동기 처리';
-    case 'ASYNC_JOB_PENDING':
-      return '비동기 대기';
-    default:
-      return '프로토타입 저장';
+      return 'Processing status';
   }
 }
 
 function cameraStateLabel(cameraState: CameraState) {
   switch (cameraState) {
-    case 'idle':
-      return '권한 확인 전';
     case 'ready':
-      return '카메라 준비 완료';
+      return 'Camera ready';
     case 'denied':
-      return '권한 거부';
+      return 'Permission denied';
     case 'unavailable':
-      return '장치 없음';
+      return 'Camera unavailable';
     case 'error':
-      return '오류 발생';
+      return 'Camera error';
     default:
-      return '상태 확인 중';
+      return 'Idle';
   }
 }
 
-function runtimeSourceLabel(source: MotionSessionState['serverRuntimeTrace'][number]['source'] | null) {
-  if (!source) {
-    return '기록 없음';
+function resolveCameraErrorState(error: unknown): CameraState {
+  if (error instanceof DOMException && error.name === 'NotAllowedError') {
+    return 'denied';
   }
-  switch (source) {
-    case 'EVENT_BUS':
-      return '이벤트 버스';
-    case 'ASYNC_JOB':
-      return '비동기 작업';
-    case 'TRACKER':
-      return '런타임 트래커';
+  if (error instanceof DOMException && (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError')) {
+    return 'unavailable';
+  }
+  return 'error';
+}
+
+function buildCameraErrorMessage(state: CameraState) {
+  switch (state) {
+    case 'denied':
+      return 'Camera permission was denied. You can continue without camera access.';
+    case 'unavailable':
+      return 'No camera device is available. You can continue without camera access.';
     default:
-      return source;
+      return 'Camera access failed. You can continue without camera access.';
   }
 }
 
@@ -769,11 +532,11 @@ function formatRuntimeRecordedAt(value: string | null) {
   if (!value) {
     return '-';
   }
+
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) {
     return value;
   }
+
   return date.toLocaleString('ko-KR');
 }
-
-

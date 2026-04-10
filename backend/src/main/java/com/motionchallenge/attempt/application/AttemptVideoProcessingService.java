@@ -19,7 +19,8 @@ import org.springframework.stereotype.Service;
 public class AttemptVideoProcessingService {
 
     private static final String PROCESSING_MODE_SYNC_INLINE = "SYNC_INLINE";
-    private static final String PROCESSING_NOTICE_AUTOSCORED = "실제 업로드 비디오를 기준으로 서버가 분석과 채점을 완료했습니다.";
+    private static final String PROCESSING_NOTICE_AUTOSCORED =
+            "The uploaded video was analyzed and scored against the reference.";
 
     private final AttemptRepository attemptRepository;
     private final AttemptVideoRepository attemptVideoRepository;

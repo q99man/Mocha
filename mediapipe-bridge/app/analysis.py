@@ -250,7 +250,7 @@ def resolve_pose_landmarker_model_path() -> Path:
     if configured_model_path:
         return Path(configured_model_path).resolve()
 
-    project_root = Path(__file__).resolve().parents[2]
+    project_root = Path(__file__).resolve().parents[1]
     return project_root.joinpath("models", "pose_landmarker_lite.task").resolve()
 
 

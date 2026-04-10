@@ -1,4 +1,4 @@
-import { fetchJson, postFormData, postJson } from './client';
+﻿import { fetchJson, postFormData, postJson } from './client';
 import type {
   AsyncPendingCompletionRequest,
   AttemptCreateRequest,
@@ -8,9 +8,9 @@ import type {
   AttemptVideoUploadRequest,
 } from '../types/attempt';
 
-const NOT_FOUND_MESSAGE = '요청한 데이터를 찾을 수 없습니다.';
-const BAD_REQUEST_MESSAGE = '요청 내용을 다시 확인해 주세요.';
-const SERVER_ERROR_MESSAGE = '서버 처리 중 문제가 발생했습니다. 잠시 후 다시 시도해 주세요.';
+const NOT_FOUND_MESSAGE = 'The requested resource was not found.';
+const BAD_REQUEST_MESSAGE = 'The request was rejected. Please review the input and try again.';
+const SERVER_ERROR_MESSAGE = 'The server failed while processing the request. Please try again.';
 
 export async function getAttempts(): Promise<AttemptSummary[]> {
   return fetchJson<AttemptSummary[]>('/api/attempts');
@@ -20,7 +20,6 @@ export async function getAttemptById(id: string | number): Promise<AttemptSummar
   return fetchJson<AttemptSummary>(`/api/attempts/${id}`);
 }
 
-// Fallback-only helper. Active UI flows should use trackingId direct lookup first and call this only when trackingId is unavailable.
 export async function getAttemptVideoProcessingProgressByChallengeId(
   challengeId: number,
 ): Promise<AttemptVideoProcessingJobProgress> {
@@ -44,15 +43,15 @@ export async function createAttempt(request: AttemptCreateRequest): Promise<Atte
     return await postJson<AttemptSummary, AttemptCreateRequest>('/api/attempts', request);
   } catch (error) {
     if (error instanceof Error && error.message === NOT_FOUND_MESSAGE) {
-      throw new Error('저장할 챌린지를 찾을 수 없습니다.');
+      throw new Error('The selected challenge could not be found.');
     }
     if (error instanceof Error && error.message === BAD_REQUEST_MESSAGE) {
-      throw new Error('기록 저장 요청 형식을 다시 확인해 주세요.');
+      throw new Error('The attempt could not be saved. Please review the request and try again.');
     }
     if (error instanceof Error && error.message === SERVER_ERROR_MESSAGE) {
-      throw new Error('기록 저장 중 서버 문제가 발생했습니다. 잠시 후 다시 시도해 주세요.');
+      throw new Error('The server failed while saving the attempt. Please try again.');
     }
-    throw new Error('기록을 저장하지 못했습니다.');
+    throw new Error('The attempt could not be saved.');
   }
 }
 
@@ -68,15 +67,15 @@ export async function uploadAttemptVideo(request: AttemptVideoUploadRequest): Pr
     return await postFormData<AttemptVideoResult>('/api/attempts/video', formData);
   } catch (error) {
     if (error instanceof Error && error.message === NOT_FOUND_MESSAGE) {
-      throw new Error('업로드할 챌린지를 찾을 수 없습니다.');
+      throw new Error('The selected challenge could not be found.');
     }
     if (error instanceof Error && error.message === BAD_REQUEST_MESSAGE) {
-      throw new Error('레퍼런스 분석 상태나 업로드 요청 내용을 다시 확인해 주세요.');
+      throw new Error('The upload request was rejected. Check the reference analysis status and file.');
     }
     if (error instanceof Error && error.message === SERVER_ERROR_MESSAGE) {
-      throw new Error('시도 영상을 업로드하는 중 서버 문제가 발생했습니다. 잠시 후 다시 시도해 주세요.');
+      throw new Error('The server failed while uploading the attempt video. Please try again.');
     }
-    throw new Error('시도 영상을 업로드하지 못했습니다.');
+    throw new Error('The attempt video could not be uploaded.');
   }
 }
 
@@ -90,14 +89,14 @@ export async function completeAsyncPendingAttempt(
     );
   } catch (error) {
     if (error instanceof Error && error.message === NOT_FOUND_MESSAGE) {
-      throw new Error('완료 처리할 대기 업로드를 찾을 수 없습니다.');
+      throw new Error('The pending upload could not be found.');
     }
     if (error instanceof Error && error.message === BAD_REQUEST_MESSAGE) {
-      throw new Error('추적 ID 또는 대기 상태를 다시 확인해 주세요.');
+      throw new Error('The tracking id or pending state is invalid.');
     }
     if (error instanceof Error && error.message === SERVER_ERROR_MESSAGE) {
-      throw new Error('대기 중인 업로드를 완료 처리하는 중 서버 문제가 발생했습니다. 잠시 후 다시 시도해 주세요.');
+      throw new Error('The server failed while completing the pending upload. Please try again.');
     }
-    throw new Error('대기 중인 업로드를 완료 처리하지 못했습니다.');
+    throw new Error('The pending upload could not be completed.');
   }
 }

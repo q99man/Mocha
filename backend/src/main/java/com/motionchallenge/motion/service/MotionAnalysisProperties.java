@@ -36,6 +36,8 @@ public class MotionAnalysisProperties {
         private String endpoint = "http://localhost:8000";
         private String analyzePath = "/api/v1/analyze";
         private long timeoutMillis = 5000L;
+        private String modelDirectory = "../mediapipe-bridge/models";
+        private String activeModelFileName = "pose_landmarker_lite.task";
 
         public boolean isStubEnabled() {
             return stubEnabled;
@@ -67,6 +69,22 @@ public class MotionAnalysisProperties {
 
         public void setTimeoutMillis(long timeoutMillis) {
             this.timeoutMillis = timeoutMillis;
+        }
+
+        public String getModelDirectory() {
+            return modelDirectory;
+        }
+
+        public void setModelDirectory(String modelDirectory) {
+            this.modelDirectory = modelDirectory;
+        }
+
+        public String getActiveModelFileName() {
+            return activeModelFileName;
+        }
+
+        public void setActiveModelFileName(String activeModelFileName) {
+            this.activeModelFileName = activeModelFileName;
         }
     }
 }

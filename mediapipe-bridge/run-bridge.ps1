@@ -1,5 +1,8 @@
 param(
-    [int]$Port = 8000
+    [int]$Port = 8000,
+    [ValidateSet("stub", "mediapipe")]
+    [string]$Mode = "stub",
+    [switch]$Reload
 )
 
 $ErrorActionPreference = "Stop"
@@ -7,6 +10,10 @@ $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $MyInvocation.MyCommand.Path
 $venvPath = Join-Path $root ".venv"
 $pythonExe = Join-Path $venvPath "Scripts\python.exe"
+$cacheRoot = Join-Path $root ".cache"
+$tempRoot = Join-Path $cacheRoot "temp"
+$matplotlibConfigRoot = Join-Path $cacheRoot "matplotlib"
+$modelsRoot = Join-Path $root "models"
 
 function Test-CommandAvailable {
     param([string]$Name)
@@ -53,6 +60,21 @@ if (-not (Test-Path $pythonExe)) {
     throw "Virtual environment was not created correctly. Expected python at $pythonExe"
 }
 
+foreach ($directory in @($cacheRoot, $tempRoot, $matplotlibConfigRoot, $modelsRoot)) {
+    if (-not (Test-Path $directory)) {
+        New-Item -ItemType Directory -Path $directory -Force | Out-Null
+    }
+}
+
+$env:TEMP = $tempRoot
+$env:TMP = $tempRoot
+if (-not $env:MPLCONFIGDIR) {
+    $env:MPLCONFIGDIR = $matplotlibConfigRoot
+}
+if (-not $env:MEDIAPIPE_BRIDGE_MODE) {
+    $env:MEDIAPIPE_BRIDGE_MODE = $Mode
+}
+
 function Invoke-PythonStep {
     param(
         [string[]]$Arguments,
@@ -65,9 +87,26 @@ function Invoke-PythonStep {
     }
 }
 
-Write-Host "Installing bridge dependencies..."
-Invoke-PythonStep -Arguments @("-m", "pip", "install", "--upgrade", "pip") -FailureMessage "Failed to upgrade pip in the MediaPipe bridge virtual environment."
-Invoke-PythonStep -Arguments @("-m", "pip", "install", "-r", (Join-Path $root "requirements.txt")) -FailureMessage "Failed to install MediaPipe bridge dependencies."
+function Test-BridgeDependenciesInstalled {
+    & $pythonExe -c "import fastapi, uvicorn, pydantic, numpy, cv2, mediapipe"
+    return ($LASTEXITCODE -eq 0)
+}
+
+if (Test-BridgeDependenciesInstalled) {
+    Write-Host "Bridge dependencies already available. Skipping pip install."
+} else {
+    Write-Host "Installing bridge dependencies..."
+    Invoke-PythonStep -Arguments @("-m", "pip", "install", "--upgrade", "pip") -FailureMessage "Failed to upgrade pip in the MediaPipe bridge virtual environment."
+    Invoke-PythonStep -Arguments @("-m", "pip", "install", "-r", (Join-Path $root "requirements.txt")) -FailureMessage "Failed to install MediaPipe bridge dependencies."
+}
 
 Write-Host "Starting MediaPipe bridge on port $Port..."
-Invoke-PythonStep -Arguments @("-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "$Port", "--reload") -FailureMessage "Failed to start the MediaPipe bridge with uvicorn."
+Write-Host "Bridge mode: $($env:MEDIAPIPE_BRIDGE_MODE)"
+Write-Host "Temp dir: $($env:TEMP)"
+Write-Host "Matplotlib config dir: $($env:MPLCONFIGDIR)"
+Write-Host "Model dir: $modelsRoot"
+$uvicornArguments = @("-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "$Port")
+if ($Reload) {
+    $uvicornArguments += "--reload"
+}
+Invoke-PythonStep -Arguments $uvicornArguments -FailureMessage "Failed to start the MediaPipe bridge with uvicorn."

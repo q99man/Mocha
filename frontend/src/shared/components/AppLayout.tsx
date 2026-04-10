@@ -15,6 +15,7 @@ export function AppLayout() {
           <NavLink to="/">홈</NavLink>
           <NavLink to="/challenges">챌린지</NavLink>
           <NavLink to="/attempts">도전 기록</NavLink>
+          <NavLink to="/admin/model-assets">운영</NavLink>
         </nav>
       </header>
       <main>

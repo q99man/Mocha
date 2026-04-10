@@ -5,7 +5,7 @@ spring:
   application:
     name: motion-challenge-backend
   profiles:
-    default: local
+    default: mysql
   jpa:
     open-in-view: false
   data:

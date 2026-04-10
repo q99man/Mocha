@@ -1,4 +1,4 @@
-export type AttemptStatus = '준비됨' | '완료됨';
+export type AttemptStatus = 'Prepared' | 'Completed';
 export type AttemptRecordType = 'prepared' | 'completed';
 export type AttemptProcessingMode = 'SYNC_INLINE' | 'ASYNC_JOB_PENDING';
 export type AttemptResultSource =

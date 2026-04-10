@@ -67,3 +67,62 @@ cd C:\SpringWork\Mocha
 - [run-mediapipe-http.ps1](/C:/SpringWork/Mocha/backend/run-mediapipe-http.ps1)
 - [MEDIAPIPE_BRIDGE_VERIFICATION.md](/C:/SpringWork/Mocha/docs/MEDIAPIPE_BRIDGE_VERIFICATION.md)
 - [MEDIAPIPE_FASTAPI_HANDOFF.md](/C:/SpringWork/Mocha/docs/MEDIAPIPE_FASTAPI_HANDOFF.md)
+
+## 2026-04-09 Encoding Handoff
+- The repo keeps suffering from text corruption when files are rewritten through PowerShell defaults or mixed editor encodings.
+- Current safe rule: all source/docs files must stay `UTF-8` **without BOM**.
+- `.editorconfig` already declares `charset = utf-8`, but that alone was not enough.
+- `backend/build.gradle` now forces Gradle Java compilation and test runtime to use `UTF-8`.
+- When rewriting files from scripts or PowerShell, prefer `System.IO.File.WriteAllText(..., new UTF8Encoding(false))` over plain `Set-Content -Encoding utf8` if BOM-free output matters.
+- If Java suddenly fails with `illegal character: '\ufeff'` or `unmappable character ... for encoding UTF-8`, suspect BOM or a non-UTF-8 saved file first.
+- Files that were explicitly repaired today:
+  - [AttemptService.java](/C:/SpringWork/Mocha/backend/src/main/java/com/motionchallenge/attempt/application/AttemptService.java)
+  - [DefaultScoringService.java](/C:/SpringWork/Mocha/backend/src/main/java/com/motionchallenge/scoring/application/DefaultScoringService.java)
+- Before editing any older Korean text-heavy file, re-save it as UTF-8 first or replace broken strings with ASCII/known-good UTF-8 text in the same edit.
+- Verification after repair:
+  - `backend ./gradlew.bat build` passed
+  - `frontend npm.cmd run build` passed
+
+- 2026-04-09 note: On Windows PowerShell 5.x, Set-Content -Encoding utf8 can write a BOM. For Java/TS source files, immediately rewrite with [System.IO.File]::WriteAllText(path, content, New-Object System.Text.UTF8Encoding(False)) if a compiler reports illegal character: '\ufeff'.
+
+## 2026-04-09 Evening Handoff
+- Current baseline is healthy again.
+- `backend ./gradlew.bat build` passed.
+- `frontend npm.cmd run build` passed.
+- Result-view text corruption was reduced by normalizing server/client strings in:
+  - `backend/src/main/java/com/motionchallenge/attempt/application/AttemptService.java`
+  - `backend/src/main/java/com/motionchallenge/attempt/application/AttemptVideoProcessingService.java`
+  - `backend/src/main/java/com/motionchallenge/challenge/service/MotionSessionStateFactory.java`
+  - `frontend/src/shared/api/client.ts`
+  - `frontend/src/shared/api/attemptApi.ts`
+  - `frontend/src/shared/presentation/durableProgress.ts`
+  - `frontend/src/features/attempts/AttemptHistoryList.tsx`
+  - `frontend/src/features/motion/CameraPermissionPanel.tsx`
+  - `frontend/src/pages/AttemptsPage.tsx`
+
+- Scoring was upgraded in `backend/src/main/java/com/motionchallenge/scoring/application/DefaultScoringService.java`.
+- The score now blends:
+  - pose similarity
+  - timing similarity
+  - detection stability
+- Summary text now explains the strongest area and weakest area instead of only reporting one raw gap.
+
+- Important encoding lesson from this turn:
+  - `Set-Content -Encoding utf8` on Windows PowerShell 5.x may write BOM.
+  - Java source with BOM can fail with `illegal character: '\ufeff'`.
+  - After any scripted overwrite of `.java`, `.ts`, or `.tsx`, re-save with UTF-8 without BOM when in doubt.
+
+- Recommended restart sequence at home:
+  1. Start bridge in `mediapipe` mode.
+  2. Start backend with MySQL profile or `run-mediapipe-http.ps1 -Profile mysql`.
+  3. Start frontend with `npm.cmd run dev`.
+  4. Re-open the result page and attempts page to confirm text is readable.
+
+- Suggested next work item:
+  - add richer result explanation on the result page using the upgraded scoring model
+  - for example a short strengths-vs-weaknesses panel for pose, timing, and stability
+
+- If text still looks broken after restart:
+  - first suspect old DB rows containing already-garbled strings
+  - second suspect a source file rewritten with BOM
+  - use `rg "餓|筌|癲|꾨|繞|嶺|\\uFFFD" backend/src frontend/src` to find source-level corruption

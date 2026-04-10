@@ -8,7 +8,8 @@ type ChallengeCardProps = {
 
 export function ChallengeCard({ challenge }: ChallengeCardProps) {
   const analysisStatus = buildAnalysisStatusMeta(challenge.referenceAnalysisStatus);
-  const referenceStatus = challenge.referenceMotionProfileReady
+  const referenceReady = challenge.referenceVideoUploaded && challenge.referenceMotionProfileReady;
+  const referenceStatus = referenceReady
     ? { tone: 'good' as const, icon: 'RDY', label: 'READY' }
     : { tone: 'warn' as const, icon: 'WAIT', label: 'PENDING' };
 
@@ -61,11 +62,11 @@ export function ChallengeCard({ challenge }: ChallengeCardProps) {
             <strong>{referenceStatus.label}</strong>
             <p className={`challenge-card__metric-badge challenge-card__metric-badge--${referenceStatus.tone}`}>
               <StatusGlyph kind={referenceStatus.icon} tone={referenceStatus.tone} />
-              {challenge.referenceMotionProfileReady ? '모션 프로필 준비 완료' : '레퍼런스 준비 중'}
+              {referenceReady ? '도전 가능' : '레퍼런스 준비 전'}
             </p>
           </div>
           <Link className="button-link" to={`/challenges/${challenge.id}`}>
-            SELECT
+            {referenceReady ? 'CHALLENGE' : 'DETAIL'}
           </Link>
         </div>
       </div>

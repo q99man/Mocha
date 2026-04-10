@@ -1,7 +1,8 @@
-import { createBrowserRouter } from 'react-router-dom';
+﻿import { createBrowserRouter } from 'react-router-dom';
 import { AppLayout } from '../shared/components/AppLayout';
 import { AttemptsPage } from '../pages/AttemptsPage';
 import { AttemptResultPage } from '../pages/AttemptResultPage';
+import { AdminModelAssetsPage } from '../pages/AdminModelAssetsPage';
 import { ChallengeDetailPage } from '../pages/ChallengeDetailPage';
 import { ChallengeStartPage } from '../pages/ChallengeStartPage';
 import { ChallengesPage } from '../pages/ChallengesPage';
@@ -35,6 +36,10 @@ export const router = createBrowserRouter([
       {
         path: 'attempts/:id/result',
         element: <AttemptResultPage />,
+      },
+      {
+        path: 'admin/model-assets',
+        element: <AdminModelAssetsPage />,
       },
     ],
   },

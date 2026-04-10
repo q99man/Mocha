@@ -23,6 +23,8 @@ import com.motionchallenge.video.service.VideoStorageService;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -31,6 +33,8 @@ import org.springframework.web.server.ResponseStatusException;
 @Service
 @Transactional(readOnly = true)
 public class ChallengeService {
+
+    private static final Logger log = LoggerFactory.getLogger(ChallengeService.class);
 
     private final ChallengeRepository challengeRepository;
     private final ChallengeCacheService challengeCacheService;
@@ -119,7 +123,7 @@ public class ChallengeService {
     @Transactional
     public ChallengeResponse createChallenge(ChallengeCreateRequest request) {
         if (request.getReferenceVideo() == null || request.getReferenceVideo().isEmpty()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "?덊띁?곗뒪 鍮꾨뵒???뚯씪???꾩슂?⑸땲??");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Reference video file is required.");
         }
 
         Challenge challenge = challengeRepository.save(new Challenge(
@@ -134,7 +138,8 @@ public class ChallengeService {
                 ReferenceAnalysisStatus.NOT_ANALYZED,
                 null));
 
-        StoredVideo storedVideo = videoStorageService.storeChallengeReferenceVideo(challenge.getId(), request.getReferenceVideo());
+        StoredVideo storedVideo =
+                videoStorageService.storeChallengeReferenceVideo(challenge.getId(), request.getReferenceVideo());
         challengeVideoRepository.save(new ChallengeVideo(
                 challenge,
                 storedVideo.originalFileName(),
@@ -149,7 +154,9 @@ public class ChallengeService {
     public ChallengeAnalysisResponse analyzeReferenceVideo(Long challengeId) {
         Challenge challenge = findActiveChallenge(challengeId);
         ChallengeVideo challengeVideo = challengeVideoRepository.findByChallengeId(challengeId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "?덊띁?곗뒪 鍮꾨뵒?ㅺ? ?깅줉?섏? ?딆븯?듬땲??"));
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.BAD_REQUEST,
+                        "Reference video is not registered for this challenge."));
 
         challenge.markReferenceAnalyzing();
 
@@ -162,11 +169,8 @@ public class ChallengeService {
             MotionAnalysisResult analysisResult = motionAnalysisService.analyzeReferenceVideo(storedVideo);
             LocalDateTime analyzedAt = LocalDateTime.now();
 
-            challengeMotionProfileRepository.findByChallengeId(challengeId)
-                    .ifPresentOrElse(
-                            challengeMotionProfileRepository::delete,
-                            () -> {
-                            });
+            challengeMotionProfileRepository.deleteByChallengeId(challengeId);
+            challengeMotionProfileRepository.flush();
             challengeMotionProfileRepository.save(new ChallengeMotionProfile(
                     challenge,
                     analysisResult.rawProfileData(),
@@ -184,19 +188,29 @@ public class ChallengeService {
                     true,
                     analysisResult.analyzerName(),
                     analyzedAt,
-                    "?덊띁?곗뒪 鍮꾨뵒??遺꾩꽍???꾨즺?먯뒿?덈떎.");
+                    "Reference video analysis completed successfully.");
         } catch (ResponseStatusException exception) {
             challenge.markReferenceAnalysisFailed();
+            log.warn(
+                    "Reference analysis failed for challengeId={} with status={} reason={}",
+                    challengeId,
+                    exception.getStatusCode(),
+                    exception.getReason(),
+                    exception);
             throw exception;
         } catch (RuntimeException exception) {
             challenge.markReferenceAnalysisFailed();
-            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "?덊띁?곗뒪 鍮꾨뵒??遺꾩꽍 以??ㅻ쪟媛 諛쒖깮?덉뒿?덈떎.");
+            log.error("Reference analysis crashed for challengeId={}", challengeId, exception);
+            throw new ResponseStatusException(
+                    HttpStatus.INTERNAL_SERVER_ERROR,
+                    "Reference analysis failed while saving the analysis result: " + exception.getMessage(),
+                    exception);
         }
     }
 
     private Challenge findActiveChallenge(Long challengeId) {
         return challengeRepository.findByIdAndIsActiveTrue(challengeId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "梨뚮┛吏瑜?李얠쓣 ???놁뒿?덈떎."));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Challenge not found."));
     }
 
     private ChallengeResponse toResponse(Challenge challenge) {

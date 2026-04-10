@@ -16,3 +16,23 @@ export type Challenge = {
   referenceVideoOriginalFileName: string | null;
   referenceAnalyzedAt: string | null;
 };
+
+export type ChallengeCreateInput = {
+  title: string;
+  description: string;
+  category: string;
+  difficulty: string;
+  thumbnailUrl?: string;
+  guideVideoUrl?: string;
+  durationSec: number;
+  referenceVideo: File;
+};
+
+export type ChallengeAnalysisResult = {
+  challengeId: number;
+  analysisStatus: ChallengeAnalysisStatus;
+  referenceMotionProfileReady: boolean;
+  analyzerName: string | null;
+  analyzedAt: string | null;
+  message: string;
+};

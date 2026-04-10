@@ -18,6 +18,7 @@ import com.motionchallenge.video.service.VideoStorageService;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -32,16 +33,16 @@ public class AttemptService {
     private static final String FAILURE_CODE_SCORING = "SCORING_FAILED";
     private static final int PREPARED_SCORE = 0;
     private static final int MIN_COMPLETED_SCORE = 1;
-    private static final String DEFAULT_PREPARED_NOTE = "以鍮??④퀎 ?뺤씤???꾪븳 湲곕낯 湲곕줉";
-    private static final String DEFAULT_COMPLETED_NOTE = "?섑뵆 ?꾨즺 ?먮쫫 ?뺤씤???꾪븳 湲곕낯 湲곕줉";
+    private static final String DEFAULT_PREPARED_NOTE = "Prepared state saved for this challenge.";
+    private static final String DEFAULT_COMPLETED_NOTE = "Prototype completed result saved.";
     private static final String PROCESSING_NOTICE_AUTOSCORED =
-            "?ㅼ젣 ?낅줈??鍮꾨뵒?ㅻ? 湲곗??쇰줈 ?쒕쾭媛 遺꾩꽍怨?梨꾩젏???꾨즺?덉뒿?덈떎.";
+            "The uploaded video was analyzed and scored automatically.";
     private static final String PROCESSING_NOTICE_SAMPLE =
-            "?섑뵆 preview ?먮쫫?쇰줈 留뚮뱺 寃곌낵?낅땲?? ?ㅼ젣 ?낅줈???먮룞 梨꾩젏 寃곌낵???李⑥씠媛 ?덉쓣 ???덉뒿?덈떎.";
+            "This is a prototype preview result, not a real uploaded video comparison.";
     private static final String PROCESSING_NOTICE_PREPARED =
-            "以鍮??④퀎?먯꽌 ??ν븳 湲곕줉?낅땲?? ?ㅼ젣 ?낅줈?쒖? ?먮룞 梨꾩젏? ?꾩쭅 吏꾪뻾?섏? ?딆븯?듬땲??";
+            "This record is still in the prepared state. Upload a real video to start analysis.";
     private static final String DEFAULT_FAILURE_MESSAGE =
-            "泥섎━ 以??????녿뒗 臾몄젣媛 諛쒖깮?덉뒿?덈떎. ?좎떆 ???ㅼ떆 ?쒕룄??二쇱꽭??";
+            "Processing failed. Please check the logs and retry the upload.";
 
     private final AttemptRepository attemptRepository;
     private final AttemptProcessingJobRepository attemptProcessingJobRepository;
@@ -85,7 +86,7 @@ public class AttemptService {
 
     public AttemptSummaryResponse getAttempt(Long id) {
         Attempt attempt = attemptRepository.findById(id)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "???????筌먲퐣????れ삀??쎈뭄??癲ル슓??젆???????⑤８?????덊렡."));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Attempt not found."));
 
         return toResponse(attempt);
     }
@@ -99,7 +100,7 @@ public class AttemptService {
         AttemptProcessingJob processingJob = attemptProcessingJobRepository.findByTrackingId(trackingId)
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.NOT_FOUND,
-                        "?怨뺣뾼??ID????????濡ル츎 ???놁Ŧ??嶺뚳퐣瑗????⑤객臾??嶺뚢돦堉??????怨룸????덈펲."));
+                        "No processing job found for the provided trackingId."));
 
         return toProgressResponse(processingJob);
     }
@@ -154,20 +155,20 @@ public class AttemptService {
     @Transactional
     public AttemptResultResponse submitAttemptVideo(AttemptVideoUploadRequest request) {
         if (request.getAttemptVideo() == null || request.getAttemptVideo().isEmpty()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "????겾????レ춵 ??筌먲퐣?????????? ?沃섅굥?? ???ャ뀕?????낆뒩??뗫빝??");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Attempt video file is required.");
         }
 
         Challenge challenge = findActiveChallenge(request.getChallengeId());
         if (challenge.getReferenceAnalysisStatus() != ReferenceAnalysisStatus.COMPLETED) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
-                    "??癲???????????ш끽維쀧빊?????녿군???Β?レ릇 ?????????됰슣維?????筌롫챶猷롳┼??넊? ????⒱봼?????? ?沃섅굥?? ????녿군???Β?レ릇 ??됰슣維?????ш끽維?????낆뒩??뗫빝??");
+                    "Reference analysis must be completed before uploading an attempt video.");
         }
 
         ChallengeMotionProfile referenceProfile = challengeMotionProfileRepository.findByChallengeId(challenge.getId())
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.BAD_REQUEST,
-                        "??癲?????????????녿군???Β?レ릇 癲ル슢?꾤땟????ш끽維곩ㅇ??ш끽維쀨キ?癲ル슓??젆? 癲ル슢履뉑쾮?彛??????"));
+                        "Reference motion profile is missing for this challenge."));
 
         motionSessionRuntimeEventPublisher.publishUploadInProgress(challenge.getId());
         try {
@@ -204,7 +205,7 @@ public class AttemptService {
 
     private Challenge findActiveChallenge(Long challengeId) {
         return challengeRepository.findByIdAndIsActiveTrue(challengeId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "?????癲?????????癲ル슓??젆???????⑤８?????덊렡."));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Challenge not found."));
     }
 
     private AttemptProcessingJob resolveProcessingJobFallback(Long challengeId, String trackingId) {
@@ -212,14 +213,14 @@ public class AttemptService {
                 ? attemptProcessingJobRepository.findByTrackingId(trackingId)
                         .orElseThrow(() -> new ResponseStatusException(
                                 HttpStatus.NOT_FOUND,
-                                "??낆쨮??筌ｌ꼶???怨밴묶??筌≪뼚??????곷뮸??덈뼄. ?곕뗄??ID????쇰뻻 ?類ㅼ뵥??雅뚯눘苑??"))
+                                "No processing job found for the provided trackingId."))
                 : attemptProcessingJobRepository.findTopByChallengeIdOrderByUpdatedAtDesc(challengeId)
                         .orElseThrow(() -> new ResponseStatusException(
                                 HttpStatus.NOT_FOUND,
-                                "??낆쨮??筌ｌ꼶???怨밴묶揶쎛 ?袁⑹춦 疫꿸퀡以??? ??녿릭??щ빍??"));
+                                "No processing job history found for this challenge."));
 
         if (!processingJob.getChallenge().getId().equals(challengeId)) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "?곕뗄??ID?? 筌?슢?쏉쭪? ?類ｋ궖揶쎛 ??깊뒄??? ??녿뮸??덈뼄.");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "trackingId does not match the challengeId.");
         }
 
         return processingJob;
@@ -236,7 +237,7 @@ public class AttemptService {
                 processingJob.getProcessingMode(),
                 resolveCompletionStrategy(processingJob),
                 processingJob.getRuntimeState(),
-                processingJob.getProcessingNotice(),
+                normalizeDisplayText(processingJob.getProcessingNotice()),
                 processingJob.getFailureCode(),
                 resolveFailureSeverity(processingJob),
                 resolveFailureAction(processingJob),
@@ -254,10 +255,9 @@ public class AttemptService {
     }
 
     private AttemptSummaryResponse toResponse(Attempt attempt) {
-        SimpleScoringResult scoringResult = simpleScoringPreviewService.buildResult(
-                attempt.getStatus(),
-                attempt.getScore());
         String resultSource = resolveResultSource(attempt);
+        String displayStatus = resolveDisplayStatus(attempt, resultSource);
+        SimpleScoringResult scoringResult = simpleScoringPreviewService.buildResult(displayStatus, attempt.getScore());
         String processingMode = resolvePersistedProcessingMode(attempt, resultSource);
         boolean processingComplete = resolvePersistedProcessingComplete(attempt, resultSource);
         String processingNotice = resolvePersistedProcessingNotice(attempt, resultSource);
@@ -268,11 +268,11 @@ public class AttemptService {
                 attempt.getChallenge().getId(),
                 attempt.getChallenge().getTitle(),
                 attempt.getScore(),
-                attempt.getStatus(),
+                displayStatus,
                 resultSource,
                 scoringResult.scoreAvailable(),
                 scoringResult.resultHeadline(),
-                scoringResult.resultSummary(),
+                resolveResultSummary(attempt, scoringResult),
                 processingMode,
                 processingComplete,
                 processingNotice,
@@ -300,19 +300,62 @@ public class AttemptService {
         return AttemptResultSource.SAMPLE_SCORING_PREVIEW;
     }
 
+    private String resolveResultSummary(Attempt attempt, SimpleScoringResult scoringResult) {
+        String normalizedNotes = normalizeDisplayText(attempt.getNotes());
+        if (normalizedNotes != null && !normalizedNotes.isBlank()) {
+            return normalizedNotes;
+        }
+
+        return scoringResult.resultSummary();
+    }
+
+    private String resolveDisplayStatus(Attempt attempt, String resultSource) {
+        String status = normalizeDisplayText(attempt.getStatus());
+        if (AttemptResultSource.PREPARED_FLOW.equals(resultSource)) {
+            return AttemptStatus.PREPARED;
+        }
+        if (AttemptResultSource.VIDEO_UPLOAD_AUTOSCORED.equals(resultSource)
+                || AttemptResultSource.SAMPLE_SCORING_PREVIEW.equals(resultSource)) {
+            return AttemptStatus.COMPLETED;
+        }
+        return status == null || status.isBlank() ? AttemptStatus.PREPARED : status;
+    }
+
+    private String normalizeDisplayText(String value) {
+        if (value == null || value.isBlank()) {
+            return value;
+        }
+        if (looksGarbled(value)) {
+            return null;
+        }
+        return value;
+    }
+
+    private boolean looksGarbled(String value) {
+        return value.contains("??")
+                || value.contains("\uFFFD")
+                || value.contains("餓")
+                || value.contains("筌")
+                || value.contains("癲")
+                || value.contains("꾨")
+                || value.contains("繞")
+                || value.contains("嶺");
+    }
+
     private String resolvePendingTrackingId(Attempt attempt) {
         return attemptProcessingJobRepository.findTopByResultAttemptIdOrderByUpdatedAtDesc(attempt.getId())
                 .map(AttemptProcessingJob::getTrackingId)
                 .orElse(null);
     }
 
-    private java.util.Optional<AttemptProcessingJob> resolveLatestProcessingJobForAttempt(Attempt attempt) {
+    private Optional<AttemptProcessingJob> resolveLatestProcessingJobForAttempt(Attempt attempt) {
         return attemptProcessingJobRepository.findTopByResultAttemptIdOrderByUpdatedAtDesc(attempt.getId());
     }
 
     private Long resolveElapsedSeconds(AttemptProcessingJob processingJob) {
         return Math.max(0L, Duration.between(processingJob.getCreatedAt(), processingJob.getUpdatedAt()).getSeconds());
     }
+
     private String resolvePersistedProcessingMode(Attempt attempt, String resultSource) {
         if (attempt.getProcessingMode() != null) {
             return attempt.getProcessingMode();
@@ -334,8 +377,9 @@ public class AttemptService {
     }
 
     private String resolvePersistedProcessingNotice(Attempt attempt, String resultSource) {
-        if (attempt.getProcessingNotice() != null && !attempt.getProcessingNotice().isBlank()) {
-            return attempt.getProcessingNotice();
+        String normalizedNotice = normalizeDisplayText(attempt.getProcessingNotice());
+        if (normalizedNotice != null && !normalizedNotice.isBlank()) {
+            return normalizedNotice;
         }
 
         if (AttemptResultSource.VIDEO_UPLOAD_AUTOSCORED.equals(resultSource)) {
@@ -357,7 +401,7 @@ public class AttemptService {
 
     private int normalizeCompletedScore(int requestedScore) {
         if (requestedScore < MIN_COMPLETED_SCORE) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "??ш끽維????れ삀??쎈뭄???????癲ル슔?됭짆??1?????⑤?彛???⑤９苑????筌뤾퍓???");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Completed prototype score must be at least 1.");
         }
 
         return requestedScore;

@@ -26,7 +26,7 @@ public class ChallengeMotionProfile extends BaseTimeEntity {
     private Challenge challenge;
 
     @Lob
-    @Column(nullable = false)
+    @Column(nullable = false, columnDefinition = "LONGTEXT")
     private String profileData;
 
     @Column(nullable = false)
