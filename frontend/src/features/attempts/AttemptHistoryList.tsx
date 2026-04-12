@@ -6,12 +6,15 @@ import { StatusGlyph } from '../../shared/components/StatusGlyph';
 import { buildAttemptBreakdownMetrics, buildAttemptBreakdownSummary } from '../../shared/presentation/attemptBreakdown';
 import { buildAttemptCoachingTeaser } from '../../shared/presentation/attemptCoaching';
 import {
+  buildDurableProgressCalloutTitle,
   buildDurableProgressCompletionLinkLabel,
   buildDurableProgressCompletionStrategyLabel,
   buildDurableProgressElapsedTimeLabel,
+  buildDurableProgressNextStep,
   buildDurableProgressOriginalFileLabel,
   buildDurableProgressRefreshMessage,
   buildDurableProgressRetryWindowLabel,
+  buildDurableProgressSummary,
 } from '../../shared/presentation/durableProgress';
 import type {
   AttemptProcessingMode,
@@ -176,11 +179,14 @@ export function AttemptHistoryList({
 
             {pendingProcessWarning ? (
               <div className="archive-warning-feed">
-                <strong>Processing follow-up</strong>
+                <strong>{buildArchiveCalloutTitle(progress)}</strong>
                 <p>
-                  {attempt.processingNotice ??
-                    'This attempt still needs a processing check. Refresh durable progress and continue when the result is ready.'}
+                  {progress
+                    ? buildDurableProgressSummary(progress)
+                    : attempt.processingNotice ??
+                      'This attempt still needs a processing check. Refresh durable progress and continue when the result is ready.'}
                 </p>
+                {progress ? <p>{buildDurableProgressNextStep(progress)}</p> : null}
                 <div className="inline-actions">
                   <button
                     type="button"
@@ -275,6 +281,10 @@ function buildCurrentStageSummary(attempt: AttemptSummary): string {
   }
 
   return 'The result is ready to review.';
+}
+
+function buildArchiveCalloutTitle(progress: AttemptVideoProcessingJobProgress | null) {
+  return buildDurableProgressCalloutTitle(progress);
 }
 
 function buildHistoryStatusMeta(status: AttemptSummary['status']) {

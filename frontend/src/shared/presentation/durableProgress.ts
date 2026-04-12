@@ -23,6 +23,23 @@ export function buildDurableProgressHeadline(progress: AttemptVideoProcessingJob
   }
 }
 
+export function buildDurableProgressCalloutTitle(progress: AttemptVideoProcessingJobProgress | null) {
+  if (!progress) {
+    return 'Processing follow-up needed';
+  }
+
+  switch (progress.status) {
+    case 'COMPLETED':
+      return 'Result ready';
+    case 'FAILED':
+      return progress.failureSeverity === 'HIGH' ? 'Failure needs inspection' : 'Retry available';
+    case 'PROCESSING':
+    case 'PENDING':
+    default:
+      return 'Processing follow-up needed';
+  }
+}
+
 export function buildDurableProgressSummary(progress: AttemptVideoProcessingJobProgress | null) {
   if (!progress) {
     return 'Waiting for the first durable progress snapshot.';
@@ -32,7 +49,7 @@ export function buildDurableProgressSummary(progress: AttemptVideoProcessingJobP
     case 'PENDING':
       return 'Upload accepted. The worker has not started analysis yet.';
     case 'PROCESSING':
-      return 'Analysis is running now. Refresh if you want a newer snapshot.';
+      return 'Analysis is running now. Refresh for a newer snapshot.';
     case 'COMPLETED':
       return progress.resultAttemptId
         ? `Result #${progress.resultAttemptId} is ready to open.`
@@ -43,6 +60,66 @@ export function buildDurableProgressSummary(progress: AttemptVideoProcessingJobP
         : 'Processing failed, but another retry may help.';
     default:
       return 'Durable progress was refreshed.';
+  }
+}
+
+export function buildDurableProgressStatusTag(progress: AttemptVideoProcessingJobProgress | null) {
+  if (!progress) {
+    return 'Waiting';
+  }
+
+  switch (progress.status) {
+    case 'PENDING':
+      return 'Queued';
+    case 'PROCESSING':
+      return 'Running';
+    case 'COMPLETED':
+      return 'Ready';
+    case 'FAILED':
+      return progress.failureSeverity === 'HIGH' ? 'Needs inspection' : 'Retry ready';
+    default:
+      return 'Waiting';
+  }
+}
+
+export function buildDurableProgressTone(
+  progress: AttemptVideoProcessingJobProgress | null,
+): 'pending' | 'processing' | 'completed' | 'failed-warn' | 'failed-high' {
+  if (!progress) {
+    return 'pending';
+  }
+
+  switch (progress.status) {
+    case 'PROCESSING':
+      return 'processing';
+    case 'COMPLETED':
+      return 'completed';
+    case 'FAILED':
+      return progress.failureSeverity === 'HIGH' ? 'failed-high' : 'failed-warn';
+    case 'PENDING':
+    default:
+      return 'pending';
+  }
+}
+
+export function buildDurableProgressNextStep(progress: AttemptVideoProcessingJobProgress | null) {
+  if (!progress) {
+    return 'Wait for the first durable snapshot, then refresh this card.';
+  }
+
+  switch (progress.status) {
+    case 'PENDING':
+      return 'Hold the current upload and refresh this card in a moment.';
+    case 'PROCESSING':
+      return 'Keep this screen open and refresh when you want the latest scoring state.';
+    case 'COMPLETED':
+      return progress.resultAttemptId
+        ? `Open result #${progress.resultAttemptId} to review the finished score.`
+        : 'Open the finished result as soon as the result id appears.';
+    case 'FAILED':
+      return buildDurableProgressFailureAction(progress.failureAction);
+    default:
+      return 'Refresh this card to continue.';
   }
 }
 

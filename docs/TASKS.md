@@ -277,10 +277,10 @@
 - [x] Surface durable progress state, failure severity/action, and result links more directly in the `PROCESSING JOB` card.
 - [x] Align durable progress wording across the start, result, and history screens.
 - [ ] Finish replacing the remaining registry-era TODO/document wording with `AttemptProcessingJob` terminology.
-- [ ] Polish the start-screen summary copy so durable progress is easier to scan at a glance.
-- [ ] Align failure severity/action wording between the top banner and the server status / `PROCESSING JOB` card.
-- [ ] Align success/completion wording between the start screen and result screen one more time.
-- [ ] Align pending/processing wording across the start, result, and history screens one more time.
+- [x] Polish the start-screen summary copy so durable progress is easier to scan at a glance.
+- [x] Align failure severity/action wording between the top banner and the server status / `PROCESSING JOB` card.
+- [x] Align success/completion wording between the start screen and result screen one more time.
+- [x] Align pending/processing wording across the start, result, and history screens one more time.
 - [x] Expose a minimal direct re-check flow for durable progress from the result and history screens.
 - [ ] Fully retire `challengeId`-based progress refresh in favor of `trackingId` direct refresh wherever possible.
 

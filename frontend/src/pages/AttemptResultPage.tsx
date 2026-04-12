@@ -7,10 +7,14 @@ import {
 } from '../shared/api/attemptApi';
 import { toAttemptBreakdownLabel } from '../shared/presentation/attemptBreakdown';
 import {
+  buildDurableProgressCalloutTitle,
   buildDurableProgressCompletionStrategyLabel,
   buildDurableProgressElapsedTimeLabel,
+  buildDurableProgressNextStep,
   buildDurableProgressRefreshMessage,
   buildDurableProgressSnapshotFromAttempt,
+  buildDurableProgressStatusTag,
+  buildDurableProgressSummary,
 } from '../shared/presentation/durableProgress';
 import type {
   AttemptBreakdownArea,
@@ -218,10 +222,13 @@ export function AttemptResultPage() {
 
       {pendingProcessWarning ? (
         <div className="result-warning-feed">
-          <strong>Processing follow-up needed</strong>
+          <strong>{buildDurableProgressCalloutTitle(effectiveProgress)}</strong>
           <p>
-            {attempt.processingNotice ?? 'This result still needs a progress refresh before the final result is ready.'}
+            {buildDurableProgressSummary(effectiveProgress) ??
+              attempt.processingNotice ??
+              'This result still needs a progress refresh before the final result is ready.'}
           </p>
+          {effectiveProgress ? <p>{buildDurableProgressNextStep(effectiveProgress)}</p> : null}
           <div className="inline-actions">
             <button
               type="button"
@@ -889,18 +896,7 @@ function buildProcessFeedToneClass(progress: AttemptVideoProcessingJobProgress |
 }
 
 function buildProgressStatusLabel(status: AttemptVideoProcessingJobProgress['status']) {
-  switch (status) {
-    case 'PENDING':
-      return 'Queued for analysis';
-    case 'PROCESSING':
-      return 'Analysis in progress';
-    case 'COMPLETED':
-      return 'Result ready';
-    case 'FAILED':
-      return 'Failure needs inspection';
-    default:
-      return status;
-  }
+  return buildDurableProgressStatusTag({ status } as AttemptVideoProcessingJobProgress);
 }
 
 function buildAnalyzerLabel(attempt: AttemptSummary) {

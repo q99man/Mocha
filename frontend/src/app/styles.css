@@ -1354,6 +1354,123 @@ main {
   margin-bottom: 18px;
 }
 
+.camera-panel__pending-box {
+  margin-top: 18px;
+  padding: 18px;
+  border-radius: 22px;
+  border: 1px solid rgba(133, 211, 255, 0.18);
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.05), transparent 58%),
+    rgba(9, 19, 35, 0.88);
+}
+
+.camera-panel__pending-box--pending {
+  border-color: rgba(255, 214, 102, 0.24);
+  background:
+    linear-gradient(135deg, rgba(255, 214, 102, 0.12), transparent 58%),
+    rgba(18, 21, 32, 0.9);
+}
+
+.camera-panel__pending-box--processing {
+  border-color: rgba(73, 228, 255, 0.26);
+  background:
+    linear-gradient(135deg, rgba(73, 228, 255, 0.12), transparent 58%),
+    rgba(9, 19, 35, 0.9);
+}
+
+.camera-panel__pending-box--completed {
+  border-color: rgba(89, 241, 177, 0.26);
+  background:
+    linear-gradient(135deg, rgba(89, 241, 177, 0.12), transparent 58%),
+    rgba(9, 23, 28, 0.9);
+}
+
+.camera-panel__pending-box--failed-warn {
+  border-color: rgba(255, 207, 117, 0.28);
+  background:
+    linear-gradient(135deg, rgba(255, 207, 117, 0.14), transparent 58%),
+    rgba(22, 18, 23, 0.9);
+}
+
+.camera-panel__pending-box--failed-high {
+  border-color: rgba(255, 109, 140, 0.3);
+  background:
+    linear-gradient(135deg, rgba(255, 109, 140, 0.16), transparent 58%),
+    rgba(24, 15, 22, 0.92);
+}
+
+.camera-panel__pending-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  align-items: start;
+  flex-wrap: wrap;
+}
+
+.camera-panel__pending-header h4 {
+  margin: 0;
+}
+
+.camera-panel__pending-header p {
+  margin: 8px 0 0;
+  max-width: 54ch;
+  color: var(--text-muted);
+  line-height: 1.6;
+}
+
+.camera-panel__pending-eyebrow {
+  display: inline-flex;
+  margin-bottom: 8px;
+  color: var(--text-soft);
+  font-size: 0.76rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.camera-panel__pending-glance {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.camera-panel__pending-glance-item {
+  padding: 14px 16px;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.camera-panel__pending-glance-item span {
+  display: block;
+  margin-bottom: 8px;
+  color: var(--text-soft);
+  font-size: 0.76rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.camera-panel__pending-glance-item strong {
+  display: block;
+  color: var(--text);
+  line-height: 1.5;
+}
+
+.camera-panel__pending-notice {
+  margin: 14px 0 0;
+  color: rgba(232, 236, 255, 0.82);
+  line-height: 1.6;
+}
+
+.camera-panel__pending-meta {
+  margin-top: 14px;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.camera-panel__pending-meta li {
+  min-height: 100%;
+}
+
 .camera-panel__sync-meta {
   margin: 0;
   color: var(--text-soft);

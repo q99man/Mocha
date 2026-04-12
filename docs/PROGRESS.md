@@ -1666,3 +1666,15 @@ pm.cmd run build)를 다시 통과시켰다.
 - `AttemptHistoryList` now asks `AttemptsPage` for a silent archive reload whenever a direct progress re-check reaches `COMPLETED` or `FAILED`, so the card list can swap pending entries for the latest completed or terminal state without forcing a full-page loading reset.
 - Added frontend regression coverage with Vitest and Testing Library for both flows: result-page direct re-check navigation/refresh and archive silent reload after a completed tracking-id refresh.
 - Verification: `frontend npm.cmd run test`, `frontend npm.cmd run build`.
+
+## 2026-04-10 Start Screen Durable Progress Polish Pass
+- `CameraPermissionPanel` now presents the pending upload card as a clearer processing job panel: concise status tag, current-state glance row, recommended next step, result-ready callout, and reordered utility actions.
+- `shared/presentation/durableProgress.ts` now carries shared helpers for short status tags, card tone, and next-step guidance so pending and processing wording stays tighter and more consistent across screens.
+- The start-screen pending card metadata was regrouped into a denser responsive grid so tracking id, completion mode, elapsed time, retry window, and original file are easier to scan on both desktop and mobile.
+- Verification: `frontend npm.cmd run test`, `frontend npm.cmd run build`.
+
+## 2026-04-10 Cross-Screen Completion And Failure Copy Pass
+- `shared/presentation/durableProgress.ts` now also owns a shared callout-title rule so `COMPLETED`, retryable failure, and inspect-required failure states use the same short headline across the start screen, result page, and archive cards.
+- `AttemptResultPage` and `AttemptHistoryList` now use the same durable summary and next-step helpers that the start screen uses, which removes the last obvious wording drift between pending banners, ready-result messaging, and failure follow-up text.
+- The start-screen result-ready callout now reuses the same completion/follow-up language instead of a custom sentence, so “result ready” means the same thing everywhere in the flow.
+- Verification: `frontend npm.cmd run test`, `frontend npm.cmd run build`.

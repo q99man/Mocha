@@ -10,13 +10,17 @@ import { getMotionSessionState } from '../../shared/api/motionApi';
 import { buildAttemptBreakdownMetrics, buildAttemptBreakdownSummary } from '../../shared/presentation/attemptBreakdown';
 import { buildAttemptCoachingTeaser } from '../../shared/presentation/attemptCoaching';
 import {
+  buildDurableProgressCalloutTitle,
   buildDurableProgressCompletionStrategyLabel,
   buildDurableProgressElapsedTimeLabel,
   buildDurableProgressFailureAction,
   buildDurableProgressHeadline,
+  buildDurableProgressNextStep,
   buildDurableProgressOriginalFileLabel,
   buildDurableProgressRetryWindowLabel,
+  buildDurableProgressStatusTag,
   buildDurableProgressSummary,
+  buildDurableProgressTone,
 } from '../../shared/presentation/durableProgress';
 import type {
   AsyncPendingCompletionRequest,
@@ -68,6 +72,10 @@ export function CameraPermissionPanel({ challengeId, challengeTitle }: CameraPer
   const canOpenUploadStage = cameraState === 'ready' || canContinueWithoutCamera;
   const pendingUploadAwaitingCompletion =
     uploadedAttempt?.processingMode === 'ASYNC_JOB_PENDING' && uploadedAttempt.processingComplete === false;
+  const pendingProgressTone = buildDurableProgressTone(pendingJobProgress);
+  const pendingProgressStatusTag = buildDurableProgressStatusTag(pendingJobProgress);
+  const pendingProgressNextStep = buildDurableProgressNextStep(pendingJobProgress);
+  const pendingProgressNotice = buildPendingPanelNotice(pendingJobProgress, uploadedAttempt);
   const recentRuntimeTrace = useMemo(
     () => (sessionState?.serverRuntimeTrace ?? []).slice(0, 3),
     [sessionState?.serverRuntimeTrace],
@@ -438,36 +446,57 @@ export function CameraPermissionPanel({ challengeId, challengeTitle }: CameraPer
           ) : null}
 
           {pendingUploadAwaitingCompletion || pendingJobProgress ? (
-            <div className="camera-panel__pending-box">
+            <div className={`camera-panel__pending-box camera-panel__pending-box--${pendingProgressTone}`}>
               <div className="camera-panel__pending-header">
                 <div>
+                  <span className="camera-panel__pending-eyebrow">Processing job</span>
                   <h4>{buildDurableProgressHeadline(pendingJobProgress)}</h4>
                   <p>{buildPendingPanelSummary(pendingJobProgress, uploadedAttempt)}</p>
                 </div>
-                <span className="camera-panel__pill">{pendingJobProgress?.status ?? 'PENDING'}</span>
+                <span className="camera-panel__pill">{pendingProgressStatusTag}</span>
               </div>
 
-              {buildPendingPanelNotice(pendingJobProgress, uploadedAttempt) ? (
-                <p className="camera-panel__meta">{buildPendingPanelNotice(pendingJobProgress, uploadedAttempt)}</p>
-              ) : null}
+              <div className="camera-panel__pending-glance">
+                <div className="camera-panel__pending-glance-item">
+                  <span>Current state</span>
+                  <strong>{pendingProgressStatusTag}</strong>
+                </div>
+                <div className="camera-panel__pending-glance-item">
+                  <span>Next step</span>
+                  <strong>{pendingProgressNextStep}</strong>
+                </div>
+              </div>
+
+              {pendingProgressNotice ? <p className="camera-panel__pending-notice">{pendingProgressNotice}</p> : null}
 
               {pendingJobProgress?.status === 'FAILED' ? (
-                <p className="camera-panel__error">
-                  Next step: {buildDurableProgressFailureAction(pendingJobProgress.failureAction)}
-                </p>
+                <div className="processing-job-action processing-job-action--danger">
+                  <strong>Recommended next step</strong>
+                  <p>{buildDurableProgressFailureAction(pendingJobProgress.failureAction)}</p>
+                </div>
               ) : null}
 
-              <ul className="detail-list">
+              {uploadedAttemptResultId ? (
+                <div className="processing-job-result-link">
+                  <strong>{buildDurableProgressCalloutTitle(pendingJobProgress)}</strong>
+                  <p>{buildDurableProgressNextStep(pendingJobProgress)}</p>
+                  <Link to={`/attempts/${uploadedAttemptResultId}/result`} className="button-link">
+                    Open result page
+                  </Link>
+                </div>
+              ) : null}
+
+              <ul className="detail-list camera-panel__pending-meta">
                 <li>
-                  <strong>trackingId</strong>
+                  <strong>tracking id</strong>
                   {pendingTrackingId ?? 'Not available yet'}
                 </li>
                 <li>
-                  <strong>completion strategy</strong>
+                  <strong>completion mode</strong>
                   {buildDurableProgressCompletionStrategyLabel(pendingJobProgress?.completionStrategy)}
                 </li>
                 <li>
-                  <strong>elapsed</strong>
+                  <strong>elapsed time</strong>
                   {buildDurableProgressElapsedTimeLabel(pendingJobProgress?.elapsedSeconds)}
                 </li>
                 <li>
@@ -483,9 +512,6 @@ export function CameraPermissionPanel({ challengeId, challengeTitle }: CameraPer
               </ul>
 
               <div className="camera-panel__actions camera-panel__actions--utility">
-                <button type="button" className="button button--ghost" onClick={() => void copyTrackingId()}>
-                  {trackingIdCopied ? 'Tracking id copied' : 'Copy tracking id'}
-                </button>
                 <button
                   type="button"
                   className="button button--secondary"
@@ -493,6 +519,14 @@ export function CameraPermissionPanel({ challengeId, challengeTitle }: CameraPer
                   disabled={trackingProgressLoading}
                 >
                   {trackingProgressLoading ? 'Refreshing...' : 'Refresh progress'}
+                </button>
+                {uploadedAttemptResultId ? (
+                  <Link to={`/attempts/${uploadedAttemptResultId}/result`} className="button button--ghost">
+                    Open result
+                  </Link>
+                ) : null}
+                <button type="button" className="button button--ghost" onClick={() => void copyTrackingId()}>
+                  {trackingIdCopied ? 'Tracking id copied' : 'Copy tracking id'}
                 </button>
                 {pendingJobProgress?.status !== 'COMPLETED' ? (
                   <button
