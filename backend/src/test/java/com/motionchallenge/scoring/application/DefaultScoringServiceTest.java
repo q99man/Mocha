@@ -125,7 +125,64 @@ class DefaultScoringServiceTest {
 
         assertThat(result.poseSimilarity()).isLessThan(95);
         assertThat(result.score()).isLessThan(100);
-        assertThat(result.weakestArea()).isEqualTo("pose similarity");
+        assertThat(result.weakestArea()).isEqualTo("pose shape");
+    }
+
+    @Test
+    void poorPoseCapsTimingAndStabilityEvenWhenMetadataLooksSimilar() {
+        String referenceProfileData = buildProfileJson(
+                "reference.mp4",
+                "uploads/reference-a.mp4",
+                1280,
+                12000,
+                10,
+                10,
+                0.98,
+                0.42,
+                0.58,
+                0.40,
+                0.60,
+                0.47,
+                0.53,
+                0.30,
+                0.70);
+        String attemptProfileData = buildProfileJson(
+                "attempt.mp4",
+                "uploads/attempt-b.mp4",
+                1280,
+                12000,
+                10,
+                10,
+                0.98,
+                0.18,
+                0.82,
+                0.12,
+                0.88,
+                0.08,
+                0.92,
+                0.05,
+                0.95);
+
+        ChallengeMotionProfile referenceProfile = new ChallengeMotionProfile(
+                new Challenge("title", "desc", "cat", "medium", null, null, 10, true),
+                referenceProfileData,
+                1111,
+                10,
+                12000,
+                "mediapipe-fastapi-pose-v1",
+                LocalDateTime.now());
+        MotionAnalysisResult attemptAnalysis = new MotionAnalysisResult(
+                attemptProfileData,
+                2222,
+                10,
+                12000,
+                "mediapipe-fastapi-pose-v1");
+
+        ScoringResult result = scoringService.calculateScore(referenceProfile, attemptAnalysis);
+
+        assertThat(result.poseSimilarity()).isLessThan(30);
+        assertThat(result.score()).isLessThanOrEqualTo(45);
+        assertThat(result.weakestArea()).isEqualTo("pose shape");
     }
 
     private String buildProfileJson(

@@ -12,9 +12,9 @@ const TEXT = {
   backToAdmin: '\uC6B4\uC601 \uD398\uC774\uC9C0\uB85C \uB3CC\uC544\uAC00\uAE30',
   emptyTitle: '\uCC4C\uB9B0\uC9C0\uB97C \uCC3E\uC744 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4',
   emptyDescription: '\uC120\uD0DD\uD55C \uBD84\uC11D \uB300\uC0C1\uC774 \uC5C6\uAC70\uB098 \uB354 \uC774\uC0C1 \uD65C\uC131\uD654\uB418\uC5B4 \uC788\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4.',
-  eyebrow: 'ADMIN / REFERENCE ANALYSIS',
+  eyebrow: '운영 / 레퍼런스 분석',
   seconds: '\uCD08',
-  statusLabel: 'REFERENCE STATUS',
+  statusLabel: '레퍼런스 상태',
   ready: '\uBD84\uC11D \uC900\uBE44 \uC644\uB8CC',
   pending: '\uBD84\uC11D \uB300\uAE30',
   readyDescription: '\uC6B4\uC601 \uAE30\uC900 \uD3EC\uC988 \uC624\uBC84\uB808\uC774\uC640 \uBD84\uC11D \uC0C1\uD0DC\uB97C \uD655\uC778\uD560 \uC218 \uC788\uC2B5\uB2C8\uB2E4.',
@@ -62,7 +62,7 @@ export function AdminChallengeAnalysisPage() {
     return (
       <section className="panel panel--section">
         <div className="section-heading">
-          <span className="section-heading__code">OPS</span>
+          <span className="section-heading__code">운영</span>
           <div>
             <h2>{TEXT.loadingTitle}</h2>
             <p>{TEXT.loadingDescription}</p>
@@ -76,7 +76,7 @@ export function AdminChallengeAnalysisPage() {
     return (
       <section className="panel panel--error panel--section">
         <div className="section-heading">
-          <span className="section-heading__code">ERROR</span>
+          <span className="section-heading__code">오류</span>
           <div>
             <h2>{TEXT.errorTitle}</h2>
             <p>{error}</p>
@@ -93,7 +93,7 @@ export function AdminChallengeAnalysisPage() {
     return (
       <section className="panel panel--section">
         <div className="section-heading">
-          <span className="section-heading__code">EMPTY</span>
+          <span className="section-heading__code">없음</span>
           <div>
             <h2>{TEXT.emptyTitle}</h2>
             <p>{TEXT.emptyDescription}</p>

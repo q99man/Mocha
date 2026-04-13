@@ -9,18 +9,18 @@ async function requestJson<T>({ path, ...options }: RequestOptions): Promise<T> 
 
   if (!response.ok) {
     if (response.status === 404) {
-      throw new Error('The requested resource was not found.');
+      throw new Error('요청한 정보를 찾을 수 없습니다.');
     }
 
     if (response.status === 400) {
-      throw new Error('The request was rejected. Please review the input and try again.');
+      throw new Error('요청이 거부되었습니다. 입력값을 확인한 뒤 다시 시도해 주세요.');
     }
 
     if (response.status >= 500) {
-      throw new Error('The server failed while processing the request. Please try again.');
+      throw new Error('서버 처리 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.');
     }
 
-    throw new Error('The request failed. Please try again.');
+    throw new Error('요청 처리에 실패했습니다. 다시 시도해 주세요.');
   }
 
   return response.json() as Promise<T>;

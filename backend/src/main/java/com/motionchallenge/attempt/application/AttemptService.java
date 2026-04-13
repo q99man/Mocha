@@ -36,16 +36,16 @@ public class AttemptService {
     private static final String FAILURE_CODE_SCORING = "SCORING_FAILED";
     private static final int PREPARED_SCORE = 0;
     private static final int MIN_COMPLETED_SCORE = 1;
-    private static final String DEFAULT_PREPARED_NOTE = "Prepared state saved for this challenge.";
-    private static final String DEFAULT_COMPLETED_NOTE = "Prototype completed result saved.";
+    private static final String DEFAULT_PREPARED_NOTE = "이 챌린지의 준비 상태가 저장되었습니다.";
+    private static final String DEFAULT_COMPLETED_NOTE = "프로토타입 완료 결과가 저장되었습니다.";
     private static final String PROCESSING_NOTICE_AUTOSCORED =
-            "The uploaded video was analyzed and scored automatically.";
+            "업로드한 영상이 자동으로 분석되고 채점되었습니다.";
     private static final String PROCESSING_NOTICE_SAMPLE =
-            "This is a prototype preview result, not a real uploaded video comparison.";
+            "이 결과는 실제 업로드 비교가 아니라 프로토타입 미리보기 결과입니다.";
     private static final String PROCESSING_NOTICE_PREPARED =
-            "This record is still in the prepared state. Upload a real video to start analysis.";
+            "이 기록은 아직 준비 상태입니다. 실제 영상을 업로드하면 분석이 시작됩니다.";
     private static final String DEFAULT_FAILURE_MESSAGE =
-            "Processing failed. Please check the logs and retry the upload.";
+            "처리에 실패했습니다. 로그를 확인한 뒤 다시 업로드해 주세요.";
 
     private final AttemptRepository attemptRepository;
     private final AttemptProcessingJobRepository attemptProcessingJobRepository;
@@ -98,7 +98,7 @@ public class AttemptService {
 
     public AttemptSummaryResponse getAttempt(Long id) {
         Attempt attempt = attemptRepository.findById(id)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Attempt not found."));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "시도 기록을 찾을 수 없습니다."));
 
         boolean hasUploadedVideo = findUploadedAttemptIds(List.of(attempt)).contains(attempt.getId());
         AttemptComparisonSnapshot comparison = buildComparisonSnapshot(attempt, hasUploadedVideo);
@@ -115,7 +115,7 @@ public class AttemptService {
         AttemptProcessingJob processingJob = attemptProcessingJobRepository.findByTrackingId(trackingId)
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.NOT_FOUND,
-                        "No processing job found for the provided trackingId."));
+                        "입력한 trackingId에 해당하는 처리 작업을 찾을 수 없습니다."));
 
         return toProgressResponse(processingJob);
     }
@@ -170,20 +170,20 @@ public class AttemptService {
     @Transactional
     public AttemptResultResponse submitAttemptVideo(AttemptVideoUploadRequest request) {
         if (request.getAttemptVideo() == null || request.getAttemptVideo().isEmpty()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Attempt video file is required.");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "시도 영상 파일이 필요합니다.");
         }
 
         Challenge challenge = findActiveChallenge(request.getChallengeId());
         if (challenge.getReferenceAnalysisStatus() != ReferenceAnalysisStatus.COMPLETED) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
-                    "Reference analysis must be completed before uploading an attempt video.");
+                    "시도 영상을 업로드하기 전에 레퍼런스 분석이 완료되어야 합니다.");
         }
 
         ChallengeMotionProfile referenceProfile = challengeMotionProfileRepository.findByChallengeId(challenge.getId())
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.BAD_REQUEST,
-                        "Reference motion profile is missing for this challenge."));
+                        "이 챌린지의 레퍼런스 모션 프로필이 없습니다."));
 
         motionSessionRuntimeEventPublisher.publishUploadInProgress(challenge.getId());
         try {
@@ -220,7 +220,7 @@ public class AttemptService {
 
     private Challenge findActiveChallenge(Long challengeId) {
         return challengeRepository.findByIdAndIsActiveTrue(challengeId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Challenge not found."));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "챌린지를 찾을 수 없습니다."));
     }
 
     private AttemptProcessingJob resolveProcessingJobFallback(Long challengeId, String trackingId) {
@@ -228,14 +228,14 @@ public class AttemptService {
                 ? attemptProcessingJobRepository.findByTrackingId(trackingId)
                         .orElseThrow(() -> new ResponseStatusException(
                                 HttpStatus.NOT_FOUND,
-                                "No processing job found for the provided trackingId."))
+                                "입력한 trackingId에 해당하는 처리 작업을 찾을 수 없습니다."))
                 : attemptProcessingJobRepository.findTopByChallengeIdOrderByUpdatedAtDesc(challengeId)
                         .orElseThrow(() -> new ResponseStatusException(
                                 HttpStatus.NOT_FOUND,
-                                "No processing job history found for this challenge."));
+                                "이 챌린지의 처리 작업 이력을 찾을 수 없습니다."));
 
         if (!processingJob.getChallenge().getId().equals(challengeId)) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "trackingId does not match the challengeId.");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "trackingId가 challengeId와 일치하지 않습니다.");
         }
 
         return processingJob;
@@ -411,25 +411,25 @@ public class AttemptService {
         AttemptDeltaMetric bestMetric = buildPrimaryDeltaMetric(comparison, true);
         AttemptDeltaMetric worstMetric = buildPrimaryDeltaMetric(comparison, false);
 
-        if ("timing".equals(weakestArea)) {
-            return "Next retry: tighten timing first." + buildDeltaTail(bestMetric, worstMetric);
+        if ("pose timing".equals(weakestArea)) {
+            return "다음 재도전에서는 타이밍부터 먼저 다듬어 보세요." + buildDeltaTail(bestMetric, worstMetric);
         }
-        if ("detection stability".equals(weakestArea)) {
-            return "Next retry: clean up framing before changing the move itself." + buildDeltaTail(bestMetric, worstMetric);
+        if ("detection quality".equals(weakestArea)) {
+            return "다음 재도전에서는 동작보다 먼저 구도와 가시성을 정리해 보세요." + buildDeltaTail(bestMetric, worstMetric);
         }
-        if ("pose similarity".equals(weakestArea)) {
-            return "Next retry: recover the big body shapes before adjusting speed." + buildDeltaTail(bestMetric, worstMetric);
+        if ("pose shape".equals(weakestArea)) {
+            return "다음 재도전에서는 속도보다 큰 몸 모양을 먼저 회복해 보세요." + buildDeltaTail(bestMetric, worstMetric);
         }
         if (attempt.getScore() >= 85 && strongestArea != null) {
-            return "Strong run overall. Keep " + strongestArea + " steady." + buildDeltaTail(bestMetric, worstMetric);
+            return "전체적으로 좋은 결과입니다. " + strongestArea + "은 지금처럼 안정적으로 유지해 주세요." + buildDeltaTail(bestMetric, worstMetric);
         }
         if (comparison != null && comparison.scoreDeltaFromPrevious() != null) {
-            return "Keep the same camera setup and change one variable at a time. Score trend: "
+            return "카메라 세팅은 유지하고 한 번에 한 가지 변수만 바꿔 보세요. 점수 흐름: "
                     + formatSignedDelta(comparison.scoreDeltaFromPrevious())
-                    + " pts."
+                    + "점."
                     + buildDeltaTail(bestMetric, worstMetric);
         }
-        return "Next retry: keep the same camera setup and change only one variable so the next score shift is easier to read.";
+        return "다음 재도전에서는 같은 카메라 세팅을 유지하고 한 가지 변수만 바꿔서 점수 변화를 더 읽기 쉽게 만들어 보세요.";
     }
 
     private AttemptDeltaMetric buildPrimaryDeltaMetric(AttemptComparisonSnapshot comparison, boolean best) {
@@ -438,9 +438,9 @@ public class AttemptService {
         }
 
         AttemptDeltaMetric[] metrics = new AttemptDeltaMetric[] {
-            buildDeltaMetric("Pose", comparison.poseDeltaFromPrevious()),
-            buildDeltaMetric("Timing", comparison.timingDeltaFromPrevious()),
-            buildDeltaMetric("Stability", comparison.stabilityDeltaFromPrevious())
+            buildDeltaMetric("모양", comparison.poseDeltaFromPrevious()),
+            buildDeltaMetric("타이밍", comparison.timingDeltaFromPrevious()),
+            buildDeltaMetric("품질", comparison.stabilityDeltaFromPrevious())
         };
 
         AttemptDeltaMetric selected = null;
@@ -680,7 +680,7 @@ public class AttemptService {
 
     private int normalizeCompletedScore(int requestedScore) {
         if (requestedScore < MIN_COMPLETED_SCORE) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Completed prototype score must be at least 1.");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "완료된 프로토타입 점수는 최소 1점 이상이어야 합니다.");
         }
 
         return requestedScore;

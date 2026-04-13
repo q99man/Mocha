@@ -58,25 +58,25 @@ export function HomePage() {
     <div className="page">
       <section className="hero hero--stage">
         <div className="hero__content">
-          <span className="hero__eyebrow">STAGE ENTRY / WEB MVP</span>
-          <h2>Select a challenge, verify the setup, and review scored retries from one motion console</h2>
-          <p>Mocha is a lightweight web console for browsing motion challenges, uploading real attempts, and comparing retry results in a single flow.</p>
+          <span className="hero__eyebrow">시작 화면 / 웹 MVP</span>
+          <h2>하나의 모션 콘솔에서 챌린지를 고르고, 세팅을 확인하고, 재도전 결과까지 이어서 살펴보세요</h2>
+          <p>Mocha는 모션 챌린지를 둘러보고 실제 시도를 업로드한 뒤 재도전 결과를 한 흐름에서 비교할 수 있는 가벼운 웹 콘솔입니다.</p>
           <div className="inline-actions">
-            <Link className="button-link" to="/challenges">Open challenge library</Link>
-            <Link className="button-link button-link--secondary" to="/attempts">Open archive</Link>
+            <Link className="button-link" to="/challenges">챌린지 목록 열기</Link>
+            <Link className="button-link button-link--secondary" to="/attempts">아카이브 열기</Link>
           </div>
         </div>
         <div className="hero__aside hero__aside--stage">
           <div className="signal-panel panel-lift panel-lift--accent">
-            <span className="signal-panel__label">SYSTEM STATUS</span>
-            <strong>{loading ? 'SYNCING LIVE SIGNALS' : 'CHALLENGE FLOW READY'}</strong>
-            <p>The home page, challenge flow, results, and archive now share the same retry story.</p>
+            <span className="signal-panel__label">시스템 상태</span>
+            <strong>{loading ? '실시간 상태 동기화 중' : '챌린지 흐름 준비 완료'}</strong>
+            <p>홈, 챌린지 흐름, 결과, 아카이브가 이제 하나의 재도전 흐름으로 연결됩니다.</p>
           </div>
           <div className="signal-grid">
-            <div className="signal-grid__item panel-lift"><span>CHALLENGES</span><strong>{String(challenges.length).padStart(2, '0')}</strong><p>Loaded challenges</p></div>
-            <div className="signal-grid__item panel-lift"><span>READY</span><strong>{String(readyCount).padStart(2, '0')}</strong><p>Ready for live upload scoring</p></div>
-            <div className="signal-grid__item panel-lift"><span>SCORED</span><strong>{String(scoredCount).padStart(2, '0')}</strong><p>Challenges with scored history</p></div>
-            <div className="signal-grid__item panel-lift"><span>LIVE</span><strong>{loading ? '--' : 'SYNC'}</strong><p>Challenge summaries now include retry context</p></div>
+            <div className="signal-grid__item panel-lift"><span>챌린지</span><strong>{String(challenges.length).padStart(2, '0')}</strong><p>불러온 챌린지 수</p></div>
+            <div className="signal-grid__item panel-lift"><span>준비 완료</span><strong>{String(readyCount).padStart(2, '0')}</strong><p>실업로드 채점이 가능한 챌린지</p></div>
+            <div className="signal-grid__item panel-lift"><span>채점 기록</span><strong>{String(scoredCount).padStart(2, '0')}</strong><p>채점 이력이 있는 챌린지</p></div>
+            <div className="signal-grid__item panel-lift"><span>연결 상태</span><strong>{loading ? '--' : '동기화'}</strong><p>챌린지 요약에 재도전 맥락이 반영됩니다</p></div>
           </div>
         </div>
       </section>
@@ -85,65 +85,65 @@ export function HomePage() {
         <div className="section-heading">
           <span className="section-heading__code">01</span>
           <div>
-            <h2>Retry spotlight</h2>
-            <p>See the most recent scored run and the biggest improvement without opening another page first.</p>
+            <h2>재도전 스포트라이트</h2>
+            <p>다른 페이지로 이동하지 않아도 최근 채점 결과와 가장 큰 향상 폭을 바로 볼 수 있습니다.</p>
           </div>
         </div>
         <div className="dashboard-grid home-spotlight__grid">
           <article className="panel panel--section home-spotlight__card">
-            <span className="home-spotlight__label">Most recent scored run</span>
+            <span className="home-spotlight__label">가장 최근 채점 결과</span>
             {recentSpotlight && recentSpotlight.challenge.latestRetrySummary ? (
               <>
                 <strong>{recentSpotlight.challenge.title}</strong>
-                <p>{recentSpotlight.challenge.latestRetrySummary.latestScore} pts / {formatDelta(recentSpotlight.delta)}</p>
+                <p>{recentSpotlight.challenge.latestRetrySummary.latestScore}점 / {formatDelta(recentSpotlight.delta)}</p>
                 <p>
                   {recentSpotlight.challenge.latestRetrySummary.retryFocus ??
                     (recentSpotlight.challenge.latestRetrySummary.weakestArea
-                      ? `Watch ${toAttemptBreakdownLabel(recentSpotlight.challenge.latestRetrySummary.weakestArea)} before the next retry.`
-                      : 'Open the latest result and review the breakdown before recording again.')}
+                      ? `다음 재도전 전에는 ${toAttemptBreakdownLabel(recentSpotlight.challenge.latestRetrySummary.weakestArea)}부터 확인해 보세요.`
+                      : '최신 결과를 열어 세부 분석을 확인한 뒤 다시 촬영해 보세요.')}
                 </p>
                 <div className="inline-actions">
                   <Link className="button-link button-link--secondary" to={`/attempts/${recentSpotlight.challenge.latestRetrySummary.latestAttemptId}/result`}>
-                    Open latest result
+                    최신 결과 보기
                   </Link>
                   <Link className="button-link button-link--secondary" to={`/challenges/${recentSpotlight.challenge.id}/start`}>
-                    Retry now
+                    지금 다시 도전
                   </Link>
                 </div>
               </>
             ) : (
               <>
-                <strong>No scored runs yet</strong>
-                <p>The first auto-scored upload will appear here as soon as the first real comparison is saved.</p>
+                <strong>아직 채점 결과가 없습니다</strong>
+                <p>첫 실제 비교 결과가 저장되면 여기에 자동 채점 업로드가 표시됩니다.</p>
               </>
             )}
           </article>
 
           <article className="panel panel--section home-spotlight__card">
-            <span className="home-spotlight__label">Best improvement</span>
+            <span className="home-spotlight__label">가장 큰 향상</span>
             {topImprovement && topImprovement.challenge.latestRetrySummary ? (
               <>
                 <strong>{topImprovement.challenge.title}</strong>
-                <p>{formatDelta(topImprovement.delta)} / latest {topImprovement.challenge.latestRetrySummary.latestScore} pts</p>
+                <p>{formatDelta(topImprovement.delta)} / 최신 점수 {topImprovement.challenge.latestRetrySummary.latestScore}점</p>
                 <p>
                   {topImprovement.challenge.latestRetrySummary.keepStableFocus ??
                     (topImprovement.challenge.latestRetrySummary.strongestArea
-                      ? `${toAttemptBreakdownLabel(topImprovement.challenge.latestRetrySummary.strongestArea)} stayed stable in the last retry.`
-                      : 'Open the result page for the full comparison and strongest-area detail.')}
+                      ? `직전 재도전에서는 ${toAttemptBreakdownLabel(topImprovement.challenge.latestRetrySummary.strongestArea)}이 가장 안정적으로 유지됐습니다.`
+                      : '결과 페이지에서 전체 비교와 강점 영역을 확인해 보세요.')}
                 </p>
                 <div className="inline-actions">
                   <Link className="button-link button-link--secondary" to={`/challenges/${topImprovement.challenge.id}`}>
-                    Open challenge detail
+                    챌린지 상세 보기
                   </Link>
                   <Link className="button-link button-link--secondary" to="/attempts">
-                    Open archive
+                    아카이브 열기
                   </Link>
                 </div>
               </>
             ) : (
               <>
-                <strong>No improvement trend yet</strong>
-                <p>As soon as a challenge has two scored runs, the biggest score gain will appear here.</p>
+                <strong>아직 향상 추세가 없습니다</strong>
+                <p>같은 챌린지에 채점 결과가 두 번 이상 쌓이면 가장 큰 점수 상승이 여기에 표시됩니다.</p>
               </>
             )}
           </article>
@@ -154,34 +154,34 @@ export function HomePage() {
         <div className="section-heading">
           <span className="section-heading__code">02</span>
           <div>
-            <h2>Current focus</h2>
-            <p>This MVP is now centered on the retry loop rather than on a one-time demo path.</p>
+            <h2>현재 핵심 흐름</h2>
+            <p>지금 MVP는 일회성 데모보다 재도전 루프를 중심으로 동작합니다.</p>
           </div>
         </div>
         <div className="stat-row">
-          <div className="stat-card stat-card--accent panel-lift panel-lift--accent"><strong>Challenge discovery</strong><p>Browse challenge metadata, readiness, and retry context before choosing where to go next.</p></div>
-          <div className="stat-card panel-lift"><strong>Live upload flow</strong><p>Move from the start console into a real scored upload without switching to a separate prototype path.</p></div>
-          <div className="stat-card panel-lift"><strong>Retry comparison</strong><p>Review score deltas, breakdowns, and coaching hints across result pages and archive cards.</p></div>
+          <div className="stat-card stat-card--accent panel-lift panel-lift--accent"><strong>챌린지 탐색</strong><p>다음 이동 전에 챌린지 메타데이터, 준비 상태, 재도전 맥락을 먼저 확인합니다.</p></div>
+          <div className="stat-card panel-lift"><strong>실업로드 흐름</strong><p>별도 프로토타입 경로 없이 시작 화면에서 실제 채점 업로드까지 바로 이어집니다.</p></div>
+          <div className="stat-card panel-lift"><strong>재도전 비교</strong><p>결과 페이지와 아카이브 카드에서 점수 변화, 세부 분석, 코칭 힌트를 함께 봅니다.</p></div>
         </div>
       </section>
 
       <section className="dashboard-grid">
         <article className="panel panel--section panel-lift">
-          <div className="section-heading"><span className="section-heading__code">03</span><div><h2>Recommended path</h2><p>The most useful flow now starts by reviewing the latest retry and then moving back into the same challenge.</p></div></div>
+          <div className="section-heading"><span className="section-heading__code">03</span><div><h2>추천 흐름</h2><p>지금 가장 유용한 흐름은 최근 재도전 결과를 확인한 뒤 같은 챌린지로 다시 들어가는 방식입니다.</p></div></div>
           <div className="detail-flow detail-flow--stack">
-            <div className="detail-flow__item">1. Check the home spotlight for the latest scored run or best improvement</div>
-            <div className="detail-flow__item">2. Open the challenge detail or start console for the same challenge</div>
-            <div className="detail-flow__item">3. Upload a fresh attempt with the same setup</div>
-            <div className="detail-flow__item">4. Compare score delta, breakdown, and coaching on the result page</div>
+            <div className="detail-flow__item">1. 홈 스포트라이트에서 최신 채점 결과나 가장 큰 향상을 확인합니다</div>
+            <div className="detail-flow__item">2. 같은 챌린지의 상세 또는 시작 화면으로 이동합니다</div>
+            <div className="detail-flow__item">3. 같은 세팅으로 새 시도를 업로드합니다</div>
+            <div className="detail-flow__item">4. 결과 페이지에서 점수 변화, 세부 분석, 코칭을 비교합니다</div>
           </div>
         </article>
 
         <article className="panel panel--section panel-lift">
-          <div className="section-heading"><span className="section-heading__code">04</span><div><h2>Next completeness target</h2><p>The next step is to turn the collected retry signals into even stronger coaching and guidance.</p></div></div>
+          <div className="section-heading"><span className="section-heading__code">04</span><div><h2>다음 완성 목표</h2><p>다음 단계는 재도전 신호를 더 강한 코칭과 가이드로 연결하는 것입니다.</p></div></div>
           <ul className="detail-list">
-            <li><strong>Retry continuity</strong>Keep the same challenge context visible across home, list, detail, start, result, and archive.</li>
-            <li><strong>Coaching quality</strong>Turn weak-area and score-delta signals into clearer capture advice for the next retry.</li>
-            <li><strong>Operational clarity</strong>Keep the model, reference, and scored-run state readable from the UI without hidden assumptions.</li>
+            <li><strong>재도전 연속성</strong>홈, 목록, 상세, 시작, 결과, 아카이브 전반에 같은 챌린지 맥락이 이어지도록 유지합니다.</li>
+            <li><strong>코칭 품질</strong>약한 영역과 점수 변화 신호를 다음 재도전 촬영 가이드로 더 선명하게 바꿉니다.</li>
+            <li><strong>운영 가시성</strong>모델, 레퍼런스, 채점 결과 상태를 숨은 가정 없이 UI에서 읽을 수 있게 만듭니다.</li>
           </ul>
         </article>
       </section>
@@ -190,5 +190,5 @@ export function HomePage() {
 }
 
 function formatDelta(delta: number | null) {
-  return delta == null ? 'Baseline' : delta === 0 ? 'No change' : `${delta > 0 ? '+' : ''}${delta} pts`;
+  return delta == null ? '기준점' : delta === 0 ? '변화 없음' : `${delta > 0 ? '+' : ''}${delta}점`;
 }

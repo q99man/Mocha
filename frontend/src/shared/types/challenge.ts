@@ -1,5 +1,5 @@
 export type ChallengeAnalysisStatus = 'NOT_ANALYZED' | 'ANALYZING' | 'COMPLETED' | 'FAILED';
-export type ChallengeBreakdownArea = 'pose similarity' | 'timing' | 'detection stability';
+export type ChallengeBreakdownArea = 'pose shape' | 'pose timing' | 'detection quality';
 
 export type ChallengeLatestRetrySummary = {
   latestAttemptId: number;
@@ -20,6 +20,7 @@ export type Challenge = {
   category: string;
   difficulty: string;
   thumbnailUrl: string | null;
+  fallbackThumbnailVideoUrl: string | null;
   guideVideoUrl: string | null;
   durationSec: number;
   isActive: boolean;

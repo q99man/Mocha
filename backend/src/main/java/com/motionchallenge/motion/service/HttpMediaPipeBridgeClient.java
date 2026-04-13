@@ -46,7 +46,7 @@ public class HttpMediaPipeBridgeClient implements MediaPipeBridgeClient {
             if (response == null) {
                 throw new ResponseStatusException(
                         HttpStatus.BAD_GATEWAY,
-                        "MediaPipe bridge returned an empty response body.");
+                        "MediaPipe 브리지에서 빈 응답 본문이 반환되었습니다.");
             }
 
             validateResponse(response);
@@ -64,17 +64,17 @@ public class HttpMediaPipeBridgeClient implements MediaPipeBridgeClient {
         } catch (ResourceAccessException exception) {
             throw new ResponseStatusException(
                     HttpStatus.SERVICE_UNAVAILABLE,
-                    "MediaPipe bridge is unreachable. Check FastAPI server availability.",
+                    "MediaPipe 브리지에 연결할 수 없습니다. FastAPI 서버 상태를 확인해 주세요.",
                     exception);
         } catch (RestClientResponseException exception) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_GATEWAY,
-                    "MediaPipe bridge returned an error response: " + exception.getStatusCode(),
+                    "MediaPipe 브리지에서 오류 응답을 반환했습니다: " + exception.getStatusCode(),
                     exception);
         } catch (RestClientException exception) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_GATEWAY,
-                    "MediaPipe bridge call failed while reading the analysis response.",
+                    "분석 응답을 읽는 중 MediaPipe 브리지 호출에 실패했습니다.",
                     exception);
         }
     }
@@ -84,7 +84,7 @@ public class HttpMediaPipeBridgeClient implements MediaPipeBridgeClient {
         if (!StringUtils.hasText(endpoint)) {
             throw new ResponseStatusException(
                     HttpStatus.INTERNAL_SERVER_ERROR,
-                    "MediaPipe bridge endpoint is not configured.");
+                    "MediaPipe 브리지 엔드포인트가 설정되어 있지 않습니다.");
         }
 
         return UriComponentsBuilder.fromUriString(endpoint)
@@ -95,15 +95,15 @@ public class HttpMediaPipeBridgeClient implements MediaPipeBridgeClient {
 
     private void validateResponse(MediaPipeHttpAnalyzeResponse response) {
         if (!StringUtils.hasText(response.provider())) {
-            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "MediaPipe bridge response is missing provider.");
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "MediaPipe 브리지 응답에 provider 값이 없습니다.");
         }
         if (!StringUtils.hasText(response.analyzerName())) {
-            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "MediaPipe bridge response is missing analyzerName.");
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "MediaPipe 브리지 응답에 analyzerName 값이 없습니다.");
         }
         if (response.signature() == null || response.sampleCount() == null || response.durationMs() == null) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_GATEWAY,
-                    "MediaPipe bridge response is missing required metrics.");
+                    "MediaPipe 브리지 응답에 필수 지표가 누락되어 있습니다.");
         }
     }
 }

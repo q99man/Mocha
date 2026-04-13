@@ -18,12 +18,12 @@ type BreakdownMetric = {
 
 export function toAttemptBreakdownLabel(area: AttemptBreakdownArea) {
   switch (area) {
-    case 'pose similarity':
-      return 'Pose alignment';
-    case 'timing':
-      return 'Timing';
-    case 'detection stability':
-      return 'Detection stability';
+    case 'pose shape':
+      return '포즈 모양';
+    case 'pose timing':
+      return '포즈 타이밍';
+    case 'detection quality':
+      return '검출 품질';
   }
 }
 
@@ -43,11 +43,11 @@ export function buildAttemptBreakdownSummary(value: BreakdownCarrier) {
   const parts: string[] = [];
 
   if (value.strongestArea) {
-    parts.push(`Strongest: ${toAttemptBreakdownLabel(value.strongestArea)}`);
+    parts.push(`강점: ${toAttemptBreakdownLabel(value.strongestArea)}`);
   }
 
   if (value.weakestArea) {
-    parts.push(`Watch: ${toAttemptBreakdownLabel(value.weakestArea)}`);
+    parts.push(`집중: ${toAttemptBreakdownLabel(value.weakestArea)}`);
   }
 
   return parts.length > 0 ? parts.join(' / ') : null;
@@ -59,9 +59,9 @@ export function buildAttemptBreakdownMetrics(value: BreakdownCarrier) {
   }
 
   return [
-    buildMetric('Pose', value.poseSimilarity),
-    buildMetric('Timing', value.timingSimilarity),
-    buildMetric('Stability', value.stabilitySimilarity),
+    buildMetric('모양', value.poseSimilarity),
+    buildMetric('타이밍', value.timingSimilarity),
+    buildMetric('품질', value.stabilitySimilarity),
   ].filter((metric): metric is BreakdownMetric => metric !== null);
 }
 

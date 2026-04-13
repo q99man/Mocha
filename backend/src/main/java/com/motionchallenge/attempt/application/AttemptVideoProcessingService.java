@@ -23,7 +23,7 @@ public class AttemptVideoProcessingService {
 
     private static final String PROCESSING_MODE_SYNC_INLINE = "SYNC_INLINE";
     private static final String PROCESSING_NOTICE_AUTOSCORED =
-            "The uploaded video was analyzed and scored against the reference.";
+            "업로드한 영상이 레퍼런스와 비교 분석되어 채점되었습니다.";
 
     private final AttemptRepository attemptRepository;
     private final AttemptVideoRepository attemptVideoRepository;

@@ -123,6 +123,7 @@ class ChallengeVideoFlowIntegrationTest {
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.referenceAnalysisStatus").value("NOT_ANALYZED"))
                 .andExpect(jsonPath("$.referenceVideoUploaded").value(true))
+                .andExpect(jsonPath("$.fallbackThumbnailVideoUrl").value(org.hamcrest.Matchers.startsWith("/uploads/challenges/")))
                 .andReturn();
 
         JsonNode response = objectMapper.readTree(result.getResponse().getContentAsString());

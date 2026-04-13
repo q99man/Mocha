@@ -157,7 +157,7 @@ public class ChallengeService {
     @Transactional
     public ChallengeResponse createChallenge(ChallengeCreateRequest request) {
         if (request.getReferenceVideo() == null || request.getReferenceVideo().isEmpty()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Reference video file is required.");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "레퍼런스 영상 파일이 필요합니다.");
         }
 
         Challenge challenge = challengeRepository.save(new Challenge(
@@ -190,7 +190,7 @@ public class ChallengeService {
         ChallengeVideo challengeVideo = challengeVideoRepository.findByChallengeId(challengeId)
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.BAD_REQUEST,
-                        "Reference video is not registered for this challenge."));
+                        "이 챌린지에는 레퍼런스 영상이 등록되어 있지 않습니다."));
 
         challenge.markReferenceAnalyzing();
 
@@ -222,7 +222,7 @@ public class ChallengeService {
                     true,
                     analysisResult.analyzerName(),
                     analyzedAt,
-                    "Reference video analysis completed successfully.");
+                    "레퍼런스 영상 분석이 완료되었습니다.");
         } catch (ResponseStatusException exception) {
             challenge.markReferenceAnalysisFailed();
             log.warn(
@@ -237,7 +237,7 @@ public class ChallengeService {
             log.error("Reference analysis crashed for challengeId={}", challengeId, exception);
             throw new ResponseStatusException(
                     HttpStatus.INTERNAL_SERVER_ERROR,
-                    "Reference analysis failed while saving the analysis result: " + exception.getMessage(),
+                    "분석 결과 저장 중 레퍼런스 분석에 실패했습니다: " + exception.getMessage(),
                     exception);
         }
     }
@@ -314,7 +314,7 @@ public class ChallengeService {
 
     private Challenge findActiveChallenge(Long challengeId) {
         return challengeRepository.findByIdAndIsActiveTrue(challengeId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Challenge not found."));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "챌린지를 찾을 수 없습니다."));
     }
 
     private List<ChallengeResponse> toResponses(List<Challenge> challenges) {
@@ -348,6 +348,7 @@ public class ChallengeService {
                 challenge.getCategory(),
                 challenge.getDifficulty(),
                 challenge.getThumbnailUrl(),
+                challengeVideo != null ? "/uploads/" + challengeVideo.getStoragePath() : null,
                 challenge.getGuideVideoUrl(),
                 challenge.getDurationSec(),
                 challenge.isActive(),
@@ -429,25 +430,25 @@ public class ChallengeService {
         DeltaMetric bestMetric = buildPrimaryDeltaMetric(attempt, previousAttempt, true);
         DeltaMetric worstMetric = buildPrimaryDeltaMetric(attempt, previousAttempt, false);
 
-        if ("timing".equals(weakestArea)) {
-            return "Next retry: tighten timing first." + buildDeltaTail(bestMetric, worstMetric);
+        if ("pose timing".equals(weakestArea)) {
+            return "다음 재도전에서는 타이밍부터 먼저 다듬어 보세요." + buildDeltaTail(bestMetric, worstMetric);
         }
-        if ("detection stability".equals(weakestArea)) {
-            return "Next retry: clean up framing before changing the move itself." + buildDeltaTail(bestMetric, worstMetric);
+        if ("detection quality".equals(weakestArea)) {
+            return "다음 재도전에서는 동작보다 먼저 구도와 가시성을 정리해 보세요." + buildDeltaTail(bestMetric, worstMetric);
         }
-        if ("pose similarity".equals(weakestArea)) {
-            return "Next retry: recover the big body shapes before adjusting speed." + buildDeltaTail(bestMetric, worstMetric);
+        if ("pose shape".equals(weakestArea)) {
+            return "다음 재도전에서는 속도보다 큰 몸 모양을 먼저 회복해 보세요." + buildDeltaTail(bestMetric, worstMetric);
         }
         if (attempt.score() >= 85 && strongestArea != null) {
-            return "Strong run overall. Keep " + strongestArea + " steady." + buildDeltaTail(bestMetric, worstMetric);
+            return "전체적으로 좋은 결과입니다. " + strongestArea + "은 지금처럼 안정적으로 유지해 주세요." + buildDeltaTail(bestMetric, worstMetric);
         }
         if (previousAttempt != null) {
-            return "Keep the same camera setup and change one variable at a time. Score trend: "
+            return "카메라 세팅은 유지하고 한 번에 한 가지 변수만 바꿔 보세요. 점수 흐름: "
                     + formatSignedDelta(attempt.score() - previousAttempt.score())
-                    + " pts."
+                    + "점."
                     + buildDeltaTail(bestMetric, worstMetric);
         }
-        return "Next retry: keep the same camera setup and change only one variable so the next score shift is easier to read.";
+        return "다음 재도전에서는 같은 카메라 세팅을 유지하고 한 가지 변수만 바꿔서 점수 변화를 더 읽기 쉽게 만들어 보세요.";
     }
 
     private String buildRetryFocus(ChallengeRetryAttemptSnapshot attempt, ChallengeRetryAttemptSnapshot previousAttempt) {
@@ -455,20 +456,20 @@ public class ChallengeService {
         DeltaMetric worstMetric = buildPrimaryDeltaMetric(attempt, previousAttempt, false);
 
         if (weakestArea != null) {
-            String message = "Focus the next retry on " + weakestArea + " first.";
+            String message = "다음 재도전에서는 " + weakestArea + "부터 먼저 집중해 보세요.";
             if (worstMetric != null && worstMetric.delta() < 0) {
-                message += " " + worstMetric.label() + " also moved " + formatSignedDelta(worstMetric.delta()) + ".";
+                message += " " + worstMetric.label() + "도 " + formatSignedDelta(worstMetric.delta()) + " 변했습니다.";
             }
             return message;
         }
 
         if (previousAttempt != null) {
-            return "Keep the capture setup stable and isolate one variable. Latest score trend: "
+            return "촬영 세팅을 안정적으로 유지하고 변수는 하나만 분리해 보세요. 최신 점수 흐름: "
                     + formatSignedDelta(attempt.score() - previousAttempt.score())
-                    + " pts.";
+                    + "점.";
         }
 
-        return "Use the next retry to create a clean baseline with the same camera setup.";
+        return "다음 재도전에서는 같은 카메라 세팅으로 깔끔한 기준점을 만들어 보세요.";
     }
 
     private String buildKeepStableFocus(ChallengeRetryAttemptSnapshot attempt, ChallengeRetryAttemptSnapshot previousAttempt) {
@@ -476,18 +477,18 @@ public class ChallengeService {
         DeltaMetric bestMetric = buildPrimaryDeltaMetric(attempt, previousAttempt, true);
 
         if (strongestArea != null) {
-            String message = "Keep " + strongestArea + " stable on the next retry.";
+            String message = "다음 재도전에서도 " + strongestArea + "을 안정적으로 유지해 보세요.";
             if (bestMetric != null && bestMetric.delta() > 0) {
-                message += " " + bestMetric.label() + " improved " + formatSignedDelta(bestMetric.delta()) + ".";
+                message += " " + bestMetric.label() + "이 " + formatSignedDelta(bestMetric.delta()) + " 좋아졌습니다.";
             }
             return message;
         }
 
         if (bestMetric != null && bestMetric.delta() > 0) {
-            return "Preserve the setup that improved " + bestMetric.label() + " by " + formatSignedDelta(bestMetric.delta()) + ".";
+            return bestMetric.label() + "을 " + formatSignedDelta(bestMetric.delta()) + " 개선한 세팅을 유지해 보세요.";
         }
 
-        return "Keep the current framing, lighting, and tempo as consistent as possible across retries.";
+        return "재도전 사이에서 현재 구도, 조명, 템포를 최대한 일정하게 유지해 보세요.";
     }
 
     private DeltaMetric buildPrimaryDeltaMetric(ChallengeRetryAttemptSnapshot attempt, ChallengeRetryAttemptSnapshot previousAttempt, boolean best) {
@@ -496,9 +497,9 @@ public class ChallengeService {
         }
 
         DeltaMetric[] metrics = new DeltaMetric[] {
-            buildDeltaMetric("Pose", computeDelta(attempt.poseSimilarity(), previousAttempt.poseSimilarity())),
-            buildDeltaMetric("Timing", computeDelta(attempt.timingSimilarity(), previousAttempt.timingSimilarity())),
-            buildDeltaMetric("Stability", computeDelta(attempt.stabilitySimilarity(), previousAttempt.stabilitySimilarity()))
+            buildDeltaMetric("모양", computeDelta(attempt.poseSimilarity(), previousAttempt.poseSimilarity())),
+            buildDeltaMetric("타이밍", computeDelta(attempt.timingSimilarity(), previousAttempt.timingSimilarity())),
+            buildDeltaMetric("품질", computeDelta(attempt.stabilitySimilarity(), previousAttempt.stabilitySimilarity()))
         };
 
         DeltaMetric selected = null;

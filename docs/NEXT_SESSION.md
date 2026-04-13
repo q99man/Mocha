@@ -126,3 +126,28 @@ cd C:\SpringWork\Mocha
   - first suspect old DB rows containing already-garbled strings
   - second suspect a source file rewritten with BOM
   - use `rg "餓|筌|癲|꾨|繞|嶺|\\uFFFD" backend/src frontend/src` to find source-level corruption
+## 2026-04-13 UI Redesign Handoff
+- UI 방향이 `정보형 웹`에서 `리듬게임형 스테이지 UI`로 바뀌었다.
+- 참고 감성은 DJ MAX 계열이지만, 그대로 복제하지 않고 아래 원칙만 차용한다.
+  - 텍스트 최소화
+  - 카드 중심 선택 경험
+  - 강한 타이포와 조명감
+  - 메인 챌린지 캐러셀
+- 새 기획 문서:
+  - [UI_REDESIGN_DJMAX_PLAN_2026-04-13.md](/C:/SpringWork/Mocha/docs/UI_REDESIGN_DJMAX_PLAN_2026-04-13.md)
+
+- 내일 첫 작업 시작 파일:
+  - [AppLayout.tsx](/C:/SpringWork/Mocha/frontend/src/shared/components/AppLayout.tsx)
+  - [HomePage.tsx](/C:/SpringWork/Mocha/frontend/src/pages/HomePage.tsx)
+  - [ChallengesPage.tsx](/C:/SpringWork/Mocha/frontend/src/pages/ChallengesPage.tsx)
+
+- 추천 작업 순서:
+  1. `AppLayout`을 얇고 게임 UI처럼 정리
+  2. `HomePage`를 랜딩 페이지로 교체
+  3. `ChallengesPage`를 카드형 캐러셀 셀렉트 화면으로 교체
+  4. 이후 `ChallengeDetailPage`, `ChallengeStartPage`, `AttemptResultPage`를 같은 디자인 언어로 확장
+
+- 중요한 메모:
+  - 현재 [HomePage.tsx](/C:/SpringWork/Mocha/frontend/src/pages/HomePage.tsx)와 [ChallengesPage.tsx](/C:/SpringWork/Mocha/frontend/src/pages/ChallengesPage.tsx)는 이전 구조와 깨진 문자열이 일부 남아 있다.
+  - 따라서 UI 개편 시작점은 이 두 파일을 `부분 수정`하기보다 `의도한 새 구조로 재작성`하는 쪽이 더 안전하다.
+  - 랜딩과 챌린지 셀렉트는 신규 Tailwind 스타일을 우선 적용하고, 나머지 페이지는 점진적으로 따라오게 하는 전략이 적합하다.

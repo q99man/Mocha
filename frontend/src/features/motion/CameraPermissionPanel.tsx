@@ -49,7 +49,7 @@ export function CameraPermissionPanel({ challengeId, challengeTitle }: CameraPer
   const [sessionRefreshing, setSessionRefreshing] = useState(false);
   const [sessionError, setSessionError] = useState<string | null>(null);
   const [message, setMessage] = useState<string>(
-    'Check the runtime state first, then upload a real attempt video for scoring.',
+    '먼저 현재 실행 상태를 확인한 뒤 실제 시도 영상을 업로드해 채점을 진행해 주세요.',
   );
 
   const [selectedVideo, setSelectedVideo] = useState<File | null>(null);
@@ -110,7 +110,7 @@ export function CameraPermissionPanel({ challengeId, challengeTitle }: CameraPer
       if (!mountedRef.current) {
         return;
       }
-      setSessionError(error instanceof Error ? error.message : 'Failed to load the runtime state.');
+      setSessionError(error instanceof Error ? error.message : '실행 상태를 불러오지 못했습니다.');
     } finally {
       if (!mountedRef.current) {
         return;
@@ -123,7 +123,7 @@ export function CameraPermissionPanel({ challengeId, challengeTitle }: CameraPer
   async function requestCameraAccess() {
     if (!navigator.mediaDevices?.getUserMedia) {
       setCameraState('unavailable');
-      setMessage('Camera access is not available in this browser.');
+      setMessage('이 브라우저에서는 카메라 접근을 사용할 수 없습니다.');
       return;
     }
 
@@ -139,7 +139,7 @@ export function CameraPermissionPanel({ challengeId, challengeTitle }: CameraPer
         videoRef.current.srcObject = stream;
       }
       setCameraState('ready');
-      setMessage('Camera access is ready. You can move to the upload step now.');
+      setMessage('카메라 접근이 준비되었습니다. 이제 업로드 단계로 이동할 수 있습니다.');
     } catch (error) {
       const nextState = resolveCameraErrorState(error);
       setCameraState(nextState);
@@ -159,12 +159,12 @@ export function CameraPermissionPanel({ challengeId, challengeTitle }: CameraPer
 
   function moveToUploadStage() {
     setFlowStage('upload');
-    setMessage('Upload a real attempt video to start analysis and scoring.');
+    setMessage('실제 시도 영상을 업로드하면 분석과 채점이 시작됩니다.');
   }
 
   function continueWithoutCamera() {
     setFlowStage('upload');
-    setMessage('Continuing without camera. Upload a real attempt video when ready.');
+    setMessage('카메라 없이 계속 진행합니다. 준비되면 실제 시도 영상을 업로드해 주세요.');
   }
 
   function onSelectVideo(event: ChangeEvent<HTMLInputElement>) {
@@ -178,11 +178,11 @@ export function CameraPermissionPanel({ challengeId, challengeTitle }: CameraPer
 
   async function submitAttemptVideo() {
     if (!selectedVideo) {
-      setUploadError('Select a video file first.');
+      setUploadError('먼저 영상 파일을 선택해 주세요.');
       return;
     }
     if (sessionState && !sessionState.uploadEnabled) {
-      setUploadError('Uploads are currently disabled for this challenge state.');
+      setUploadError('현재 이 챌린지 상태에서는 업로드를 진행할 수 없습니다.');
       return;
     }
 
@@ -201,7 +201,7 @@ export function CameraPermissionPanel({ challengeId, challengeTitle }: CameraPer
         return;
       }
       setUploadedAttempt(response);
-      setMessage(response.processingNotice ?? 'Upload accepted. Review the result below.');
+      setMessage(response.processingNotice ?? '업로드가 접수되었습니다. 아래에서 결과를 확인해 주세요.');
 
       if (response.pendingTrackingId) {
         const progress = await getAttemptVideoProcessingProgressByTrackingId(response.pendingTrackingId);
@@ -216,7 +216,7 @@ export function CameraPermissionPanel({ challengeId, challengeTitle }: CameraPer
       if (!mountedRef.current) {
         return;
       }
-      setUploadError(error instanceof Error ? error.message : 'Failed to upload the attempt video.');
+      setUploadError(error instanceof Error ? error.message : '시도 영상을 업로드하지 못했습니다.');
     } finally {
       if (mountedRef.current) {
         setUploadLoading(false);
@@ -226,7 +226,7 @@ export function CameraPermissionPanel({ challengeId, challengeTitle }: CameraPer
 
   async function loadPendingJobProgress() {
     if (!pendingTrackingId) {
-      setUploadError('No tracking id is available for this upload yet.');
+      setUploadError('아직 이 업로드에 대한 트래킹 ID가 없습니다.');
       return;
     }
 
@@ -249,7 +249,7 @@ export function CameraPermissionPanel({ challengeId, challengeTitle }: CameraPer
       await loadMotionSessionState({ silent: true });
     } catch (error) {
       if (mountedRef.current) {
-        setUploadError(error instanceof Error ? error.message : 'Failed to refresh durable progress.');
+        setUploadError(error instanceof Error ? error.message : '진행 상태를 새로고침하지 못했습니다.');
       }
     } finally {
       if (mountedRef.current) {
@@ -260,7 +260,7 @@ export function CameraPermissionPanel({ challengeId, challengeTitle }: CameraPer
 
   async function completePendingAttempt() {
     if (!pendingTrackingId) {
-      setUploadError('No tracking id is available for manual completion.');
+      setUploadError('수동 완료를 진행할 트래킹 ID가 없습니다.');
       return;
     }
 
@@ -270,7 +270,7 @@ export function CameraPermissionPanel({ challengeId, challengeTitle }: CameraPer
     const request: AsyncPendingCompletionRequest = {
       challengeId,
       trackingId: pendingTrackingId,
-      notes: `Manual completion for ${challengeTitle}`,
+      notes: `${challengeTitle} 수동 완료`,
     };
 
     try {
@@ -289,11 +289,11 @@ export function CameraPermissionPanel({ challengeId, challengeTitle }: CameraPer
             }
           : current,
       );
-      setMessage(response.processingNotice ?? 'Manual completion finished.');
+      setMessage(response.processingNotice ?? '수동 완료 처리가 끝났습니다.');
       await loadMotionSessionState({ silent: true });
     } catch (error) {
       if (mountedRef.current) {
-        setUploadError(error instanceof Error ? error.message : 'Failed to complete the pending upload.');
+        setUploadError(error instanceof Error ? error.message : '대기 중인 업로드를 완료 처리하지 못했습니다.');
       }
     } finally {
       if (mountedRef.current) {
@@ -319,7 +319,7 @@ export function CameraPermissionPanel({ challengeId, challengeTitle }: CameraPer
         }
       }, 1500);
     } catch {
-      setUploadError('Failed to copy the tracking id.');
+      setUploadError('트래킹 ID를 복사하지 못했습니다.');
     }
   }
 
@@ -327,8 +327,8 @@ export function CameraPermissionPanel({ challengeId, challengeTitle }: CameraPer
     <section className="camera-panel">
       <div className="camera-panel__header">
         <div>
-          <p className="camera-panel__eyebrow">Camera Ready</p>
-          <h2>{challengeTitle} start console</h2>
+          <p className="camera-panel__eyebrow">카메라 준비</p>
+          <h2>{challengeTitle} 시작 콘솔</h2>
           <p className="camera-panel__message">{message}</p>
         </div>
         <button
@@ -336,25 +336,25 @@ export function CameraPermissionPanel({ challengeId, challengeTitle }: CameraPer
           className="button button--ghost"
           onClick={() => void loadMotionSessionState({ silent: true })}
         >
-          {sessionRefreshing || sessionLoading ? 'Refreshing...' : 'Refresh session'}
+          {sessionRefreshing || sessionLoading ? '새로고침 중...' : '세션 새로고침'}
         </button>
       </div>
 
       <div className="camera-panel__status">
-        <span>Runtime state</span>
-        <strong>{sessionState?.runtimeState ?? 'Checking runtime'}</strong>
+        <span>실행 상태</span>
+        <strong>{sessionState?.runtimeState ?? '상태 확인 중'}</strong>
       </div>
 
       {sessionError ? <p className="camera-panel__error">{sessionError}</p> : null}
 
       {recentRuntimeTrace.length > 0 ? (
         <div className="camera-runtime-feed">
-          <h3>Recent runtime trace</h3>
+          <h3>최근 실행 기록</h3>
           <ul>
             {recentRuntimeTrace.map((item, index) => (
               <li key={`${item.runtimeState}-${item.recordedAt}-${index}`} className="camera-runtime-feed__item">
                 <strong>{item.runtimeState}</strong>
-                <span>{item.source ?? 'TRACKER'}</span>
+                <span>{item.source ?? '추적기'}</span>
                 <span>{formatRuntimeRecordedAt(item.recordedAt)}</span>
               </li>
             ))}
@@ -364,34 +364,34 @@ export function CameraPermissionPanel({ challengeId, challengeTitle }: CameraPer
 
       <div className="camera-panel__grid">
         <article className="camera-panel__card">
-          <h3>1. Camera check</h3>
-          <p>Camera permission is optional. You can continue to the upload step without it.</p>
+          <h3>1. 카메라 확인</h3>
+          <p>카메라 권한은 선택 사항입니다. 없어도 업로드 단계로 계속 진행할 수 있습니다.</p>
           <div className="camera-panel__video-shell">
             <video ref={videoRef} autoPlay muted playsInline className="camera-panel__video" />
           </div>
           <div className="camera-panel__actions">
             <button type="button" className="button" onClick={() => void requestCameraAccess()}>
-              Check camera
+              카메라 확인
             </button>
             {canOpenUploadStage ? (
               <button type="button" className="button button--secondary" onClick={moveToUploadStage}>
-                Open upload step
+                업로드 단계 열기
               </button>
             ) : null}
             {canContinueWithoutCamera ? (
               <button type="button" className="button button--ghost" onClick={continueWithoutCamera}>
-                Continue without camera
+                카메라 없이 진행
               </button>
             ) : null}
           </div>
-          <p className="camera-panel__meta">Camera state: {cameraStateLabel(cameraState)}</p>
+          <p className="camera-panel__meta">카메라 상태: {cameraStateLabel(cameraState)}</p>
         </article>
       </div>
 
       {flowStage === 'upload' ? (
         <article className="camera-panel__card camera-panel__card--wide">
-          <h3>2. Upload attempt video</h3>
-          <p>Select a real challenge video and submit it for analysis and scoring.</p>
+          <h3>2. 시도 영상 업로드</h3>
+          <p>실제 챌린지 영상을 선택해 분석과 채점을 요청합니다.</p>
           <div className="camera-panel__upload-box">
             <input type="file" accept="video/*" onChange={onSelectVideo} />
             <button
@@ -400,10 +400,10 @@ export function CameraPermissionPanel({ challengeId, challengeTitle }: CameraPer
               onClick={() => void submitAttemptVideo()}
               disabled={uploadLoading || (sessionState ? !sessionState.uploadEnabled : false)}
             >
-              {uploadLoading ? 'Uploading...' : 'Upload video'}
+              {uploadLoading ? '업로드 중...' : '영상 업로드'}
             </button>
           </div>
-          {selectedVideo ? <p className="camera-panel__meta">Selected file: {selectedVideo.name}</p> : null}
+          {selectedVideo ? <p className="camera-panel__meta">선택 파일: {selectedVideo.name}</p> : null}
           {uploadError ? <p className="camera-panel__error">{uploadError}</p> : null}
 
           {uploadedAttempt ? (
@@ -412,7 +412,7 @@ export function CameraPermissionPanel({ challengeId, challengeTitle }: CameraPer
                 <h4>{uploadedAttempt.resultHeadline}</h4>
                 <span className="camera-panel__pill">{uploadedAttempt.processingMode ?? 'SYNC_INLINE'}</span>
                 <span className="camera-panel__pill">
-                  {uploadedAttempt.processingComplete ? 'Completed' : 'Pending'}
+                  {uploadedAttempt.processingComplete ? '완료' : '대기 중'}
                 </span>
               </div>
               <p>{uploadedAttempt.resultSummary}</p>
@@ -422,7 +422,7 @@ export function CameraPermissionPanel({ challengeId, challengeTitle }: CameraPer
                   <strong>{uploadedAttemptBreakdownSummary}</strong>
                   {uploadedAttempt.scoreDeltaFromPrevious != null ? (
                     <p className="camera-panel__meta">
-                      Compared with previous scored run: {uploadedAttempt.scoreDeltaFromPrevious >= 0 ? '+' : ''}{uploadedAttempt.scoreDeltaFromPrevious} pts
+                      이전 채점 기록 대비: {uploadedAttempt.scoreDeltaFromPrevious >= 0 ? '+' : ''}{uploadedAttempt.scoreDeltaFromPrevious}점
                     </p>
                   ) : null}
                   {uploadedAttemptBreakdownMetrics.length > 0 ? (
@@ -437,10 +437,10 @@ export function CameraPermissionPanel({ challengeId, challengeTitle }: CameraPer
               ) : null}
               {uploadedAttemptResultId ? (
                 <p className="camera-panel__success">
-                  <Link to={`/attempts/${uploadedAttemptResultId}/result`}>Open result page</Link>
+                  <Link to={`/attempts/${uploadedAttemptResultId}/result`}>결과 페이지 열기</Link>
                 </p>
               ) : (
-                <p className="camera-panel__meta">Result id will appear after processing completes.</p>
+                <p className="camera-panel__meta">처리가 완료되면 결과 ID가 표시됩니다.</p>
               )}
             </div>
           ) : null}
@@ -449,7 +449,7 @@ export function CameraPermissionPanel({ challengeId, challengeTitle }: CameraPer
             <div className={`camera-panel__pending-box camera-panel__pending-box--${pendingProgressTone}`}>
               <div className="camera-panel__pending-header">
                 <div>
-                  <span className="camera-panel__pending-eyebrow">Processing job</span>
+                  <span className="camera-panel__pending-eyebrow">처리 작업</span>
                   <h4>{buildDurableProgressHeadline(pendingJobProgress)}</h4>
                   <p>{buildPendingPanelSummary(pendingJobProgress, uploadedAttempt)}</p>
                 </div>
@@ -471,7 +471,7 @@ export function CameraPermissionPanel({ challengeId, challengeTitle }: CameraPer
 
               {pendingJobProgress?.status === 'FAILED' ? (
                 <div className="processing-job-action processing-job-action--danger">
-                  <strong>Recommended next step</strong>
+                  <strong>추천 다음 단계</strong>
                   <p>{buildDurableProgressFailureAction(pendingJobProgress.failureAction)}</p>
                 </div>
               ) : null}
@@ -481,33 +481,33 @@ export function CameraPermissionPanel({ challengeId, challengeTitle }: CameraPer
                   <strong>{buildDurableProgressCalloutTitle(pendingJobProgress)}</strong>
                   <p>{buildDurableProgressNextStep(pendingJobProgress)}</p>
                   <Link to={`/attempts/${uploadedAttemptResultId}/result`} className="button-link">
-                    Open result page
+                    결과 페이지 열기
                   </Link>
                 </div>
               ) : null}
 
               <ul className="detail-list camera-panel__pending-meta">
                 <li>
-                  <strong>tracking id</strong>
-                  {pendingTrackingId ?? 'Not available yet'}
+                  <strong>트래킹 ID</strong>
+                  {pendingTrackingId ?? '아직 없음'}
                 </li>
                 <li>
-                  <strong>completion mode</strong>
+                  <strong>완료 방식</strong>
                   {buildDurableProgressCompletionStrategyLabel(pendingJobProgress?.completionStrategy)}
                 </li>
                 <li>
-                  <strong>elapsed time</strong>
+                  <strong>경과 시간</strong>
                   {buildDurableProgressElapsedTimeLabel(pendingJobProgress?.elapsedSeconds)}
                 </li>
                 <li>
-                  <strong>retry window</strong>
+                  <strong>재시도 여유</strong>
                   {buildDurableProgressRetryWindowLabel(pendingJobProgress)}
                 </li>
                 <li>
-                  <strong>original file</strong>
+                  <strong>원본 파일</strong>
                   {pendingJobProgress
                     ? buildDurableProgressOriginalFileLabel(pendingJobProgress)
-                    : selectedVideo?.name ?? 'unknown'}
+                    : selectedVideo?.name ?? '알 수 없음'}
                 </li>
               </ul>
 
@@ -518,15 +518,15 @@ export function CameraPermissionPanel({ challengeId, challengeTitle }: CameraPer
                   onClick={() => void loadPendingJobProgress()}
                   disabled={trackingProgressLoading}
                 >
-                  {trackingProgressLoading ? 'Refreshing...' : 'Refresh progress'}
+                  {trackingProgressLoading ? '새로고침 중...' : '진행 상태 새로고침'}
                 </button>
                 {uploadedAttemptResultId ? (
                   <Link to={`/attempts/${uploadedAttemptResultId}/result`} className="button button--ghost">
-                    Open result
+                    결과 열기
                   </Link>
                 ) : null}
                 <button type="button" className="button button--ghost" onClick={() => void copyTrackingId()}>
-                  {trackingIdCopied ? 'Tracking id copied' : 'Copy tracking id'}
+                  {trackingIdCopied ? '트래킹 ID 복사됨' : '트래킹 ID 복사'}
                 </button>
                 {pendingJobProgress?.status !== 'COMPLETED' ? (
                   <button
@@ -535,7 +535,7 @@ export function CameraPermissionPanel({ challengeId, challengeTitle }: CameraPer
                     onClick={() => void completePendingAttempt()}
                     disabled={pendingCompletionLoading}
                   >
-                    {pendingCompletionLoading ? 'Completing...' : 'Complete manually'}
+                    {pendingCompletionLoading ? '완료 처리 중...' : '수동 완료'}
                   </button>
                 ) : null}
               </div>
@@ -548,17 +548,17 @@ export function CameraPermissionPanel({ challengeId, challengeTitle }: CameraPer
 }
 
 function buildUploadNote(challengeTitle: string) {
-  return `${challengeTitle} attempt video upload`;
+  return `${challengeTitle} 시도 영상 업로드`;
 }
 
 function buildSessionMessage(state: MotionSessionState) {
   if (state.uploadEnabled) {
-    return 'The challenge is ready for upload and scoring.';
+    return '이 챌린지는 업로드와 채점을 진행할 준비가 되었습니다.';
   }
   if (state.readinessState === 'REFERENCE_PENDING') {
-    return 'Reference analysis is still pending for this challenge.';
+    return '이 챌린지는 아직 레퍼런스 분석이 완료되지 않았습니다.';
   }
-  return 'Check the current runtime state before uploading.';
+  return '업로드 전에 현재 실행 상태를 먼저 확인해 주세요.';
 }
 
 function buildPendingPanelSummary(
@@ -570,10 +570,10 @@ function buildPendingPanelSummary(
   }
 
   if (uploadedAttempt?.processingMode === 'ASYNC_JOB_PENDING' && !uploadedAttempt.processingComplete) {
-    return 'Upload accepted. Waiting for the first durable progress snapshot.';
+    return '업로드가 접수되었습니다. 첫 진행 상태 정보를 기다리는 중입니다.';
   }
 
-  return 'Processing state is being refreshed.';
+  return '처리 상태를 새로 불러오고 있습니다.';
 }
 
 function buildPendingPanelNotice(
@@ -586,15 +586,15 @@ function buildPendingPanelNotice(
 function cameraStateLabel(cameraState: CameraState) {
   switch (cameraState) {
     case 'ready':
-      return 'Camera ready';
+      return '카메라 준비 완료';
     case 'denied':
-      return 'Permission denied';
+      return '권한 거부';
     case 'unavailable':
-      return 'Camera unavailable';
+      return '카메라 사용 불가';
     case 'error':
-      return 'Camera error';
+      return '카메라 오류';
     default:
-      return 'Idle';
+      return '대기 중';
   }
 }
 
@@ -611,11 +611,11 @@ function resolveCameraErrorState(error: unknown): CameraState {
 function buildCameraErrorMessage(state: CameraState) {
   switch (state) {
     case 'denied':
-      return 'Camera permission was denied. You can continue without camera access.';
+      return '카메라 권한이 거부되었습니다. 카메라 없이 계속 진행할 수 있습니다.';
     case 'unavailable':
-      return 'No camera device is available. You can continue without camera access.';
+      return '사용 가능한 카메라 장치가 없습니다. 카메라 없이 계속 진행할 수 있습니다.';
     default:
-      return 'Camera access failed. You can continue without camera access.';
+      return '카메라 접근에 실패했습니다. 카메라 없이 계속 진행할 수 있습니다.';
   }
 }
 

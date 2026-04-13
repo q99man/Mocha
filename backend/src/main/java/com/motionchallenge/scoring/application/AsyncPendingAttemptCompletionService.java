@@ -129,7 +129,7 @@ public class AsyncPendingAttemptCompletionService {
         if (!canRestoreFromDurableJob(processingJob)) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
-                    "업로드 메타가 충분하지 않아 비동기 완료 처리를 이어갈 수 없습니다.");
+                    "업로드 메타데이터가 충분하지 않아 비동기 완료 처리를 이어갈 수 없습니다.");
         }
 
         return videoStorageService.loadStoredVideo(

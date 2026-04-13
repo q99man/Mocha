@@ -51,8 +51,8 @@ describe('AttemptsPage', () => {
       poseSimilarity: 92,
       timingSimilarity: 90,
       stabilitySimilarity: 89,
-      strongestArea: 'pose similarity',
-      weakestArea: 'detection stability',
+      strongestArea: 'pose shape',
+      weakestArea: 'detection quality',
     });
 
     mockedGetAttempts.mockResolvedValueOnce([pendingAttempt]).mockResolvedValueOnce([completedAttempt]);

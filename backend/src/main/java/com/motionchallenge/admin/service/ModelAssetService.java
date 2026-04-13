@@ -46,7 +46,7 @@ public class ModelAssetService {
     public ModelAssetResponse getActivePoseLandmarkerAsset() {
         return modelAssetRepository.findTopByAssetTypeAndActiveTrueOrderByCreatedAtDesc(ModelAssetType.POSE_LANDMARKER)
                 .map(ModelAssetResponse::from)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "No active pose landmarker model is registered."));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "활성화된 Pose Landmarker 모델이 등록되어 있지 않습니다."));
     }
 
     @Transactional
@@ -87,12 +87,12 @@ public class ModelAssetService {
 
     private void validateModelFile(MultipartFile modelFile) {
         if (modelFile == null || modelFile.isEmpty()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Model file is required.");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "모델 파일이 필요합니다.");
         }
 
         String originalFileName = modelFile.getOriginalFilename();
         if (originalFileName == null || !originalFileName.toLowerCase().endsWith(".task")) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Only .task model files are supported.");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ".task 모델 파일만 지원합니다.");
         }
     }
 
@@ -117,7 +117,7 @@ public class ModelAssetService {
         try {
             Files.createDirectories(path);
         } catch (IOException exception) {
-            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Failed to prepare model storage directory.");
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "모델 저장 디렉터리를 준비하지 못했습니다.");
         }
     }
 
@@ -125,7 +125,7 @@ public class ModelAssetService {
         try (InputStream inputStream = file.getInputStream()) {
             Files.copy(inputStream, targetPath, StandardCopyOption.REPLACE_EXISTING);
         } catch (IOException exception) {
-            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Failed to store uploaded model file.");
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "업로드한 모델 파일을 저장하지 못했습니다.");
         }
     }
 
@@ -133,7 +133,7 @@ public class ModelAssetService {
         try {
             Files.copy(sourcePath, targetPath, StandardCopyOption.REPLACE_EXISTING);
         } catch (IOException exception) {
-            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Failed to activate uploaded model file.");
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "업로드한 모델 파일을 활성화하지 못했습니다.");
         }
     }
 

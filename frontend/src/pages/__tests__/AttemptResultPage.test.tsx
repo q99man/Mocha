@@ -51,8 +51,8 @@ describe('AttemptResultPage', () => {
       poseSimilarity: 88,
       timingSimilarity: 84,
       stabilitySimilarity: 81,
-      strongestArea: 'pose similarity',
-      weakestArea: 'timing',
+      strongestArea: 'pose shape',
+      weakestArea: 'pose timing',
     });
 
     mockedGetAttemptById.mockImplementation(async (id) =>
@@ -115,8 +115,8 @@ describe('AttemptResultPage', () => {
       poseSimilarity: 70,
       timingSimilarity: 76,
       stabilitySimilarity: 78,
-      strongestArea: 'detection stability',
-      weakestArea: 'pose similarity',
+      strongestArea: 'detection quality',
+      weakestArea: 'pose shape',
     });
 
     mockedGetAttemptById.mockResolvedValueOnce(pendingAttempt).mockResolvedValueOnce(refreshedAttempt);

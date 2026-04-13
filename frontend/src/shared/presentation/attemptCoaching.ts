@@ -32,34 +32,34 @@ export function buildAttemptCoachingTeaser(value: CoachingCarrier) {
   const bestMetric = buildPrimaryDeltaMetric(value, 'best');
   const worstMetric = buildPrimaryDeltaMetric(value, 'worst');
 
-  if (value.weakestArea === 'timing') {
-    return `Next retry: tighten timing first.${buildDeltaTail(bestMetric, worstMetric)}`;
+  if (value.weakestArea === 'pose timing') {
+    return `다음 재도전에서는 타이밍부터 먼저 다듬어 보세요.${buildDeltaTail(bestMetric, worstMetric)}`;
   }
 
-  if (value.weakestArea === 'detection stability') {
-    return `Next retry: clean up framing before changing the move itself.${buildDeltaTail(bestMetric, worstMetric)}`;
+  if (value.weakestArea === 'detection quality') {
+    return `다음 재도전에서는 동작 자체를 바꾸기 전에 구도와 가시성부터 정리해 보세요.${buildDeltaTail(bestMetric, worstMetric)}`;
   }
 
-  if (value.weakestArea === 'pose similarity') {
-    return `Next retry: recover the big body shapes before adjusting speed.${buildDeltaTail(bestMetric, worstMetric)}`;
+  if (value.weakestArea === 'pose shape') {
+    return `다음 재도전에서는 속도보다 큰 몸 모양을 먼저 회복해 보세요.${buildDeltaTail(bestMetric, worstMetric)}`;
   }
 
   if (value.score >= 85 && value.strongestArea) {
-    return `Strong run overall. Keep ${toAttemptBreakdownLabel(value.strongestArea)} steady.${buildDeltaTail(bestMetric, worstMetric)}`;
+    return `전체적으로 좋은 결과입니다. ${toAttemptBreakdownLabel(value.strongestArea)}은 지금처럼 안정적으로 유지해 주세요.${buildDeltaTail(bestMetric, worstMetric)}`;
   }
 
   if (value.scoreDeltaFromPrevious != null) {
-    return `Keep the same camera setup and change one variable at a time. Score trend: ${formatSignedDelta(value.scoreDeltaFromPrevious)} pts.${buildDeltaTail(bestMetric, worstMetric)}`;
+    return `카메라 세팅은 유지하고 한 번에 한 가지 변수만 바꿔 보세요. 점수 흐름: ${formatSignedDelta(value.scoreDeltaFromPrevious)}점.${buildDeltaTail(bestMetric, worstMetric)}`;
   }
 
-  return 'Next retry: keep the same camera setup and change only one variable so the next score shift is easier to read.';
+  return '다음 재도전에서는 같은 카메라 세팅을 유지하고 한 가지 변수만 바꿔서 점수 변화를 더 읽기 쉽게 만들어 보세요.';
 }
 
 function buildPrimaryDeltaMetric(value: CoachingCarrier, mode: 'best' | 'worst'): DeltaMetric | null {
   const metrics = [
-    buildMetric('Pose', value.poseDeltaFromPrevious),
-    buildMetric('Timing', value.timingDeltaFromPrevious),
-    buildMetric('Stability', value.stabilityDeltaFromPrevious),
+    buildMetric('모양', value.poseDeltaFromPrevious),
+    buildMetric('타이밍', value.timingDeltaFromPrevious),
+    buildMetric('품질', value.stabilityDeltaFromPrevious),
   ].filter((metric): metric is DeltaMetric => metric !== null);
 
   if (metrics.length === 0) {
@@ -85,11 +85,11 @@ function buildDeltaTail(bestMetric: DeltaMetric | null, worstMetric: DeltaMetric
   const parts: string[] = [];
 
   if (bestMetric && bestMetric.delta > 0) {
-    parts.push(`${bestMetric.label} improved ${formatSignedDelta(bestMetric.delta)}.`);
+    parts.push(`${bestMetric.label}이 ${formatSignedDelta(bestMetric.delta)} 좋아졌습니다.`);
   }
 
   if (worstMetric && worstMetric.delta < 0) {
-    parts.push(`${worstMetric.label} slipped ${formatSignedDelta(worstMetric.delta)}.`);
+    parts.push(`${worstMetric.label}이 ${formatSignedDelta(worstMetric.delta)} 떨어졌습니다.`);
   }
 
   return parts.length > 0 ? ` ${parts.join(' ')}` : '';

@@ -41,7 +41,7 @@ export function AttemptsPage() {
         }
       }
     } catch (loadError) {
-      const message = loadError instanceof Error ? loadError.message : 'Failed to load attempts.';
+      const message = loadError instanceof Error ? loadError.message : '시도 목록을 불러오지 못했습니다.';
       if (isMountedRef.current && !silent) {
         setError(message);
       }
@@ -93,9 +93,9 @@ export function AttemptsPage() {
     const asyncPending = attempts.filter((attempt) => attempt.processingMode === 'ASYNC_JOB_PENDING').length;
     const attention = attempts.filter(isAttentionAttempt).length;
     const prototype = attempts.filter((attempt) => attempt.processingMode === null).length;
-    const weakPose = attempts.filter((attempt) => attempt.weakestArea === 'pose similarity').length;
-    const weakTiming = attempts.filter((attempt) => attempt.weakestArea === 'timing').length;
-    const weakStability = attempts.filter((attempt) => attempt.weakestArea === 'detection stability').length;
+    const weakPose = attempts.filter((attempt) => attempt.weakestArea === 'pose shape').length;
+    const weakTiming = attempts.filter((attempt) => attempt.weakestArea === 'pose timing').length;
+    const weakStability = attempts.filter((attempt) => attempt.weakestArea === 'detection quality').length;
 
     return {
       completed,
@@ -256,21 +256,21 @@ export function AttemptsPage() {
 
   const weaknessFilterOptions = useMemo(
     () => [
-      { key: 'ALL' as const, label: 'All weaknesses', count: sourceFilteredAttempts.length },
+      { key: 'ALL' as const, label: '전체 취약 영역', count: sourceFilteredAttempts.length },
       {
-        key: 'pose similarity' as const,
-        label: toAttemptBreakdownLabel('pose similarity'),
-        count: sourceFilteredAttempts.filter((attempt) => attempt.weakestArea === 'pose similarity').length,
+        key: 'pose shape' as const,
+        label: toAttemptBreakdownLabel('pose shape'),
+        count: sourceFilteredAttempts.filter((attempt) => attempt.weakestArea === 'pose shape').length,
       },
       {
-        key: 'timing' as const,
-        label: toAttemptBreakdownLabel('timing'),
-        count: sourceFilteredAttempts.filter((attempt) => attempt.weakestArea === 'timing').length,
+        key: 'pose timing' as const,
+        label: toAttemptBreakdownLabel('pose timing'),
+        count: sourceFilteredAttempts.filter((attempt) => attempt.weakestArea === 'pose timing').length,
       },
       {
-        key: 'detection stability' as const,
-        label: toAttemptBreakdownLabel('detection stability'),
-        count: sourceFilteredAttempts.filter((attempt) => attempt.weakestArea === 'detection stability').length,
+        key: 'detection quality' as const,
+        label: toAttemptBreakdownLabel('detection quality'),
+        count: sourceFilteredAttempts.filter((attempt) => attempt.weakestArea === 'detection quality').length,
       },
     ],
     [sourceFilteredAttempts],
@@ -282,8 +282,8 @@ export function AttemptsPage() {
         <div className="section-heading">
           <span className="section-heading__code">LOADING</span>
           <div>
-            <h2>Loading attempts</h2>
-            <p>Refreshing the archive and latest scoring results.</p>
+            <h2>시도 기록을 불러오는 중입니다</h2>
+            <p>아카이브와 최신 채점 결과를 새로고침하고 있습니다.</p>
           </div>
         </div>
       </section>
@@ -296,7 +296,7 @@ export function AttemptsPage() {
         <div className="section-heading">
           <span className="section-heading__code">ERROR</span>
           <div>
-            <h2>Could not load the attempt archive</h2>
+            <h2>시도 아카이브를 불러오지 못했습니다</h2>
             <p>{error}</p>
           </div>
         </div>
@@ -308,14 +308,14 @@ export function AttemptsPage() {
     <div className="page">
       <section className="hero hero--catalog">
         <div className="hero__content">
-          <span className="hero__eyebrow">ARCHIVE / ATTEMPT LOG</span>
-          <h2>Compare prepared records, sample previews, and real upload results in one place</h2>
+          <span className="hero__eyebrow">아카이브 / 시도 기록</span>
+          <h2>준비 기록, 샘플 미리보기, 실제 업로드 결과를 한곳에서 비교해 보세요</h2>
           <p>
-            This view keeps the scoring archive readable while showing which attempts still need processing follow-up.
+            이 화면은 채점 아카이브를 읽기 쉽게 유지하면서 추가 처리 확인이 필요한 시도도 함께 보여줍니다.
           </p>
           <div className="inline-actions">
             <Link className="button-link button-link--secondary" to="/challenges">
-              Open challenge list
+              챌린지 목록 열기
             </Link>
           </div>
         </div>
@@ -323,24 +323,24 @@ export function AttemptsPage() {
         <div className="hero__aside">
           <div className="signal-grid">
             <div className="signal-grid__item panel-lift">
-              <span>TOTAL</span>
+              <span>전체</span>
               <strong>{String(attempts.length).padStart(2, '0')}</strong>
-              <p>All saved attempts</p>
+              <p>저장된 전체 시도</p>
             </div>
             <div className="signal-grid__item panel-lift">
-              <span>DONE</span>
+              <span>완료</span>
               <strong>{String(counts.completed).padStart(2, '0')}</strong>
-              <p>Completed results</p>
+              <p>완료된 결과</p>
             </div>
             <div className="signal-grid__item panel-lift">
-              <span>READY</span>
+              <span>준비</span>
               <strong>{String(counts.prepared).padStart(2, '0')}</strong>
-              <p>Prepared only</p>
+              <p>준비 상태만 존재</p>
             </div>
             <div className="signal-grid__item panel-lift">
-              <span>LIVE</span>
+              <span>실채점</span>
               <strong>{String(counts.autoscored).padStart(2, '0')}</strong>
-              <p>Auto-scored uploads</p>
+              <p>자동 채점 업로드</p>
             </div>
           </div>
         </div>
@@ -350,40 +350,40 @@ export function AttemptsPage() {
         <div className="section-heading">
           <span className="section-heading__code">01</span>
           <div>
-            <h2>Archive summary</h2>
-            <p>See how many attempts came from real uploads, prepared placeholders, and sample previews.</p>
+            <h2>아카이브 요약</h2>
+            <p>실업로드, 준비 기록, 샘플 미리보기에서 각각 몇 건의 시도가 왔는지 확인합니다.</p>
           </div>
         </div>
         <div className="stat-row">
           <div className="stat-card stat-card--accent panel-lift panel-lift--accent">
-            <strong>Auto-scored uploads</strong>
-            <p>{counts.autoscored} items</p>
+            <strong>자동 채점 업로드</strong>
+            <p>{counts.autoscored}건</p>
           </div>
           <div className="stat-card panel-lift">
-            <strong>Sample previews</strong>
-            <p>{counts.sample} items</p>
+            <strong>샘플 미리보기</strong>
+            <p>{counts.sample}건</p>
           </div>
           <div className="stat-card panel-lift">
-            <strong>Prepared only</strong>
-            <p>{counts.preparedSource} items</p>
+            <strong>준비 기록만</strong>
+            <p>{counts.preparedSource}건</p>
           </div>
           <div className="stat-card panel-lift">
-            <strong>Needs attention</strong>
-            <p>{counts.attention} items</p>
+            <strong>확인 필요</strong>
+            <p>{counts.attention}건</p>
           </div>
         </div>
         <div className="stat-row">
           <div className="stat-card panel-lift">
-            <strong>{toAttemptBreakdownLabel('pose similarity')} weak</strong>
-            <p>{counts.weakPose} items</p>
+            <strong>{toAttemptBreakdownLabel('pose shape')} 취약</strong>
+            <p>{counts.weakPose}건</p>
           </div>
           <div className="stat-card panel-lift">
-            <strong>{toAttemptBreakdownLabel('timing')} weak</strong>
-            <p>{counts.weakTiming} items</p>
+            <strong>{toAttemptBreakdownLabel('pose timing')} 취약</strong>
+            <p>{counts.weakTiming}건</p>
           </div>
           <div className="stat-card panel-lift">
-            <strong>{toAttemptBreakdownLabel('detection stability')} weak</strong>
-            <p>{counts.weakStability} items</p>
+            <strong>{toAttemptBreakdownLabel('detection quality')} 취약</strong>
+            <p>{counts.weakStability}건</p>
           </div>
         </div>
       </section>
@@ -392,17 +392,17 @@ export function AttemptsPage() {
         <div className="section-heading">
           <span className="section-heading__code">02</span>
           <div>
-            <h2>Processing filter</h2>
-            <p>Switch between inline results, async pending uploads, and prototype-style entries.</p>
+            <h2>처리 상태 필터</h2>
+            <p>즉시 처리 결과, 비동기 대기 업로드, 프로토타입성 기록을 전환해 볼 수 있습니다.</p>
           </div>
         </div>
         <div className="archive-filter-group">
           {[
-            { key: 'ALL', label: 'All', count: attempts.length },
-            { key: 'SYNC_INLINE', label: 'Inline processing', count: counts.syncInline },
-            { key: 'ASYNC_JOB_PENDING', label: 'Async pending', count: counts.asyncPending },
-            { key: 'PROTOTYPE', label: 'Prototype/default', count: counts.prototype },
-            { key: 'ATTENTION', label: 'Needs attention', count: counts.attention },
+            { key: 'ALL', label: '전체', count: attempts.length },
+            { key: 'SYNC_INLINE', label: '즉시 처리', count: counts.syncInline },
+            { key: 'ASYNC_JOB_PENDING', label: '비동기 대기', count: counts.asyncPending },
+            { key: 'PROTOTYPE', label: '프로토타입/기본', count: counts.prototype },
+            { key: 'ATTENTION', label: '확인 필요', count: counts.attention },
           ].map((filter) => {
             const isActive = activeFilter === filter.key;
             return (
@@ -419,8 +419,7 @@ export function AttemptsPage() {
           })}
         </div>
         <p className="archive-filter__summary">
-          Showing <strong>{processingFilteredAttempts.length}</strong> attempts filtered by{' '}
-          <strong>{processingFilterLabel(activeFilter)}</strong>.
+          <strong>{processingFilterLabel(activeFilter)}</strong> 기준으로 <strong>{processingFilteredAttempts.length}</strong>건을 보고 있습니다.
         </p>
       </section>
 
@@ -428,28 +427,28 @@ export function AttemptsPage() {
         <div className="section-heading">
           <span className="section-heading__code">03</span>
           <div>
-            <h2>Result source filter</h2>
-            <p>Separate real upload scoring from previews and prepared-only records.</p>
+            <h2>결과 출처 필터</h2>
+            <p>실제 업로드 채점 결과와 미리보기, 준비 기록을 구분해서 볼 수 있습니다.</p>
           </div>
         </div>
         <div className="archive-filter-group">
           {[
-            { key: 'ALL', label: 'All sources', count: processingFilteredAttempts.length },
+            { key: 'ALL', label: '전체 출처', count: processingFilteredAttempts.length },
             {
               key: 'VIDEO_UPLOAD_AUTOSCORED',
-              label: 'Auto-scored upload',
+              label: '자동 채점 업로드',
               count: processingFilteredAttempts.filter((attempt) => attempt.resultSource === 'VIDEO_UPLOAD_AUTOSCORED')
                 .length,
             },
             {
               key: 'SAMPLE_SCORING_PREVIEW',
-              label: 'Sample preview',
+              label: '샘플 미리보기',
               count: processingFilteredAttempts.filter((attempt) => attempt.resultSource === 'SAMPLE_SCORING_PREVIEW')
                 .length,
             },
             {
               key: 'PREPARED_FLOW',
-              label: 'Prepared flow',
+              label: '준비 흐름',
               count: processingFilteredAttempts.filter((attempt) => attempt.resultSource === 'PREPARED_FLOW').length,
             },
           ].map((filter) => {
@@ -468,8 +467,7 @@ export function AttemptsPage() {
           })}
         </div>
         <p className="archive-filter__summary">
-          Source filter <strong>{sourceFilterLabel(activeSourceFilter)}</strong> is showing{' '}
-          <strong>{sourceFilteredAttempts.length}</strong> attempts.
+          <strong>{sourceFilterLabel(activeSourceFilter)}</strong> 기준으로 <strong>{sourceFilteredAttempts.length}</strong>건을 보고 있습니다.
         </p>
       </section>
 
@@ -477,8 +475,8 @@ export function AttemptsPage() {
         <div className="section-heading">
           <span className="section-heading__code">04</span>
           <div>
-            <h2>Weakness filter</h2>
-            <p>Focus on attempts that need the most work in pose, timing, or detection stability.</p>
+            <h2>취약 영역 필터</h2>
+            <p>포즈 모양, 포즈 타이밍, 검출 품질 중 특히 보완이 필요한 시도에 집중할 수 있습니다.</p>
           </div>
         </div>
         <div className="archive-filter-group">
@@ -498,8 +496,7 @@ export function AttemptsPage() {
           })}
         </div>
         <p className="archive-filter__summary">
-          Weakness filter <strong>{weaknessFilterLabel(activeWeaknessFilter)}</strong> is showing{' '}
-          <strong>{weaknessFilteredAttempts.length}</strong> attempts.
+          <strong>{weaknessFilterLabel(activeWeaknessFilter)}</strong> 기준으로 <strong>{weaknessFilteredAttempts.length}</strong>건을 보고 있습니다.
         </p>
       </section>
 
@@ -507,8 +504,8 @@ export function AttemptsPage() {
         <div className="section-heading">
           <span className="section-heading__code">05</span>
           <div>
-            <h2>Challenge focus</h2>
-            <p>Jump into the most retried challenges and compare the latest runs together.</p>
+            <h2>챌린지 집중 보기</h2>
+            <p>재도전이 많이 쌓인 챌린지로 바로 이동해 최근 결과를 함께 비교할 수 있습니다.</p>
           </div>
         </div>
         <div className="archive-filter-group">
@@ -517,7 +514,7 @@ export function AttemptsPage() {
             className={`archive-filter ${activeChallengeFilter === 'ALL' ? 'archive-filter--active' : ''}`}
             onClick={() => setActiveChallengeFilter('ALL')}
           >
-            <span>All challenges</span>
+            <span>전체 챌린지</span>
             <strong>{weaknessFilteredAttempts.length}</strong>
           </button>
           {challengeFocusOptions.map((option) => {
@@ -536,16 +533,15 @@ export function AttemptsPage() {
           })}
         </div>
         <p className="archive-filter__summary">
-          Challenge focus <strong>{challengeFilterLabel(activeChallengeFilter, challengeFocusOptions)}</strong> is showing{' '}
-          <strong>{challengeFilteredAttempts.length}</strong> attempts.
+          <strong>{challengeFilterLabel(activeChallengeFilter, challengeFocusOptions)}</strong> 기준으로 <strong>{challengeFilteredAttempts.length}</strong>건을 보고 있습니다.
         </p>
         {activeChallengeMeta ? (
           <div className="inline-actions">
             <Link className="button-link button-link--secondary" to={`/challenges/${activeChallengeMeta.challengeId}`}>
-              Open challenge detail
+              챌린지 상세 보기
             </Link>
             <Link className="button-link button-link--secondary" to={`/challenges/${activeChallengeMeta.challengeId}/start`}>
-              Retry this challenge
+              이 챌린지 다시 도전
             </Link>
           </div>
         ) : null}
@@ -555,18 +551,18 @@ export function AttemptsPage() {
         <div className="section-heading">
           <span className="section-heading__code">06</span>
           <div>
-            <h2>Sort results</h2>
-            <p>Reorder the filtered attempts by recency or by score to compare retries faster.</p>
+            <h2>정렬</h2>
+            <p>최근 순서나 점수 순서로 시도를 다시 정렬해 재도전 비교를 빠르게 할 수 있습니다.</p>
           </div>
         </div>
         <div className="archive-filter-group">
           {[
-            { key: 'RECENT', label: 'Newest first' },
-            { key: 'OLDEST', label: 'Oldest first' },
-            { key: 'SCORE_HIGH', label: 'Highest score' },
-            { key: 'SCORE_LOW', label: 'Lowest score' },
-            { key: 'MOST_IMPROVED', label: 'Most improved' },
-            { key: 'MOST_DROPPED', label: 'Most dropped' },
+            { key: 'RECENT', label: '최신순' },
+            { key: 'OLDEST', label: '오래된순' },
+            { key: 'SCORE_HIGH', label: '점수 높은순' },
+            { key: 'SCORE_LOW', label: '점수 낮은순' },
+            { key: 'MOST_IMPROVED', label: '가장 많이 향상' },
+            { key: 'MOST_DROPPED', label: '가장 많이 하락' },
           ].map((option) => {
             const isActive = activeSort === option.key;
             return (
@@ -582,17 +578,17 @@ export function AttemptsPage() {
           })}
         </div>
         <p className="archive-filter__summary">
-          Sort order <strong>{sortLabel(activeSort)}</strong> is applied to <strong>{filteredAttempts.length}</strong> attempts.
+          <strong>{sortLabel(activeSort)}</strong> 정렬이 <strong>{filteredAttempts.length}</strong>건에 적용되었습니다.
         </p>
       </section>
 
       {filteredAttempts.length === 0 ? (
         <section className="panel panel--section panel-lift">
           <div className="section-heading">
-            <span className="section-heading__code">EMPTY</span>
+            <span className="section-heading__code">비어 있음</span>
             <div>
-              <h2>No attempts match the current filters</h2>
-              <p>Change the filters or create a new challenge attempt first.</p>
+              <h2>현재 필터에 맞는 시도가 없습니다</h2>
+              <p>필터를 바꾸거나 새 챌린지 시도를 먼저 만들어 주세요.</p>
             </div>
           </div>
         </section>
@@ -614,34 +610,34 @@ function isAttentionAttempt(attempt: AttemptSummary) {
 function processingFilterLabel(filter: AttemptArchiveFilter) {
   switch (filter) {
     case 'SYNC_INLINE':
-      return 'inline processing';
+      return '즉시 처리';
     case 'ASYNC_JOB_PENDING':
-      return 'async pending';
+      return '비동기 대기';
     case 'PROTOTYPE':
-      return 'prototype/default';
+      return '프로토타입/기본';
     case 'ATTENTION':
-      return 'needs attention';
+      return '확인 필요';
     default:
-      return 'all processing modes';
+      return '전체 처리 상태';
   }
 }
 
 function sourceFilterLabel(filter: AttemptSourceFilter) {
   switch (filter) {
     case 'VIDEO_UPLOAD_AUTOSCORED':
-      return 'auto-scored upload';
+      return '자동 채점 업로드';
     case 'SAMPLE_SCORING_PREVIEW':
-      return 'sample preview';
+      return '샘플 미리보기';
     case 'PREPARED_FLOW':
-      return 'prepared flow';
+      return '준비 흐름';
     default:
-      return 'all sources';
+      return '전체 출처';
   }
 }
 
 function weaknessFilterLabel(filter: AttemptWeaknessFilter) {
   if (filter === 'ALL') {
-    return 'all weakness areas';
+    return '전체 취약 영역';
   }
 
   return toAttemptBreakdownLabel(filter);
@@ -652,10 +648,10 @@ function challengeFilterLabel(
   options: { challengeId: number; challengeTitle: string; count: number; latestAttemptedAt: string }[],
 ) {
   if (filter === 'ALL') {
-    return 'all challenges';
+    return '전체 챌린지';
   }
 
-  return options.find((option) => option.challengeId === filter)?.challengeTitle ?? `challenge #${filter}`;
+  return options.find((option) => option.challengeId === filter)?.challengeTitle ?? `챌린지 #${filter}`;
 }
 
 function parseChallengeFilter(value: string | null): AttemptChallengeFilter {
@@ -670,17 +666,17 @@ function parseChallengeFilter(value: string | null): AttemptChallengeFilter {
 function sortLabel(sort: AttemptSort) {
   switch (sort) {
     case 'OLDEST':
-      return 'oldest first';
+      return '오래된순';
     case 'SCORE_HIGH':
-      return 'highest score first';
+      return '점수 높은순';
     case 'SCORE_LOW':
-      return 'lowest score first';
+      return '점수 낮은순';
     case 'MOST_IMPROVED':
-      return 'largest score gain first';
+      return '상승 폭 큰순';
     case 'MOST_DROPPED':
-      return 'largest score drop first';
+      return '하락 폭 큰순';
     case 'RECENT':
     default:
-      return 'newest first';
+      return '최신순';
   }
 }

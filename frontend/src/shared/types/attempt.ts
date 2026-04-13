@@ -6,7 +6,7 @@ export type AttemptResultSource =
   | 'SAMPLE_SCORING_PREVIEW'
   | 'VIDEO_UPLOAD_AUTOSCORED';
 
-export type AttemptBreakdownArea = 'pose similarity' | 'timing' | 'detection stability';
+export type AttemptBreakdownArea = 'pose shape' | 'pose timing' | 'detection quality';
 
 export type AttemptSummary = {
   id: number;

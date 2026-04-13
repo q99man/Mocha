@@ -9,6 +9,7 @@ public record ChallengeResponse(
         String category,
         String difficulty,
         String thumbnailUrl,
+        String fallbackThumbnailVideoUrl,
         String guideVideoUrl,
         Integer durationSec,
         boolean isActive,

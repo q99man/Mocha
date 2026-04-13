@@ -6,79 +6,79 @@ type DurableProgressMessageOptions = {
 
 export function buildDurableProgressHeadline(progress: AttemptVideoProcessingJobProgress | null) {
   if (!progress) {
-    return 'Processing status';
+    return '처리 상태';
   }
 
   switch (progress.status) {
     case 'PENDING':
-      return 'Queued for analysis';
+      return '분석 대기 중';
     case 'PROCESSING':
-      return 'Analysis and scoring in progress';
+      return '분석 및 채점 진행 중';
     case 'COMPLETED':
-      return 'Result ready';
+      return '결과 준비 완료';
     case 'FAILED':
-      return progress.failureSeverity === 'HIGH' ? 'Failure needs inspection' : 'Retry available';
+      return progress.failureSeverity === 'HIGH' ? '확인 필요한 실패' : '재시도 가능';
     default:
-      return 'Processing status';
+      return '처리 상태';
   }
 }
 
 export function buildDurableProgressCalloutTitle(progress: AttemptVideoProcessingJobProgress | null) {
   if (!progress) {
-    return 'Processing follow-up needed';
+    return '처리 상태 확인 필요';
   }
 
   switch (progress.status) {
     case 'COMPLETED':
-      return 'Result ready';
+      return '결과 준비 완료';
     case 'FAILED':
-      return progress.failureSeverity === 'HIGH' ? 'Failure needs inspection' : 'Retry available';
+      return progress.failureSeverity === 'HIGH' ? '확인 필요한 실패' : '재시도 가능';
     case 'PROCESSING':
     case 'PENDING':
     default:
-      return 'Processing follow-up needed';
+      return '처리 상태 확인 필요';
   }
 }
 
 export function buildDurableProgressSummary(progress: AttemptVideoProcessingJobProgress | null) {
   if (!progress) {
-    return 'Waiting for the first durable progress snapshot.';
+    return '첫 진행 상태 정보를 기다리는 중입니다.';
   }
 
   switch (progress.status) {
     case 'PENDING':
-      return 'Upload accepted. The worker has not started analysis yet.';
+      return '업로드가 접수되었습니다. 아직 분석 작업이 시작되지 않았습니다.';
     case 'PROCESSING':
-      return 'Analysis is running now. Refresh for a newer snapshot.';
+      return '지금 분석이 진행 중입니다. 새 상태를 보려면 새로고침해 주세요.';
     case 'COMPLETED':
       return progress.resultAttemptId
-        ? `Result #${progress.resultAttemptId} is ready to open.`
-        : 'Processing finished and the result is ready.';
+        ? `결과 #${progress.resultAttemptId}를 바로 열 수 있습니다.`
+        : '처리가 완료되었고 결과를 확인할 수 있습니다.';
     case 'FAILED':
       return progress.failureSeverity === 'HIGH'
-        ? 'Processing failed and needs inspection before another attempt.'
-        : 'Processing failed, but another retry may help.';
+        ? '처리에 실패했습니다. 다음 시도 전에 확인이 필요합니다.'
+        : '처리에 실패했지만 다시 시도하면 해결될 수 있습니다.';
     default:
-      return 'Durable progress was refreshed.';
+      return '진행 상태를 새로 불러왔습니다.';
   }
 }
 
 export function buildDurableProgressStatusTag(progress: AttemptVideoProcessingJobProgress | null) {
   if (!progress) {
-    return 'Waiting';
+    return '대기 중';
   }
 
   switch (progress.status) {
     case 'PENDING':
-      return 'Queued';
+      return '대기';
     case 'PROCESSING':
-      return 'Running';
+      return '진행 중';
     case 'COMPLETED':
-      return 'Ready';
+      return '완료';
     case 'FAILED':
-      return progress.failureSeverity === 'HIGH' ? 'Needs inspection' : 'Retry ready';
+      return progress.failureSeverity === 'HIGH' ? '확인 필요' : '재시도 가능';
     default:
-      return 'Waiting';
+      return '대기 중';
   }
 }
 
@@ -104,18 +104,18 @@ export function buildDurableProgressTone(
 
 export function buildDurableProgressNextStep(progress: AttemptVideoProcessingJobProgress | null) {
   if (!progress) {
-    return 'Wait for the first durable snapshot, then refresh this card.';
+    return '첫 진행 상태가 잡히면 이 카드를 새로고침해 주세요.';
   }
 
   switch (progress.status) {
     case 'PENDING':
-      return 'Hold the current upload and refresh this card in a moment.';
+      return '지금 업로드를 유지한 채 잠시 후 이 카드를 새로고침해 주세요.';
     case 'PROCESSING':
-      return 'Keep this screen open and refresh when you want the latest scoring state.';
+      return '이 화면을 유지한 채 최신 채점 상태가 필요할 때 새로고침해 주세요.';
     case 'COMPLETED':
       return progress.resultAttemptId
-        ? `Open result #${progress.resultAttemptId} to review the finished score.`
-        : 'Open the finished result as soon as the result id appears.';
+        ? `결과 #${progress.resultAttemptId}를 열어 최종 점수를 확인해 주세요.`
+        : '결과 ID가 표시되면 바로 열어 확인해 주세요.';
     case 'FAILED':
       return buildDurableProgressFailureAction(progress.failureAction);
     default:
@@ -126,15 +126,15 @@ export function buildDurableProgressNextStep(progress: AttemptVideoProcessingJob
 export function buildDurableProgressFailureAction(action: AttemptVideoProcessingJobProgress['failureAction']) {
   switch (action) {
     case 'RETRY_UPLOAD':
-      return 'Retry the upload after confirming the selected file is correct.';
+      return '선택한 파일이 맞는지 확인한 뒤 다시 업로드해 주세요.';
     case 'CHECK_STORAGE':
-      return 'Check storage access and confirm the uploaded file is still available.';
+      return '저장소 접근 상태와 업로드 파일 존재 여부를 확인해 주세요.';
     case 'RETRY_ANALYSIS':
-      return 'Retry analysis from this screen.';
+      return '이 화면에서 분석을 다시 시도해 주세요.';
     case 'RETRY_SCORING':
-      return 'Retry scoring from this screen.';
+      return '이 화면에서 채점을 다시 시도해 주세요.';
     default:
-      return 'Review the failure notice, then try again.';
+      return '실패 안내를 확인한 뒤 다시 시도해 주세요.';
   }
 }
 
@@ -151,11 +151,11 @@ export function buildDurableProgressRefreshMessage(
 }
 
 export function buildDurableProgressCompletionLinkLabel() {
-  return 'Open completed result';
+  return '완료된 결과 열기';
 }
 
 export function buildDurableProgressCompletionLinkDescription() {
-  return 'Jump directly to the completed result page.';
+  return '완료된 결과 페이지로 바로 이동합니다.';
 }
 
 export function buildDurableProgressCompletionStrategyLabel(
@@ -163,19 +163,19 @@ export function buildDurableProgressCompletionStrategyLabel(
 ) {
   switch (strategy) {
     case 'AUTO_RUNNER':
-      return 'Automatic runner';
+      return '자동 처리';
     case 'MANUAL_COMPLETION':
-      return 'Manual completion required';
+      return '수동 완료 필요';
     case 'INLINE_FLOW':
-      return 'Inline processing';
+      return '즉시 처리';
     default:
-      return 'Unknown';
+      return '알 수 없음';
   }
 }
 
 export function buildDurableProgressElapsedTimeLabel(elapsedSeconds: number | null | undefined) {
   if (elapsedSeconds == null) {
-    return 'Unknown';
+    return '알 수 없음';
   }
   if (elapsedSeconds < 60) {
     return `${elapsedSeconds}s`;
@@ -187,19 +187,19 @@ export function buildDurableProgressElapsedTimeLabel(elapsedSeconds: number | nu
 
 export function buildDurableProgressRetryWindowLabel(progress: AttemptVideoProcessingJobProgress | null) {
   if (!progress) {
-    return 'Unknown';
+    return '알 수 없음';
   }
   if (!progress.autoRetryEnabled) {
-    return 'Auto retry disabled';
+    return '자동 재시도 꺼짐';
   }
   if (progress.autoRetryExhausted) {
-    return 'Auto retry exhausted';
+    return '자동 재시도 소진';
   }
-  return `${progress.remainingAutoRetryCount} auto retries left`;
+  return `자동 재시도 ${progress.remainingAutoRetryCount}회 남음`;
 }
 
 export function buildDurableProgressOriginalFileLabel(progress: AttemptVideoProcessingJobProgress | null) {
-  return progress?.originalFileName ?? 'Unknown file';
+  return progress?.originalFileName ?? '알 수 없는 파일';
 }
 
 export function buildDurableProgressSnapshotFromAttempt(
