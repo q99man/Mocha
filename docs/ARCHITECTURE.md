@@ -31,7 +31,7 @@
 5. Attempt data is still stubbed until persistence work reaches that slice.
 
 ## Storage Strategy
-- Local default: H2 for bootcamp-friendly startup and seeded read flows
+- Local runtime: MySQL only, aligned with seeded read flows and MediaPipe verification
 - MySQL profile: intended longer-term source of truth and Docker-backed local infra path
 - Redis: non-critical cache only
 

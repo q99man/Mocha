@@ -50,3 +50,25 @@ export type ChallengeAnalysisResult = {
   analyzedAt: string | null;
   message: string;
 };
+export type ChallengeReferencePosePoint = {
+  name: string;
+  x: number;
+  y: number;
+  visibility: number;
+};
+
+export type ChallengeReferencePoseFrame = {
+  frameIndex: number;
+  points: ChallengeReferencePosePoint[];
+};
+
+export type ChallengeReferencePosePreview = {
+  challengeId: number;
+  challengeTitle: string;
+  analyzerName: string | null;
+  analyzedAt: string | null;
+  referenceVideoUrl: string;
+  sampleCount: number | null;
+  durationMs: number | null;
+  frames: ChallengeReferencePoseFrame[];
+};

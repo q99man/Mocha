@@ -114,7 +114,7 @@ cd C:\SpringWork\Mocha
 
 - Recommended restart sequence at home:
   1. Start bridge in `mediapipe` mode.
-  2. Start backend with MySQL profile or `run-mediapipe-http.ps1 -Profile mysql`.
+  2. Start backend with MySQL using `run-mediapipe-http.ps1`.
   3. Start frontend with `npm.cmd run dev`.
   4. Re-open the result page and attempts page to confirm text is readable.
 

@@ -1,6 +1,6 @@
 param(
-    [ValidateSet("local", "mysql")]
-    [string]$Profile = "local",
+    [ValidateSet("mysql")]
+    [string]$Profile = "mysql",
     [string]$BridgeEndpoint = "http://localhost:8000",
     [string]$AnalyzePath = "/api/v1/analyze",
     [int]$TimeoutMillis = 5000
@@ -15,7 +15,7 @@ $env:APP_MOTION_MEDIAPIPE_ENDPOINT = $BridgeEndpoint
 $env:APP_MOTION_MEDIAPIPE_ANALYZE_PATH = $AnalyzePath
 $env:APP_MOTION_MEDIAPIPE_TIMEOUT_MILLIS = "$TimeoutMillis"
 
-Write-Host "Starting backend with MediaPipe HTTP bridge mode..."
+Write-Host "Starting backend with MediaPipe HTTP bridge mode (MySQL only)..."
 Write-Host "Profile: $Profile"
 Write-Host "Bridge endpoint: $BridgeEndpoint$AnalyzePath"
 

@@ -1,5 +1,5 @@
 ﻿import { fetchJson, postFormData } from './client';
-import type { Challenge, ChallengeAnalysisResult, ChallengeCreateInput } from '../types/challenge';
+import type { Challenge, ChallengeAnalysisResult, ChallengeCreateInput, ChallengeReferencePosePreview } from '../types/challenge';
 
 export async function getChallenges(): Promise<Challenge[]> {
   return fetchJson<Challenge[]>('/api/challenges');
@@ -29,4 +29,8 @@ export async function createChallenge(input: ChallengeCreateInput): Promise<Chal
 
 export async function analyzeChallengeReference(challengeId: number): Promise<ChallengeAnalysisResult> {
   return postFormData<ChallengeAnalysisResult>(`/api/challenges/${challengeId}/analyze-reference`, new FormData());
+}
+
+export async function getChallengeReferencePreview(id: string | number): Promise<ChallengeReferencePosePreview> {
+  return fetchJson<ChallengeReferencePosePreview>(`/api/challenges/${id}/reference-preview`);
 }

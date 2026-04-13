@@ -23,14 +23,14 @@ backend/
 
 ### Quick local run
 
-1. Start the backend with the default local profile:
+1. Start MySQL (local or Docker) and then start the backend:
 
 ```bash
 cd backend
 gradlew.bat bootRun
 ```
 
-This uses an in-memory H2 database. If you want to verify motion-session or upload flows, create a challenge with a reference video first.
+This repository now uses MySQL as the only runtime database. Make sure MySQL is reachable before starting the backend.
 
 2. Start the frontend:
 
@@ -69,7 +69,7 @@ cd C:\SpringWork\Mocha
 .\verify-mediapipe-stack.ps1
 ```
 
-If the local H2 database is empty, you can provision a temporary verification challenge from a local video in one command:
+If the MySQL database is empty, you can provision a temporary verification challenge from a local video in one command:
 
 ```powershell
 cd C:\SpringWork\Mocha
@@ -113,7 +113,7 @@ npm install
 npm run dev
 ```
 
-### MySQL profile note
+### MySQL runtime note
 
 - `backend/src/main/resources/application-mysql.yml` uses MySQL as the source of truth and keeps `spring.jpa.hibernate.ddl-auto=update`, so tables are created automatically when the backend starts successfully with the `mysql` profile.
 - `.env.example` defaults to `MYSQL_USERNAME=motion`, `MYSQL_PASSWORD=motion`, but your actual local MySQL account may be different.

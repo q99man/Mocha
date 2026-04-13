@@ -31,7 +31,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @SpringBootTest
 @AutoConfigureMockMvc
-@ActiveProfiles("local")
+@ActiveProfiles("mysql")
 class ChallengeVideoMediaPipeHttpBridgeIntegrationTest {
 
     private static final Path TEST_UPLOAD_ROOT = Path.of("build", "test-uploads-mediapipe-http-bridge");

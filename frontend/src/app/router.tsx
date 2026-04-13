@@ -1,5 +1,6 @@
 ﻿import { createBrowserRouter } from 'react-router-dom';
 import { AppLayout } from '../shared/components/AppLayout';
+import { AdminChallengeAnalysisPage } from '../pages/AdminChallengeAnalysisPage';
 import { AttemptsPage } from '../pages/AttemptsPage';
 import { AttemptResultPage } from '../pages/AttemptResultPage';
 import { AdminModelAssetsPage } from '../pages/AdminModelAssetsPage';
@@ -40,6 +41,10 @@ export const router = createBrowserRouter([
       {
         path: 'admin/model-assets',
         element: <AdminModelAssetsPage />,
+      },
+      {
+        path: 'admin/challenges/:id/analysis',
+        element: <AdminChallengeAnalysisPage />,
       },
     ],
   },

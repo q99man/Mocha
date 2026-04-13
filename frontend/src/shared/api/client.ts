@@ -48,3 +48,10 @@ export async function postFormData<TResponse>(path: string, formData: FormData):
     body: formData,
   });
 }
+
+export function resolveApiUrl(path: string): string {
+  if (/^https?:\/\//.test(path)) {
+    return path;
+  }
+  return `${API_BASE_URL}${path}`;
+}

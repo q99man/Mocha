@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 from hashlib import sha256
 from pathlib import Path
@@ -199,12 +200,28 @@ def analyze_with_mediapipe(payload: AnalyzeRequest) -> AnalyzeResponse:
 
 
 def build_signature(payload: AnalyzeRequest, landmarks: list[dict[str, Any]] | None = None) -> int:
-    seed = (
-        f"{payload.analysisPhase}|{payload.sourceVideo.originalFileName}|"
-        f"{payload.sourceVideo.storagePath}|{payload.sourceVideo.size}"
-    )
     if landmarks:
-        seed += f"|{len(landmarks)}|{landmarks[0]['frameIndex']}"
+        normalized_frames: list[dict[str, Any]] = []
+        for frame in landmarks:
+            points = sorted(frame.get("points", []), key=lambda point: point.get("name", ""))
+            normalized_frames.append(
+                {
+                    "frameIndex": frame.get("frameIndex", 0),
+                    "points": [
+                        {
+                            "name": point.get("name"),
+                            "x": round(float(point.get("x", 0.0)), 4),
+                            "y": round(float(point.get("y", 0.0)), 4),
+                            "z": round(float(point.get("z", 0.0)), 4),
+                            "visibility": round(float(point.get("visibility", 0.0)), 4),
+                        }
+                        for point in points
+                    ],
+                }
+            )
+        seed = json.dumps(normalized_frames, separators=(",", ":"), sort_keys=True)
+    else:
+        seed = f"{payload.sourceVideo.size}|{payload.runtime.timeoutMillis}"
     digest = sha256(seed.encode("utf-8")).hexdigest()
     return int(digest[:8], 16) % 10_000
 
@@ -230,15 +247,45 @@ def bridge_error(status_code: int, error_code: str, message: str) -> HTTPExcepti
     )
 
 
+POSE_LANDMARK_NAMES = {
+    0: "nose",
+    1: "left_eye_inner",
+    2: "left_eye",
+    3: "left_eye_outer",
+    4: "right_eye_inner",
+    5: "right_eye",
+    6: "right_eye_outer",
+    7: "left_ear",
+    8: "right_ear",
+    9: "mouth_left",
+    10: "mouth_right",
+    11: "left_shoulder",
+    12: "right_shoulder",
+    13: "left_elbow",
+    14: "right_elbow",
+    15: "left_wrist",
+    16: "right_wrist",
+    17: "left_pinky",
+    18: "right_pinky",
+    19: "left_index",
+    20: "right_index",
+    21: "left_thumb",
+    22: "right_thumb",
+    23: "left_hip",
+    24: "right_hip",
+    25: "left_knee",
+    26: "right_knee",
+    27: "left_ankle",
+    28: "right_ankle",
+    29: "left_heel",
+    30: "right_heel",
+    31: "left_foot_index",
+    32: "right_foot_index",
+}
+
+
 def landmark_name(index: int) -> str:
-    names = {
-        0: "nose",
-        11: "left_shoulder",
-        12: "right_shoulder",
-        23: "left_hip",
-        24: "right_hip",
-    }
-    return names.get(index, f"landmark_{index}")
+    return POSE_LANDMARK_NAMES.get(index, f"landmark_{index}")
 
 
 def task_landmark_name(index: int) -> str:

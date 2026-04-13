@@ -129,6 +129,7 @@ export function ChallengeDetailPage() {
         </div>
       </section>
 
+
       <section className="dashboard-grid">
         <article className="panel panel--section">
           <div className="section-heading">

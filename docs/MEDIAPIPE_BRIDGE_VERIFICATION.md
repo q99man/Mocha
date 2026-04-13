@@ -27,10 +27,7 @@ From `C:\SpringWork\Mocha\backend`
 .\run-mediapipe-http.ps1
 ```
 
-Optional with MySQL:
-```powershell
-.\run-mediapipe-http.ps1 -Profile mysql
-```
+This script now starts the backend with the MySQL profile only.
 
 ## 3. Verify Reference Analysis
 Use the existing challenge flow or create a new challenge with a reference video.

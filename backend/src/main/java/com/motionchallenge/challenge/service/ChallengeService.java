@@ -1,5 +1,7 @@
 package com.motionchallenge.challenge.service;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.motionchallenge.attempt.entity.Attempt;
 import com.motionchallenge.attempt.entity.AttemptProcessingJob;
 import com.motionchallenge.attempt.repository.AttemptProcessingJobRepository;
@@ -9,6 +11,9 @@ import com.motionchallenge.attempt.repository.AttemptVideoRepository;
 import com.motionchallenge.challenge.dto.ChallengeAnalysisResponse;
 import com.motionchallenge.challenge.dto.ChallengeCreateRequest;
 import com.motionchallenge.challenge.dto.ChallengeLatestRetrySummaryResponse;
+import com.motionchallenge.challenge.dto.ChallengeReferencePoseFrameResponse;
+import com.motionchallenge.challenge.dto.ChallengeReferencePosePointResponse;
+import com.motionchallenge.challenge.dto.ChallengeReferencePosePreviewResponse;
 import com.motionchallenge.challenge.dto.ChallengeResponse;
 import com.motionchallenge.challenge.dto.MotionSessionStateResponse;
 import com.motionchallenge.challenge.entity.Challenge;
@@ -25,9 +30,11 @@ import com.motionchallenge.video.service.VideoStorageService;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.IntStream;
 import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -53,6 +60,7 @@ public class ChallengeService {
     private final AttemptVideoRepository attemptVideoRepository;
     private final VideoStorageService videoStorageService;
     private final MotionAnalysisService motionAnalysisService;
+    private final ObjectMapper objectMapper;
 
     public ChallengeService(
             ChallengeRepository challengeRepository,
@@ -65,7 +73,8 @@ public class ChallengeService {
             AttemptProcessingJobRepository attemptProcessingJobRepository,
             AttemptVideoRepository attemptVideoRepository,
             VideoStorageService videoStorageService,
-            MotionAnalysisService motionAnalysisService) {
+            MotionAnalysisService motionAnalysisService,
+            ObjectMapper objectMapper) {
         this.challengeRepository = challengeRepository;
         this.challengeCacheService = challengeCacheService;
         this.motionSessionStateFactory = motionSessionStateFactory;
@@ -77,6 +86,7 @@ public class ChallengeService {
         this.attemptVideoRepository = attemptVideoRepository;
         this.videoStorageService = videoStorageService;
         this.motionAnalysisService = motionAnalysisService;
+        this.objectMapper = objectMapper;
     }
 
     public List<ChallengeResponse> getChallenges() {
@@ -93,6 +103,26 @@ public class ChallengeService {
     public Optional<ChallengeResponse> getChallenge(Long id) {
         return challengeRepository.findByIdAndIsActiveTrue(id)
                 .map(challenge -> toResponses(List.of(challenge)).get(0));
+    }
+
+    public Optional<ChallengeReferencePosePreviewResponse> getReferencePosePreview(Long id) {
+        Optional<Challenge> challengeOptional = challengeRepository.findByIdAndIsActiveTrue(id);
+        if (challengeOptional.isEmpty()) {
+            return Optional.empty();
+        }
+
+        Challenge challenge = challengeOptional.get();
+        Optional<ChallengeVideo> challengeVideoOptional = challengeVideoRepository.findByChallengeId(challenge.getId());
+        Optional<ChallengeMotionProfile> motionProfileOptional =
+                challengeMotionProfileRepository.findByChallengeId(challenge.getId());
+
+        if (challengeVideoOptional.isEmpty() || motionProfileOptional.isEmpty()) {
+            return Optional.empty();
+        }
+
+        ChallengeVideo challengeVideo = challengeVideoOptional.get();
+        ChallengeMotionProfile motionProfile = motionProfileOptional.get();
+        return Optional.of(toReferencePosePreview(challenge, challengeVideo, motionProfile));
     }
 
     public Optional<MotionSessionStateResponse> getMotionSessionState(Long id) {
@@ -210,6 +240,76 @@ public class ChallengeService {
                     "Reference analysis failed while saving the analysis result: " + exception.getMessage(),
                     exception);
         }
+    }
+
+    private ChallengeReferencePosePreviewResponse toReferencePosePreview(
+            Challenge challenge,
+            ChallengeVideo challengeVideo,
+            ChallengeMotionProfile motionProfile) {
+        Integer sampleCount = motionProfile.getSampleCount();
+        Long durationMs = motionProfile.getDurationMs();
+        List<ChallengeReferencePoseFrameResponse> frames = List.of();
+
+        try {
+            JsonNode root = objectMapper.readTree(motionProfile.getProfileData());
+            JsonNode landmarksNode = root.path("landmarks");
+            frames = selectPreviewFrames(landmarksNode, 3);
+            JsonNode metricsNode = root.path("metrics");
+            if (metricsNode.path("sampleCount").isNumber()) {
+                sampleCount = metricsNode.path("sampleCount").asInt();
+            }
+            if (metricsNode.path("durationMs").isNumber()) {
+                durationMs = metricsNode.path("durationMs").asLong();
+            }
+        } catch (Exception exception) {
+            log.warn("Reference pose preview fallback activated for challengeId={}", challenge.getId(), exception);
+        }
+
+        return new ChallengeReferencePosePreviewResponse(
+                challenge.getId(),
+                challenge.getTitle(),
+                motionProfile.getAnalyzerName(),
+                motionProfile.getAnalyzedAt(),
+                "/uploads/" + challengeVideo.getStoragePath(),
+                sampleCount,
+                durationMs,
+                frames);
+    }
+
+    private List<ChallengeReferencePoseFrameResponse> selectPreviewFrames(JsonNode landmarksNode, int targetFrameCount) {
+        if (!landmarksNode.isArray() || landmarksNode.isEmpty()) {
+            return List.of();
+        }
+
+        int size = landmarksNode.size();
+        int actualCount = Math.min(targetFrameCount, size);
+
+        return IntStream.range(0, actualCount)
+                .map(index -> actualCount == 1 ? 0 : (int) Math.round(index * (size - 1.0) / (actualCount - 1.0)))
+                .distinct()
+                .mapToObj(landmarksNode::get)
+                .map(this::toPreviewFrame)
+                .sorted(Comparator.comparingInt(ChallengeReferencePoseFrameResponse::frameIndex))
+                .toList();
+    }
+
+    private ChallengeReferencePoseFrameResponse toPreviewFrame(JsonNode frameNode) {
+        int frameIndex = frameNode.path("frameIndex").asInt();
+        List<ChallengeReferencePosePointResponse> points = frameNode.path("points").isArray()
+                ? streamPoints(frameNode.path("points"))
+                : List.of();
+        return new ChallengeReferencePoseFrameResponse(frameIndex, points);
+    }
+
+    private List<ChallengeReferencePosePointResponse> streamPoints(JsonNode pointsNode) {
+        return IntStream.range(0, pointsNode.size())
+                .mapToObj(pointsNode::get)
+                .map(pointNode -> new ChallengeReferencePosePointResponse(
+                        pointNode.path("name").asText(),
+                        pointNode.path("x").asDouble(),
+                        pointNode.path("y").asDouble(),
+                        pointNode.path("visibility").asDouble()))
+                .toList();
     }
 
     private Challenge findActiveChallenge(Long challengeId) {
