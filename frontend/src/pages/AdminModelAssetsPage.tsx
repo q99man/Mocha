@@ -5,7 +5,7 @@ import {
   getPoseLandmarkerAssets,
   uploadPoseLandmarkerModel,
 } from '../shared/api/adminApi';
-import { analyzeChallengeReference, createChallenge, deleteChallenge, getChallenges, updateChallenge, updateChallengeActive } from '../shared/api/challengeApi';
+import { analyzeChallengeReference, createChallenge, deleteChallenge, getAdminChallenges, updateChallenge, updateChallengeActive } from '../shared/api/challengeApi';
 import type { ModelAsset } from '../shared/types/admin';
 import type { Challenge } from '../shared/types/challenge';
 
@@ -113,7 +113,7 @@ export function AdminModelAssetsPage() {
       const [assetList, active, challengeList] = await Promise.all([
         getPoseLandmarkerAssets(),
         getActivePoseLandmarkerAsset().catch(() => null),
-        getChallenges(),
+        getAdminChallenges(),
       ]);
       setAssets(assetList);
       setActiveAsset(active);

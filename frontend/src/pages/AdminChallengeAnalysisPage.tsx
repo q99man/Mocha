@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { ChallengeReferencePosePreview } from '../features/challenges/ChallengeReferencePosePreview';
-import { getChallengeById } from '../shared/api/challengeApi';
+import { getAdminChallengeById, getAdminChallengeReferencePreview } from '../shared/api/challengeApi';
 import type { Challenge } from '../shared/types/challenge';
 
 const TEXT = {
@@ -36,7 +36,7 @@ export function AdminChallengeAnalysisPage() {
       setError(null);
 
       try {
-        const challengeResponse = await getChallengeById(id);
+        const challengeResponse = await getAdminChallengeById(id);
         if (active) {
           setChallenge(challengeResponse);
         }
@@ -140,6 +140,7 @@ export function AdminChallengeAnalysisPage() {
         challengeId={challenge.id}
         challengeTitle={challenge.title}
         enabled={challenge.referenceMotionProfileReady}
+        loadPreview={getAdminChallengeReferencePreview}
       />
     </div>
   );

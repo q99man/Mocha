@@ -7,6 +7,7 @@ type Props = {
   challengeId: number;
   challengeTitle: string;
   enabled: boolean;
+  loadPreview?: (challengeId: number) => Promise<ChallengeReferencePosePreview>;
 };
 
 type FrameTile = {
@@ -166,7 +167,12 @@ const LEGACY_NAME_MAP: Record<number, string> = {
   32: 'right_foot_index',
 };
 
-export function ChallengeReferencePosePreview({ challengeId, challengeTitle, enabled }: Props) {
+export function ChallengeReferencePosePreview({
+  challengeId,
+  challengeTitle,
+  enabled,
+  loadPreview: loadPreviewRequest = getChallengeReferencePreview,
+}: Props) {
   const [preview, setPreview] = useState<ChallengeReferencePosePreview | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -183,12 +189,12 @@ export function ChallengeReferencePosePreview({ challengeId, challengeTitle, ena
 
     let active = true;
 
-    async function loadPreview() {
+    async function fetchPreview() {
       setLoading(true);
       setError(null);
 
       try {
-        const response = await getChallengeReferencePreview(challengeId);
+        const response = await loadPreviewRequest(challengeId);
         if (active) {
           setPreview(response);
         }
@@ -204,11 +210,11 @@ export function ChallengeReferencePosePreview({ challengeId, challengeTitle, ena
       }
     }
 
-    void loadPreview();
+    void fetchPreview();
     return () => {
       active = false;
     };
-  }, [challengeId, enabled]);
+  }, [challengeId, enabled, loadPreviewRequest]);
 
   useEffect(() => {
     if (!preview || preview.frames.length === 0) {

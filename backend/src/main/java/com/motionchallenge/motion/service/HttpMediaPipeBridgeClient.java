@@ -2,7 +2,6 @@ package com.motionchallenge.motion.service;
 
 import java.util.List;
 import java.util.Map;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
@@ -14,7 +13,6 @@ import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.util.UriComponentsBuilder;
 
 @Component
-@ConditionalOnProperty(prefix = "app.motion.analysis.mediapipe", name = "stub-enabled", havingValue = "false", matchIfMissing = true)
 public class HttpMediaPipeBridgeClient implements MediaPipeBridgeClient {
 
     private final RestClient restClient;
@@ -99,6 +97,11 @@ public class HttpMediaPipeBridgeClient implements MediaPipeBridgeClient {
         }
         if (!StringUtils.hasText(response.analyzerName())) {
             throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "MediaPipe 브리지 응답에 analyzerName 값이 없습니다.");
+        }
+        if (MotionAnalysisModeSupport.isStubAnalyzerName(response.analyzerName())) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_GATEWAY,
+                    "MediaPipe HTTP bridge returned a stub analyzer response. Start the bridge in mediapipe mode.");
         }
         if (response.signature() == null || response.sampleCount() == null || response.durationMs() == null) {
             throw new ResponseStatusException(

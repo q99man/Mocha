@@ -13,6 +13,7 @@ import com.motionchallenge.challenge.repository.ChallengeRepository;
 import com.motionchallenge.challenge.service.MotionSessionRuntimeEventPublisher;
 import com.motionchallenge.member.entity.Member;
 import com.motionchallenge.member.service.CurrentMemberService;
+import com.motionchallenge.motion.service.MotionAnalysisModeSupport;
 import com.motionchallenge.scoring.application.SimpleScoringPreviewService;
 import com.motionchallenge.scoring.application.SimpleScoringResult;
 import com.motionchallenge.video.service.StoredVideo;
@@ -198,6 +199,11 @@ public class AttemptService {
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.BAD_REQUEST,
                         "이 챌린지의 레퍼런스 모션 프로필이 없습니다."));
+        if (MotionAnalysisModeSupport.isStubAnalyzerName(referenceProfile.getAnalyzerName())) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "레퍼런스 분석이 실제 MediaPipe 결과가 아닙니다. 관리자에서 레퍼런스 분석을 다시 실행해 주세요.");
+        }
 
         motionSessionRuntimeEventPublisher.publishUploadInProgress(challenge.getId());
         try {

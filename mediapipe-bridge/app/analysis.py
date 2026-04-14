@@ -11,47 +11,8 @@ from fastapi import HTTPException
 from .schemas import AnalyzeRequest, AnalyzeResponse
 
 
-BRIDGE_MODE_STUB = "stub"
-BRIDGE_MODE_MEDIAPIPE = "mediapipe"
-
-
 def analyze_payload(payload: AnalyzeRequest) -> AnalyzeResponse:
-    bridge_mode = os.getenv("MEDIAPIPE_BRIDGE_MODE", BRIDGE_MODE_STUB).strip().lower()
-    if bridge_mode == BRIDGE_MODE_MEDIAPIPE:
-        return analyze_with_mediapipe(payload)
-    return analyze_with_stub(payload)
-
-
-def analyze_with_stub(payload: AnalyzeRequest) -> AnalyzeResponse:
-    signature = build_signature(payload)
-    sample_count = max(16, min(300, payload.sourceVideo.size // 1536))
-    duration_ms = max(4_000, min(90_000, payload.sourceVideo.size // 12))
-
-    analyzer_name = "mediapipe-fastapi-contract-stub"
-    landmarks = build_stub_landmarks(payload)
-    extras = {
-        "bridgeMode": "FASTAPI",
-        "analysisMode": BRIDGE_MODE_STUB,
-        "bridgeVersion": "v1",
-        "poseModel": "mediapipe-pose",
-        "schemaVersion": payload.schemaVersion,
-        "analysisPhase": payload.analysisPhase,
-        "storagePathEcho": payload.sourceVideo.storagePath,
-    }
-
-    return AnalyzeResponse(
-        provider="mediapipe",
-        analyzerName=analyzer_name,
-        signature=signature,
-        sampleCount=sample_count,
-        durationMs=duration_ms,
-        notes=[
-            "FastAPI contract stub is active.",
-            "Replace landmark generation with real MediaPipe extraction.",
-        ],
-        landmarks=landmarks,
-        extras=extras,
-    )
+    return analyze_with_mediapipe(payload)
 
 
 def analyze_with_mediapipe(payload: AnalyzeRequest) -> AnalyzeResponse:
@@ -184,7 +145,7 @@ def analyze_with_mediapipe(payload: AnalyzeRequest) -> AnalyzeResponse:
         landmarks=sampled_landmarks,
         extras={
             "bridgeMode": "FASTAPI",
-            "analysisMode": BRIDGE_MODE_MEDIAPIPE,
+            "analysisMode": "mediapipe",
             "bridgeVersion": "v1",
             "poseModel": "mediapipe-pose-landmarker",
             "schemaVersion": payload.schemaVersion,
@@ -224,17 +185,6 @@ def build_signature(payload: AnalyzeRequest, landmarks: list[dict[str, Any]] | N
         seed = f"{payload.sourceVideo.size}|{payload.runtime.timeoutMillis}"
     digest = sha256(seed.encode("utf-8")).hexdigest()
     return int(digest[:8], 16) % 10_000
-
-
-def build_stub_landmarks(payload: AnalyzeRequest) -> list[dict[str, Any]]:
-    base_points = [
-        {"name": "nose", "x": 0.51, "y": 0.18, "z": -0.04, "visibility": 0.98},
-        {"name": "left_shoulder", "x": 0.41, "y": 0.31, "z": -0.08, "visibility": 0.96},
-        {"name": "right_shoulder", "x": 0.62, "y": 0.30, "z": -0.07, "visibility": 0.95},
-        {"name": "left_hip", "x": 0.46, "y": 0.55, "z": -0.03, "visibility": 0.93},
-        {"name": "right_hip", "x": 0.57, "y": 0.54, "z": -0.02, "visibility": 0.92},
-    ]
-    return [{"frameIndex": 0, "phase": payload.analysisPhase, "points": base_points}]
 
 
 def bridge_error(status_code: int, error_code: str, message: str) -> HTTPException:

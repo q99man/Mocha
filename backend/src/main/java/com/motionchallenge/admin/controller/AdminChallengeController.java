@@ -3,13 +3,17 @@ package com.motionchallenge.admin.controller;
 import com.motionchallenge.challenge.dto.ChallengeActiveUpdateRequest;
 import com.motionchallenge.challenge.dto.ChallengeAnalysisResponse;
 import com.motionchallenge.challenge.dto.ChallengeCreateRequest;
+import com.motionchallenge.challenge.dto.ChallengeReferencePosePreviewResponse;
 import com.motionchallenge.challenge.dto.ChallengeResponse;
 import com.motionchallenge.challenge.dto.ChallengeUpdateRequest;
 import com.motionchallenge.challenge.service.ChallengeService;
 import jakarta.validation.Valid;
+import java.util.List;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -28,6 +32,25 @@ public class AdminChallengeController {
 
     public AdminChallengeController(ChallengeService challengeService) {
         this.challengeService = challengeService;
+    }
+
+    @GetMapping
+    public List<ChallengeResponse> getChallenges() {
+        return challengeService.getAdminChallenges();
+    }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<ChallengeResponse> getChallenge(@PathVariable Long id) {
+        return challengeService.getAdminChallenge(id)
+                .map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.notFound().build());
+    }
+
+    @GetMapping("/{id}/reference-preview")
+    public ResponseEntity<ChallengeReferencePosePreviewResponse> getReferencePosePreview(@PathVariable Long id) {
+        return challengeService.getAdminReferencePosePreview(id)
+                .map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.notFound().build());
     }
 
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)

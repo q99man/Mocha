@@ -34,7 +34,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         "app.storage.local-root=build/test-uploads"
 })
 @WithMockUser(username = "admin@example.com", roles = "ADMIN")
-class ChallengeVideoFlowIntegrationTest {
+class ChallengeVideoFlowIntegrationTest extends AbstractMediaPipeBridgeIntegrationTest {
 
     private static final Path TEST_UPLOAD_ROOT = Path.of("build", "test-uploads");
     @Autowired
@@ -67,7 +67,7 @@ class ChallengeVideoFlowIntegrationTest {
                 .andExpect(jsonPath("$.challengeId").value(challengeId))
                 .andExpect(jsonPath("$.analysisStatus").value("COMPLETED"))
                 .andExpect(jsonPath("$.referenceMotionProfileReady").value(true))
-                .andExpect(jsonPath("$.analyzerName").value("mock-reference-analyzer"));
+                .andExpect(jsonPath("$.analyzerName").value("mediapipe-fastapi-pose-v1"));
 
         MockMultipartFile attemptVideo = new MockMultipartFile(
                 "attemptVideo",
@@ -82,7 +82,7 @@ class ChallengeVideoFlowIntegrationTest {
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.challengeId").value(challengeId))
                 .andExpect(jsonPath("$.status").isString())
-                .andExpect(jsonPath("$.analyzerName").value("mock-attempt-analyzer"))
+                .andExpect(jsonPath("$.analyzerName").value("mediapipe-fastapi-pose-v1"))
                 .andExpect(jsonPath("$.processingMode").value("SYNC_INLINE"))
                 .andExpect(jsonPath("$.processingComplete").value(true))
                 .andExpect(jsonPath("$.processingNotice").isString())

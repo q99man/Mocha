@@ -9,9 +9,13 @@ export function RequireAdmin({ children }: { children: React.ReactNode }) {
     return <div className="panel panel--section">로그인 상태를 확인하는 중입니다.</div>;
   }
 
-  if (!isAuthenticated || !isAdmin) {
+  if (!isAuthenticated) {
     const redirect = encodeURIComponent(location.pathname + location.search);
     return <Navigate to={`/auth?redirect=${redirect}`} replace />;
+  }
+
+  if (!isAdmin) {
+    return <Navigate to="/" replace />;
   }
 
   return <>{children}</>;

@@ -1,22 +1,18 @@
-# MediaPipe 브리지
+# MediaPipe Bridge
 
-이 폴더는 Mocha용 FastAPI 기반 MediaPipe 브리지 프로젝트입니다.
+Mocha의 FastAPI 기반 MediaPipe 브리지입니다.
 
-현재 목적은 계약 우선 방식의 실행 가능한 브리지를 제공하는 것입니다.
-
-- Spring 백엔드가 `HttpMediaPipeBridgeClient`를 통해 바로 호출할 수 있습니다.
-- 문서화된 요청/응답 형태를 유지합니다.
-- `stub` 모드와 실제 `MediaPipe pose` 모드를 모두 지원합니다.
+현재 브리지는 실제 MediaPipe Pose Landmarker 추출만 지원합니다. 계약용 stub, mock, dummy 응답 경로는 제거되었습니다.
 
 ## 실행
 
-`C:\SpringWork\Mocha\mediapipe-bridge`에서 실행합니다.
+`C:\SpringWork\Mocha\mediapipe-bridge` 에서 실행합니다.
 
 ```powershell
 .\run-bridge.ps1
 ```
 
-수동 실행 경로:
+수동 실행:
 
 ```powershell
 python -m venv .venv
@@ -30,31 +26,17 @@ uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 - `GET /health`
 - `POST /api/v1/analyze`
 
-## 동작 모드
+## 동작 방식
 
-기본 모드:
+- `opencv-python-headless` 와 MediaPipe Tasks API(`PoseLandmarker`)를 사용합니다.
+- Spring 백엔드가 전달한 로컬 영상 경로를 읽어 landmark를 추출합니다.
+- `.task` 모델 파일이 필요합니다.
 
-- `MEDIAPIPE_BRIDGE_MODE=stub`
-- 계약 형태를 유지하는 가짜 landmark 데이터를 반환합니다.
+기본 모델 경로:
 
-실제 추출 모드:
+- `C:\SpringWork\Mocha\mediapipe-bridge\models\pose_landmarker_lite.task`
 
-- `MEDIAPIPE_BRIDGE_MODE=mediapipe`
-- `opencv-python-headless`와 MediaPipe Tasks API(`PoseLandmarker`)를 사용합니다.
-- Spring 요청 payload에 담긴 저장 영상 경로를 읽습니다.
-- `.task` 포즈 랜드마커 모델 파일이 필요합니다.
-
-예시:
-
-```powershell
-$env:MEDIAPIPE_BRIDGE_MODE='mediapipe'
-.\run-bridge.ps1
-```
-
-모델 경로:
-
-- 기본값: `C:\SpringWork\Mocha\mediapipe-bridge\models\pose_landmarker_lite.task`
-- 아래 환경 변수로 덮어쓸 수 있습니다.
+환경변수로 모델 경로를 바꿀 수 있습니다.
 
 ```powershell
 $env:MEDIAPIPE_BRIDGE_MODEL_PATH='C:\path\to\pose_landmarker_lite.task'
@@ -78,19 +60,9 @@ $env:MEDIAPIPE_BRIDGE_MODEL_PATH='C:\path\to\pose_landmarker_lite.task'
 }
 ```
 
-## Spring 백엔드 실행
-
-FastAPI 브리지를 백엔드에서 호출하려면:
+## 백엔드 실행
 
 ```powershell
 cd ..\backend
 .\run-mediapipe-http.ps1
 ```
-
-## 다음 단계
-
-`app/analysis.py`의 실제 `mediapipe` 모드를 더 단단하게 다듬되, 응답 필드는 그대로 유지하는 것이 목표입니다.
-
-## 전체 검증 문서
-
-- [브리지 검증 기록](../docs/archive/MEDIAPIPE_BRIDGE_VERIFICATION.md)

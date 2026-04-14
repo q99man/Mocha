@@ -11,6 +11,8 @@ public interface ChallengeMotionProfileRepository extends JpaRepository<Challeng
 
     Optional<ChallengeMotionProfile> findByChallengeId(Long challengeId);
 
+    List<ChallengeMotionProfile> findByChallengeIdIn(Collection<Long> challengeIds);
+
     @Query("select cmp.challenge.id from ChallengeMotionProfile cmp where cmp.challenge.id in :challengeIds")
     List<Long> findChallengeIdsByChallengeIdIn(Collection<Long> challengeIds);
 

@@ -3,6 +3,8 @@ package com.motionchallenge.member.controller;
 import com.motionchallenge.attempt.repository.AttemptProcessingJobRepository;
 import com.motionchallenge.attempt.repository.AttemptRepository;
 import com.motionchallenge.attempt.repository.AttemptVideoRepository;
+import com.motionchallenge.challenge.entity.Challenge;
+import com.motionchallenge.challenge.repository.ChallengeRepository;
 import com.motionchallenge.member.repository.MemberRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -46,11 +48,15 @@ class AuthIntegrationTest {
     @Autowired
     private AttemptRepository attemptRepository;
 
+    @Autowired
+    private ChallengeRepository challengeRepository;
+
     @BeforeEach
     void resetMembers() {
         attemptVideoRepository.deleteAllInBatch();
         attemptProcessingJobRepository.deleteAllInBatch();
         attemptRepository.deleteAllInBatch();
+        challengeRepository.deleteAllInBatch();
         memberRepository.deleteAllInBatch();
     }
 
@@ -111,5 +117,50 @@ class AuthIntegrationTest {
                                 """))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.role").value("USER"));
+    }
+
+    @Test
+    void adminChallengeApiReturnsInactiveChallengesForAdminConsole() throws Exception {
+        MvcResult registerResult = mockMvc.perform(post("/api/auth/register")
+                        .contentType("application/json")
+                        .content("""
+                                {
+                                  "email": "admin@example.com",
+                                  "password": "password123",
+                                  "displayName": "Admin User"
+                                }
+                                """))
+                .andExpect(status().isCreated())
+                .andReturn();
+
+        MockHttpSession session = (MockHttpSession) registerResult.getRequest().getSession(false);
+
+        Challenge activeChallenge = challengeRepository.save(new Challenge(
+                "Active Challenge",
+                "Visible challenge",
+                "퍼포먼스",
+                "보통",
+                null,
+                null,
+                30,
+                true));
+        Challenge inactiveChallenge = challengeRepository.save(new Challenge(
+                "Inactive Challenge",
+                "Hidden from public catalog",
+                "테스트",
+                "쉬움",
+                null,
+                null,
+                20,
+                false));
+
+        mockMvc.perform(get("/api/admin/challenges").session(session))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[?(@.id == %s)].title".formatted(activeChallenge.getId())).value("Active Challenge"))
+                .andExpect(jsonPath("$[?(@.id == %s)].title".formatted(inactiveChallenge.getId())).value("Inactive Challenge"));
+
+        mockMvc.perform(get("/api/challenges"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[?(@.id == %s)]".formatted(inactiveChallenge.getId())).isEmpty());
     }
 }

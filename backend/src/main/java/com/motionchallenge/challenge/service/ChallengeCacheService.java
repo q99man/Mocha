@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.motionchallenge.challenge.dto.ChallengeResponse;
 import java.time.Duration;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -21,6 +22,7 @@ public class ChallengeCacheService {
     private final RedisTemplate<String, String> redisTemplate;
     private final ObjectMapper objectMapper;
     private final Duration cacheTtl;
+    private final AtomicBoolean redisUnavailable = new AtomicBoolean(false);
 
     public ChallengeCacheService(
             RedisTemplate<String, String> redisTemplate,
@@ -32,13 +34,18 @@ public class ChallengeCacheService {
     }
 
     public List<ChallengeResponse> getPopularChallenges(List<ChallengeResponse> fallback) {
+        if (redisUnavailable.get()) {
+            return fallback;
+        }
+
         try {
             String cached = redisTemplate.opsForValue().get(POPULAR_CHALLENGES_CACHE_KEY);
             if (cached != null && !cached.isBlank()) {
                 return objectMapper.readValue(cached, new TypeReference<>() {});
             }
         } catch (Exception exception) {
-            log.warn("Redis cache read failed for popular challenges, falling back to repository data.", exception);
+            disableRedisCache("read", exception);
+            return fallback;
         }
 
         try {
@@ -49,17 +56,30 @@ public class ChallengeCacheService {
         } catch (JsonProcessingException exception) {
             log.warn("Could not serialize popular challenge cache payload.", exception);
         } catch (Exception exception) {
-            log.warn("Redis cache write failed for popular challenges.", exception);
+            disableRedisCache("write", exception);
         }
 
         return fallback;
     }
 
     public void evictPopularChallenges() {
+        if (redisUnavailable.get()) {
+            return;
+        }
+
         try {
             redisTemplate.delete(POPULAR_CHALLENGES_CACHE_KEY);
         } catch (Exception exception) {
-            log.warn("Redis cache evict failed for popular challenges.", exception);
+            disableRedisCache("evict", exception);
+        }
+    }
+
+    private void disableRedisCache(String operation, Exception exception) {
+        if (redisUnavailable.compareAndSet(false, true)) {
+            log.warn(
+                    "Popular challenge Redis cache disabled after {} failure. Falling back to repository data only. cause={}",
+                    operation,
+                    exception.getMessage());
         }
     }
 }

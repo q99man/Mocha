@@ -35,7 +35,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         "app.storage.local-root=build/test-uploads-breakdown"
 })
 @WithMockUser(username = "admin@example.com", roles = "ADMIN")
-class AttemptScoringBreakdownIntegrationTest {
+class AttemptScoringBreakdownIntegrationTest extends AbstractMediaPipeBridgeIntegrationTest {
 
     private static final Path TEST_UPLOAD_ROOT = Path.of("build", "test-uploads-breakdown");
 

@@ -9,6 +9,8 @@ public interface ChallengeRepository extends JpaRepository<Challenge, Long> {
 
     List<Challenge> findAllByIsActiveTrueOrderByCreatedAtDesc();
 
+    List<Challenge> findAllByOrderByCreatedAtDesc();
+
     List<Challenge> findTop3ByIsActiveTrueOrderByCreatedAtDesc();
 
     Optional<Challenge> findByIdAndIsActiveTrue(Long id);

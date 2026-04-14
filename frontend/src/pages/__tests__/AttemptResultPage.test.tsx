@@ -79,7 +79,7 @@ describe('AttemptResultPage', () => {
 
     expect(await screen.findByRole('heading', { name: 'Pending result' })).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Refresh processing status' }));
+    fireEvent.click(screen.getByRole('button', { name: '처리 상태 새로고침' }));
 
     expect(await screen.findByRole('heading', { name: 'Completed result' })).toBeInTheDocument();
     expect(screen.getByText('Completed refreshed summary.')).toBeInTheDocument();
@@ -140,11 +140,11 @@ describe('AttemptResultPage', () => {
 
     expect(await screen.findByRole('heading', { name: 'Kick result pending' })).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Refresh processing status' }));
+    fireEvent.click(screen.getByRole('button', { name: '처리 상태 새로고침' }));
 
     expect(await screen.findByRole('heading', { name: 'Kick result ready' })).toBeInTheDocument();
     expect(screen.getByText('Refreshed same-result summary.')).toBeInTheDocument();
     await waitFor(() => expect(mockedGetAttemptById).toHaveBeenCalledTimes(2));
-    expect(screen.queryByRole('button', { name: 'Refresh processing status' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '처리 상태 새로고침' })).not.toBeInTheDocument();
   });
 });

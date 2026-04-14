@@ -32,17 +32,14 @@ app:
     allowed-origins: ${APP_CORS_ALLOWED_ORIGINS:http://localhost:5173}
   motion:
     analysis:
-      provider: ${APP_MOTION_ANALYSIS_PROVIDER:mock}
+      provider: ${APP_MOTION_ANALYSIS_PROVIDER:mediapipe}
       schema-version: ${APP_MOTION_ANALYSIS_SCHEMA_VERSION:v1}
       mediapipe:
-        stub-enabled: ${APP_MOTION_MEDIAPIPE_STUB_ENABLED:false}
         endpoint: ${APP_MOTION_MEDIAPIPE_ENDPOINT:http://localhost:8000}
         analyze-path: ${APP_MOTION_MEDIAPIPE_ANALYZE_PATH:/api/v1/analyze}
         timeout-millis: ${APP_MOTION_MEDIAPIPE_TIMEOUT_MILLIS:5000}
   cache:
     popular-challenges-ttl-seconds: ${POPULAR_CHALLENGES_CACHE_TTL:300}
-  scoring:
-    sample-stub-enabled: ${APP_SCORING_SAMPLE_STUB_ENABLED:false}
   storage:
     local-root: ${APP_STORAGE_LOCAL_ROOT:uploads}
   attempt:

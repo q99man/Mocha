@@ -10,7 +10,7 @@ from .schemas import AnalyzeRequest, AnalyzeResponse
 app = FastAPI(
     title="Mocha MediaPipe Bridge",
     version="0.2.0",
-    description="FastAPI bridge scaffold for Mocha motion analysis with stub and real MediaPipe modes.",
+    description="FastAPI bridge for Mocha motion analysis using real MediaPipe extraction only.",
 )
 
 

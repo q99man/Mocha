@@ -1,7 +1,5 @@
 param(
     [int]$Port = 8000,
-    [ValidateSet("stub", "mediapipe")]
-    [string]$Mode = "stub",
     [switch]$Reload
 )
 
@@ -71,9 +69,7 @@ $env:TMP = $tempRoot
 if (-not $env:MPLCONFIGDIR) {
     $env:MPLCONFIGDIR = $matplotlibConfigRoot
 }
-if (-not $env:MEDIAPIPE_BRIDGE_MODE) {
-    $env:MEDIAPIPE_BRIDGE_MODE = $Mode
-}
+$env:MEDIAPIPE_BRIDGE_MODE = "mediapipe"
 
 function Invoke-PythonStep {
     param(

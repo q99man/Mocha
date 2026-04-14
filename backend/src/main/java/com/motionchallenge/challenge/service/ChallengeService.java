@@ -26,6 +26,7 @@ import com.motionchallenge.challenge.repository.ChallengeMotionProfileRepository
 import com.motionchallenge.challenge.repository.ChallengeRepository;
 import com.motionchallenge.challenge.repository.ChallengeVideoRepository;
 import com.motionchallenge.motion.service.MotionAnalysisResult;
+import com.motionchallenge.motion.service.MotionAnalysisModeSupport;
 import com.motionchallenge.motion.service.MotionAnalysisService;
 import com.motionchallenge.video.service.StoredVideo;
 import com.motionchallenge.video.service.VideoStorageService;
@@ -97,6 +98,11 @@ public class ChallengeService {
         return toResponses(challenges);
     }
 
+    public List<ChallengeResponse> getAdminChallenges() {
+        List<Challenge> challenges = challengeRepository.findAllByOrderByCreatedAtDesc();
+        return toResponses(challenges);
+    }
+
     public List<ChallengeResponse> getPopularChallenges() {
         List<Challenge> fallbackChallenges = challengeRepository.findTop3ByIsActiveTrueOrderByCreatedAtDesc();
         List<ChallengeResponse> fallback = toResponses(fallbackChallenges);
@@ -105,6 +111,11 @@ public class ChallengeService {
 
     public Optional<ChallengeResponse> getChallenge(Long id) {
         return challengeRepository.findByIdAndIsActiveTrue(id)
+                .map(challenge -> toResponses(List.of(challenge)).get(0));
+    }
+
+    public Optional<ChallengeResponse> getAdminChallenge(Long id) {
+        return challengeRepository.findById(id)
                 .map(challenge -> toResponses(List.of(challenge)).get(0));
     }
 
@@ -128,13 +139,34 @@ public class ChallengeService {
         return Optional.of(toReferencePosePreview(challenge, challengeVideo, motionProfile));
     }
 
+    public Optional<ChallengeReferencePosePreviewResponse> getAdminReferencePosePreview(Long id) {
+        Optional<Challenge> challengeOptional = challengeRepository.findById(id);
+        if (challengeOptional.isEmpty()) {
+            return Optional.empty();
+        }
+
+        Challenge challenge = challengeOptional.get();
+        Optional<ChallengeVideo> challengeVideoOptional = challengeVideoRepository.findByChallengeId(challenge.getId());
+        Optional<ChallengeMotionProfile> motionProfileOptional =
+                challengeMotionProfileRepository.findByChallengeId(challenge.getId());
+
+        if (challengeVideoOptional.isEmpty() || motionProfileOptional.isEmpty()) {
+            return Optional.empty();
+        }
+
+        ChallengeVideo challengeVideo = challengeVideoOptional.get();
+        ChallengeMotionProfile motionProfile = motionProfileOptional.get();
+        return Optional.of(toReferencePosePreview(challenge, challengeVideo, motionProfile));
+    }
+
     public Optional<MotionSessionStateResponse> getMotionSessionState(Long id) {
         return challengeRepository.findByIdAndIsActiveTrue(id)
                 .map(challenge -> {
                     boolean referenceVideoUploaded =
                             challengeVideoRepository.findByChallengeId(challenge.getId()).isPresent();
-                    boolean referenceMotionProfileReady =
-                            challengeMotionProfileRepository.findByChallengeId(challenge.getId()).isPresent();
+                    boolean referenceMotionProfileReady = challengeMotionProfileRepository.findByChallengeId(challenge.getId())
+                            .filter(this::isUsableReferenceProfile)
+                            .isPresent();
                     Optional<Attempt> latestAttempt =
                             attemptRepository.findTopByChallengeIdOrderByCreatedAtDescIdDesc(challenge.getId());
                     Optional<AttemptProcessingJob> latestProcessingJob =
@@ -481,7 +513,17 @@ public class ChallengeService {
 
     private Set<Long> buildProfileReadyChallengeIds(List<Challenge> challenges) {
         Set<Long> challengeIds = toChallengeIds(challenges);
-        return new HashSet<>(challengeMotionProfileRepository.findChallengeIdsByChallengeIdIn(challengeIds));
+        Set<Long> readyChallengeIds = new HashSet<>();
+        for (ChallengeMotionProfile profile : challengeMotionProfileRepository.findByChallengeIdIn(challengeIds)) {
+            if (isUsableReferenceProfile(profile)) {
+                readyChallengeIds.add(profile.getChallenge().getId());
+            }
+        }
+        return readyChallengeIds;
+    }
+
+    private boolean isUsableReferenceProfile(ChallengeMotionProfile profile) {
+        return !MotionAnalysisModeSupport.isStubAnalyzerName(profile.getAnalyzerName());
     }
 
     private Map<Long, ChallengeLatestRetrySummaryResponse> buildLatestRetrySummaryByChallengeId(List<Challenge> challenges) {

@@ -7,7 +7,7 @@ import org.springframework.stereotype.Component;
 @ConfigurationProperties(prefix = "app.motion.analysis")
 public class MotionAnalysisProperties {
 
-    private String provider = "mock";
+    private String provider = "mediapipe";
     private String schemaVersion = "v1";
     private final Mediapipe mediapipe = new Mediapipe();
 
@@ -32,20 +32,11 @@ public class MotionAnalysisProperties {
     }
 
     public static class Mediapipe {
-        private boolean stubEnabled;
         private String endpoint = "http://localhost:8000";
         private String analyzePath = "/api/v1/analyze";
         private long timeoutMillis = 5000L;
         private String modelDirectory = "../mediapipe-bridge/models";
         private String activeModelFileName = "pose_landmarker_lite.task";
-
-        public boolean isStubEnabled() {
-            return stubEnabled;
-        }
-
-        public void setStubEnabled(boolean stubEnabled) {
-            this.stubEnabled = stubEnabled;
-        }
 
         public String getEndpoint() {
             return endpoint;

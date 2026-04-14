@@ -9,8 +9,6 @@ param(
 $ErrorActionPreference = "Stop"
 
 $env:SPRING_PROFILES_ACTIVE = $Profile
-$env:APP_MOTION_ANALYSIS_PROVIDER = "mediapipe"
-$env:APP_MOTION_MEDIAPIPE_STUB_ENABLED = "false"
 $env:APP_MOTION_MEDIAPIPE_ENDPOINT = $BridgeEndpoint
 $env:APP_MOTION_MEDIAPIPE_ANALYZE_PATH = $AnalyzePath
 $env:APP_MOTION_MEDIAPIPE_TIMEOUT_MILLIS = "$TimeoutMillis"

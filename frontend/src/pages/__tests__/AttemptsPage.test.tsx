@@ -3,6 +3,8 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { getAttempts, getAttemptVideoProcessingProgressByTrackingId } from '../../shared/api/attemptApi';
+import { getCurrentSession } from '../../shared/api/authApi';
+import { AuthProvider } from '../../shared/auth/AuthProvider';
 import { buildAttemptProgress, buildAttemptSummary } from '../../test/fixtures/attemptFixtures';
 import { AttemptsPage } from '../AttemptsPage';
 
@@ -11,12 +13,21 @@ vi.mock('../../shared/api/attemptApi', () => ({
   getAttemptVideoProcessingProgressByTrackingId: vi.fn(),
 }));
 
+vi.mock('../../shared/api/authApi', () => ({
+  getCurrentSession: vi.fn(),
+  login: vi.fn(),
+  logout: vi.fn(),
+  register: vi.fn(),
+}));
+
 const mockedGetAttempts = vi.mocked(getAttempts);
 const mockedGetAttemptVideoProcessingProgressByTrackingId = vi.mocked(getAttemptVideoProcessingProgressByTrackingId);
+const mockedGetCurrentSession = vi.mocked(getCurrentSession);
 
 describe('AttemptsPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockedGetCurrentSession.mockResolvedValue(null);
   });
 
   afterEach(() => {
@@ -68,20 +79,22 @@ describe('AttemptsPage', () => {
     );
 
     render(
-      <MemoryRouter initialEntries={['/attempts']}>
-        <Routes>
-          <Route path="/attempts" element={<AttemptsPage />} />
-        </Routes>
-      </MemoryRouter>,
+      <AuthProvider>
+        <MemoryRouter initialEntries={['/attempts']}>
+          <Routes>
+            <Route path="/attempts" element={<AttemptsPage />} />
+          </Routes>
+        </MemoryRouter>
+      </AuthProvider>,
     );
 
     expect(await screen.findByText('Pending archive summary.')).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Refresh durable progress' }));
+    fireEvent.click(screen.getByRole('button', { name: '진행 상태 새로고침' }));
 
     await waitFor(() => expect(mockedGetAttempts).toHaveBeenCalledTimes(2));
     expect(await screen.findByText('Completed archive summary.')).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Refresh durable progress' })).not.toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Open result' })).toHaveAttribute('href', '/attempts/31/result');
+    expect(screen.queryByRole('button', { name: '진행 상태 새로고침' })).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: '결과 보기' })).toHaveAttribute('href', '/attempts/31/result');
   });
 });

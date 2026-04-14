@@ -15,6 +15,14 @@ export async function getChallengeById(id: string | number): Promise<Challenge> 
   return fetchJson<Challenge>(`/api/challenges/${id}`);
 }
 
+export async function getAdminChallenges(): Promise<Challenge[]> {
+  return fetchJson<Challenge[]>('/api/admin/challenges');
+}
+
+export async function getAdminChallengeById(id: string | number): Promise<Challenge> {
+  return fetchJson<Challenge>(`/api/admin/challenges/${id}`);
+}
+
 export async function createChallenge(input: ChallengeCreateInput): Promise<Challenge> {
   const formData = new FormData();
   appendChallengeFormData(formData, input);
@@ -38,6 +46,10 @@ export async function analyzeChallengeReference(challengeId: number): Promise<Ch
 
 export async function getChallengeReferencePreview(id: string | number): Promise<ChallengeReferencePosePreview> {
   return fetchJson<ChallengeReferencePosePreview>(`/api/challenges/${id}/reference-preview`);
+}
+
+export async function getAdminChallengeReferencePreview(id: string | number): Promise<ChallengeReferencePosePreview> {
+  return fetchJson<ChallengeReferencePosePreview>(`/api/admin/challenges/${id}/reference-preview`);
 }
 
 export async function deleteChallenge(id: number): Promise<void> {

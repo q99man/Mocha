@@ -2,15 +2,9 @@ package com.motionchallenge.challenge.controller;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.sun.net.httpserver.HttpExchange;
-import com.sun.net.httpserver.HttpServer;
 import java.io.IOException;
-import java.io.OutputStream;
-import java.net.InetSocketAddress;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -19,8 +13,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.ActiveProfiles;
-import org.springframework.test.context.DynamicPropertyRegistry;
-import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
@@ -33,38 +26,20 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
+@TestPropertySource(properties = {
+        "spring.jpa.hibernate.ddl-auto=create-drop",
+        "app.storage.local-root=build/test-uploads-mediapipe-http-bridge"
+})
 @WithMockUser(username = "admin@example.com", roles = "ADMIN")
-class ChallengeVideoMediaPipeHttpBridgeIntegrationTest {
+class ChallengeVideoMediaPipeHttpBridgeIntegrationTest extends AbstractMediaPipeBridgeIntegrationTest {
 
     private static final Path TEST_UPLOAD_ROOT = Path.of("build", "test-uploads-mediapipe-http-bridge");
-
-    private static HttpServer bridgeServer;
-    private static int bridgePort;
 
     @Autowired
     private MockMvc mockMvc;
 
     @Autowired
     private ObjectMapper objectMapper;
-
-    @DynamicPropertySource
-    static void registerProperties(DynamicPropertyRegistry registry) {
-        ensureBridgeServerStarted();
-        registry.add("spring.jpa.hibernate.ddl-auto", () -> "create-drop");
-        registry.add("app.storage.local-root", () -> "build/test-uploads-mediapipe-http-bridge");
-        registry.add("app.motion.analysis.provider", () -> "mediapipe");
-        registry.add("app.motion.analysis.mediapipe.stub-enabled", () -> "false");
-        registry.add("app.motion.analysis.mediapipe.endpoint", () -> "http://localhost:" + bridgePort);
-        registry.add("app.motion.analysis.mediapipe.analyze-path", () -> "/api/v1/analyze");
-    }
-
-    @AfterAll
-    static void stopBridgeServer() {
-        if (bridgeServer != null) {
-            bridgeServer.stop(0);
-            bridgeServer = null;
-        }
-    }
 
     @BeforeEach
     void cleanUploads() throws IOException {
@@ -90,7 +65,7 @@ class ChallengeVideoMediaPipeHttpBridgeIntegrationTest {
                 .andExpect(jsonPath("$.challengeId").value(challengeId))
                 .andExpect(jsonPath("$.analysisStatus").value("COMPLETED"))
                 .andExpect(jsonPath("$.referenceMotionProfileReady").value(true))
-                .andExpect(jsonPath("$.analyzerName").value("mediapipe-fastapi-contract-stub"));
+                .andExpect(jsonPath("$.analyzerName").value("mediapipe-fastapi-pose-v1"));
 
         MockMultipartFile attemptVideo = new MockMultipartFile(
                 "attemptVideo",
@@ -105,7 +80,7 @@ class ChallengeVideoMediaPipeHttpBridgeIntegrationTest {
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.challengeId").value(challengeId))
                 .andExpect(jsonPath("$.status").isString())
-                .andExpect(jsonPath("$.analyzerName").value("mediapipe-fastapi-contract-stub"))
+                .andExpect(jsonPath("$.analyzerName").value("mediapipe-fastapi-pose-v1"))
                 .andExpect(jsonPath("$.processingMode").value("SYNC_INLINE"))
                 .andExpect(jsonPath("$.processingComplete").value(true))
                 .andExpect(jsonPath("$.processingNotice").isString())
@@ -140,44 +115,4 @@ class ChallengeVideoMediaPipeHttpBridgeIntegrationTest {
         return challengeId;
     }
 
-    private static synchronized void ensureBridgeServerStarted() {
-        if (bridgeServer != null) {
-            return;
-        }
-
-        try {
-            bridgeServer = HttpServer.create(new InetSocketAddress(0), 0);
-        } catch (IOException exception) {
-            throw new IllegalStateException("Failed to start bridge test server.", exception);
-        }
-
-        bridgeServer.createContext("/api/v1/analyze", ChallengeVideoMediaPipeHttpBridgeIntegrationTest::handleAnalyze);
-        bridgeServer.start();
-        bridgePort = bridgeServer.getAddress().getPort();
-    }
-
-    private static void handleAnalyze(HttpExchange exchange) throws IOException {
-        String responseBody = """
-                {
-                  "provider": "mediapipe",
-                  "analyzerName": "mediapipe-fastapi-contract-stub",
-                  "signature": 4281,
-                  "sampleCount": 64,
-                  "durationMs": 18342,
-                  "notes": ["FastAPI contract bridge test stub is active."],
-                  "landmarks": [],
-                  "extras": {
-                    "bridgeMode": "FASTAPI",
-                    "bridgeVersion": "v1",
-                    "poseModel": "mediapipe-pose"
-                  }
-                }
-                """;
-        byte[] bytes = responseBody.getBytes(StandardCharsets.UTF_8);
-        exchange.getResponseHeaders().add("Content-Type", "application/json");
-        exchange.sendResponseHeaders(200, bytes.length);
-        try (OutputStream outputStream = exchange.getResponseBody()) {
-            outputStream.write(bytes);
-        }
-    }
 }
