@@ -1,162 +1,66 @@
-﻿# Motion Challenge Platform
+# Mocha
 
-Motion Challenge Platform is a web MVP for short, genre-agnostic motion challenges. Users can browse challenges, open a detail page, start a camera flow later, receive a similarity-based score, and review attempt history.
+Mocha는 모션 챌린지 웹 플랫폼입니다. 사용자는 활성화된 챌린지를 둘러보고, 시도 영상을 업로드하고, 점수를 확인하고, 자신의 이력을 다시 볼 수 있습니다. 관리자 사용자는 REST/CRUD 중심 운영 화면에서 챌린지와 모델 자산을 관리합니다.
 
-This repository currently contains a docs-first foundation plus minimal runnable frontend and backend shells. Advanced motion logic, auth, and rich persistence are intentionally deferred.
+## 현재 구현된 범위
 
-## Stack
+- 공개 챌린지 목록, 상세, 시작 흐름
+- 시도 업로드, 처리 진행률, 결과, 개인 이력 조회
+- 세션 기반 회원가입, 로그인, 로그아웃, `me` API
+- 관리자 전용 챌린지 생성, 수정, 활성/비활성 전환, 분석, 삭제
+- MediaPipe 브리지 연동 경로
+- 런타임 MySQL 프로필과 테스트용 H2 프로필 분리
 
-- Frontend: React + TypeScript + Vite
-- Backend: Spring Boot + Gradle + Spring Data JPA + MySQL
-- Infra: Docker Compose for MySQL and Redis
-- Redis: cache stub only, not source of truth
-
-## Repository Layout
+## 저장소 구조
 
 ```text
-docs/
-frontend/
-backend/
+backend/            Spring Boot API
+frontend/           React + Vite 웹 앱
+mediapipe-bridge/   MediaPipe 처리용 FastAPI 브리지
+docs/               현재 기준 프로젝트 문서
 ```
 
-## Local Development
+## 먼저 읽을 문서
 
-### Quick local run
+- 제품 개요와 범위: [docs/PRODUCT.md](docs/PRODUCT.md)
+- 구조와 모듈 맵: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
+- 로컬 실행과 개발 가이드: [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)
+- 현재 상태와 다음 마일스톤: [docs/ROADMAP.md](docs/ROADMAP.md)
+- 과거 기록 보관소: [docs/archive/README.md](docs/archive/README.md)
 
-1. Start MySQL (local or Docker) and then start the backend:
+## 로컬 실행
 
-```bash
+### 백엔드
+
+```powershell
 cd backend
-gradlew.bat bootRun
+./gradlew.bat bootRun
 ```
 
-This repository now uses MySQL as the only runtime database. Make sure MySQL is reachable before starting the backend.
+기본 로컬 실행은 MySQL이 연결되어 있다고 가정합니다.
 
-2. Start the frontend:
+### 프런트엔드
 
-```bash
+```powershell
 cd frontend
-npm install
-npm run dev
+npm.cmd run dev
 ```
 
-The frontend expects the backend at `http://localhost:8080` by default.
-
-### MediaPipe bridge verification run
-
-If you want the backend to use the real HTTP bridge shape instead of the in-process MediaPipe stub:
-
-1. Start the FastAPI bridge:
+### MediaPipe 브리지
 
 ```powershell
 cd mediapipe-bridge
-.\run-bridge.ps1
+./run-bridge.ps1
 ```
 
-2. Start the backend with MediaPipe HTTP mode:
+## 현재 운영 원칙
 
-```powershell
-cd backend
-.\run-mediapipe-http.ps1
-```
+- 런타임 데이터베이스는 MySQL을 사용합니다.
+- 테스트 데이터베이스는 H2를 사용합니다.
+- 관리자 및 운영 기능은 우선 REST/CRUD 기본형으로 시작합니다.
+- Redis는 보조 인프라일 뿐, 원본 데이터 저장소가 아닙니다.
 
-3. Then use the normal challenge reference analysis and attempt upload flow.
+## 참고
 
-Quick stack verification:
-
-```powershell
-cd C:\SpringWork\Mocha
-.\verify-mediapipe-stack.ps1
-```
-
-If the MySQL database is empty, you can provision a temporary verification challenge from a local video in one command:
-
-```powershell
-cd C:\SpringWork\Mocha
-.\verify-mediapipe-stack.ps1 -ReferenceVideoPath 'C:\path\to\reference.mp4' -ForceProvisionChallenge
-```
-
-For a full reference-analysis plus attempt-upload smoke run, add `-ForceUploadAttempt`. If `-AttemptVideoPath` is omitted, the script reuses `-ReferenceVideoPath`.
-
-```powershell
-cd C:\SpringWork\Mocha
-.\verify-mediapipe-stack.ps1 -ReferenceVideoPath 'C:\path\to\reference.mp4' -ForceProvisionChallenge -ForceUploadAttempt
-```
-
-If the backend returns `pendingTrackingId`, the script now polls `/api/attempts/video-processing-progress/{trackingId}` until it reaches `COMPLETED` or `FAILED`.
-You can tune this with `-PendingPollIntervalSeconds` and `-PendingPollTimeoutSeconds`.
-
-Detailed verification steps are in [docs/MEDIAPIPE_BRIDGE_VERIFICATION.md](C:\SpringWork\Mocha\docs\MEDIAPIPE_BRIDGE_VERIFICATION.md).
-
-### Docker-backed infra run
-
-1. Copy `.env.example` values into your shell or a local `.env` file.
-2. Start infrastructure:
-
-```bash
-docker compose up -d mysql redis
-```
-
-3. Start the backend against MySQL:
-
-```bash
-cd backend
-set SPRING_PROFILES_ACTIVE=mysql
-gradlew.bat bootRun
-```
-
-4. Start the frontend:
-
-```bash
-cd frontend
-npm install
-npm run dev
-```
-
-### MySQL runtime note
-
-- `backend/src/main/resources/application-mysql.yml` uses MySQL as the source of truth and keeps `spring.jpa.hibernate.ddl-auto=update`, so tables are created automatically when the backend starts successfully with the `mysql` profile.
-- `.env.example` defaults to `MYSQL_USERNAME=motion`, `MYSQL_PASSWORD=motion`, but your actual local MySQL account may be different.
-- If local MySQL uses a different account, override one of these before startup:
-  - environment variables such as `MYSQL_USERNAME`, `MYSQL_PASSWORD`, `MYSQL_HOST`, `MYSQL_PORT`, `MYSQL_DATABASE`
-  - or `backend/src/main/resources/application-mysql.yml` for temporary local verification
-- In this repository, MySQL profile verification was confirmed by starting the built backend JAR against a real local MySQL instance and checking that the schema and seed data were created.
-
-### Timezone note
-
-- MySQL JDBC timezone is configured with `${MYSQL_TIMEZONE:Asia/Seoul}`.
-- Hibernate JDBC timezone is also aligned to `${MYSQL_TIMEZONE:Asia/Seoul}`.
-- Add `MYSQL_TIMEZONE=Asia/Seoul` to your local environment if you want explicit control over stored timestamp behavior.
-
-### Fallback verification path
-
-- If `docker compose` is not available in the current shell, you can still verify the MySQL profile by:
-  1. ensuring a local MySQL instance is reachable
-  2. creating the target database if needed
-  3. starting the built backend JAR with `--spring.profiles.active=mysql`
-- This confirms schema creation and seed loading even when Docker CLI access is temporarily unavailable.
-
-## Current MVP Foundation
-
-- Frontend routes for `/`, `/challenges`, `/challenges/:id`, and `/attempts`
-- Shared layout and feature-oriented folders
-- Backend health endpoint
-- Backend challenge read API backed by JPA and startup seed data
-- Backend attempt create/list stubs
-- Redis-backed popular challenges cache stub with safe fallback
-- Docker Compose for MySQL and Redis
-
-## What Is Intentionally Not Implemented Yet
-
-- Pose estimation
-- Camera session handling
-- Real similarity scoring
-- Full auth
-- Persistent attempt storage
-- Ranking logic
-
-## Docker Notes
-
-- `docker-compose.yml` currently manages MySQL and Redis because those unlock backend development immediately.
-- A backend `Dockerfile` is included for later containerization and CI use.
-- A frontend `Dockerfile` is intentionally skipped for now because Vite's local dev server is the most practical MVP workflow, and adding a container here would increase setup surface without helping iteration speed yet.
+- 현재 관리자 UI는 운영 화면 역할을 하며, 이후 회원/권한 기능이 더 성숙하면 인증 기반 관리자 페이지로 확장할 예정입니다.
+- 브리지 서브프로젝트 문서는 [mediapipe-bridge/README.md](mediapipe-bridge/README.md)에 따로 정리되어 있습니다.

@@ -15,5 +15,3 @@ spring:
         format_sql: true
         jdbc:
           time_zone: ${MYSQL_TIMEZONE:Asia/Seoul}
-        boot:
-          allow_jdbc_metadata_access: false

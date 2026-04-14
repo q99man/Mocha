@@ -143,6 +143,11 @@ export function AttemptResultPage() {
             <h1>{attempt.resultHeadline || '시도 결과'}</h1>
             <p>{heroDescription}</p>
           </div>
+          <div className="result-page__member-meta">
+            <span>member</span>
+            <strong>{attempt.memberDisplayName}</strong>
+            <span>{attempt.memberEmail}</span>
+          </div>
           <div className="result-scoreboard">
             <span className="result-scoreboard__label">점수</span>
             <strong>{attempt.scoreAvailable ? attempt.score : '--'}</strong>
@@ -251,6 +256,8 @@ export function AttemptResultPage() {
         <article className="result-page__detail-card">
           <h2>시도 상세</h2>
           <dl className="result-page__detail-list">
+            <div><dt>회원</dt><dd>{attempt.memberDisplayName}</dd></div>
+            <div><dt>계정</dt><dd>{attempt.memberEmail}</dd></div>
             <div><dt>시도 ID</dt><dd>#{attempt.id}</dd></div>
             <div><dt>챌린지</dt><dd>{attempt.challengeTitle || `챌린지 #${attempt.challengeId}`}</dd></div>
             <div><dt>결과 출처</dt><dd>{resultSourceMeta.value}</dd></div>

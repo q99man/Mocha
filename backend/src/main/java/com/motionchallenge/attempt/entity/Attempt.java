@@ -2,6 +2,7 @@ package com.motionchallenge.attempt.entity;
 
 import com.motionchallenge.challenge.entity.Challenge;
 import com.motionchallenge.global.common.BaseTimeEntity;
+import com.motionchallenge.member.entity.Member;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
@@ -23,6 +24,10 @@ public class Attempt extends BaseTimeEntity {
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "challenge_id", nullable = false)
     private Challenge challenge;
+
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "member_id", nullable = false)
+    private Member member;
 
     @Column(nullable = false)
     private Integer score;
@@ -63,23 +68,25 @@ public class Attempt extends BaseTimeEntity {
     protected Attempt() {
     }
 
-    public Attempt(Challenge challenge, Integer score, String status, String notes) {
-        this(challenge, score, status, null, false, null, notes, null, null, null, null, null, null);
+    public Attempt(Challenge challenge, Member member, Integer score, String status, String notes) {
+        this(challenge, member, score, status, null, false, null, notes, null, null, null, null, null, null);
     }
 
     public Attempt(
             Challenge challenge,
+            Member member,
             Integer score,
             String status,
             String processingMode,
             boolean processingComplete,
             String processingNotice,
             String notes) {
-        this(challenge, score, status, processingMode, processingComplete, processingNotice, notes, null, null, null, null, null, null);
+        this(challenge, member, score, status, processingMode, processingComplete, processingNotice, notes, null, null, null, null, null, null);
     }
 
     public Attempt(
             Challenge challenge,
+            Member member,
             Integer score,
             String status,
             String processingMode,
@@ -93,6 +100,7 @@ public class Attempt extends BaseTimeEntity {
             String strongestArea,
             String weakestArea) {
         this.challenge = challenge;
+        this.member = member;
         this.score = score;
         this.status = status;
         this.processingMode = processingMode;
@@ -113,6 +121,10 @@ public class Attempt extends BaseTimeEntity {
 
     public Challenge getChallenge() {
         return challenge;
+    }
+
+    public Member getMember() {
+        return member;
     }
 
     public Integer getScore() {

@@ -14,6 +14,7 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
@@ -28,11 +29,12 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @SpringBootTest
 @AutoConfigureMockMvc
-@ActiveProfiles("mysql")
+@ActiveProfiles("test")
 @TestPropertySource(properties = {
         "spring.jpa.hibernate.ddl-auto=create-drop",
         "app.storage.local-root=build/test-uploads-breakdown"
 })
+@WithMockUser(username = "admin@example.com", roles = "ADMIN")
 class AttemptScoringBreakdownIntegrationTest {
 
     private static final Path TEST_UPLOAD_ROOT = Path.of("build", "test-uploads-breakdown");
@@ -65,7 +67,7 @@ class AttemptScoringBreakdownIntegrationTest {
     void uploadedAttemptPersistsScoringBreakdownInCreateAndReadResponses() throws Exception {
         Long challengeId = createChallengeWithReferenceVideo();
 
-        mockMvc.perform(post("/api/challenges/{id}/analyze-reference", challengeId))
+        mockMvc.perform(post("/api/admin/challenges/{id}/analyze-reference", challengeId))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.analysisStatus").value("COMPLETED"));
 
@@ -141,7 +143,7 @@ class AttemptScoringBreakdownIntegrationTest {
     void uploadResponseAndReadResponseUseSamePreviousAttemptWhenCreatedAtTies() throws Exception {
         Long challengeId = createChallengeWithReferenceVideo();
 
-        mockMvc.perform(post("/api/challenges/{id}/analyze-reference", challengeId))
+        mockMvc.perform(post("/api/admin/challenges/{id}/analyze-reference", challengeId))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.analysisStatus").value("COMPLETED"));
 
@@ -209,7 +211,7 @@ class AttemptScoringBreakdownIntegrationTest {
                 "video/mp4",
                 "reference-video-content-for-breakdown".getBytes());
 
-        MvcResult result = mockMvc.perform(multipart("/api/challenges")
+        MvcResult result = mockMvc.perform(multipart("/api/admin/challenges")
                         .file(referenceVideo)
                         .param("title", "breakdown challenge")
                         .param("description", "integration test reference upload")

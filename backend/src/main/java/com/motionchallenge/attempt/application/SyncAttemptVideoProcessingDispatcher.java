@@ -27,6 +27,7 @@ public class SyncAttemptVideoProcessingDispatcher implements AttemptVideoProcess
         motionSessionRuntimeEventPublisher.publishAnalysisInProgress(command.challenge().getId());
         AttemptResultResponse response = attemptVideoProcessingService.processUploadedAttempt(
                 command.challenge(),
+                command.member(),
                 command.referenceProfile(),
                 command.storedVideo(),
                 command.notes());

@@ -43,6 +43,17 @@ export type ChallengeCreateInput = {
   referenceVideo: File;
 };
 
+export type ChallengeUpdateInput = {
+  title: string;
+  description: string;
+  category: string;
+  difficulty: string;
+  thumbnailUrl?: string;
+  guideVideoUrl?: string;
+  durationSec: number;
+  referenceVideo?: File | null;
+};
+
 export type ChallengeAnalysisResult = {
   challengeId: number;
   analysisStatus: ChallengeAnalysisStatus;

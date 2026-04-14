@@ -3,6 +3,7 @@ package com.motionchallenge.attempt.application;
 import com.motionchallenge.attempt.entity.AttemptProcessingJob;
 import com.motionchallenge.attempt.entity.AttemptProcessingJobStatus;
 import com.motionchallenge.challenge.entity.Challenge;
+import com.motionchallenge.member.entity.Member;
 import com.motionchallenge.video.service.StoredVideo;
 import org.springframework.stereotype.Component;
 
@@ -11,6 +12,7 @@ public class AttemptProcessingJobDraftFactory {
 
     public AttemptProcessingJob createPendingDraft(
             Challenge challenge,
+            Member member,
             String trackingId,
             StoredVideo storedVideo,
             String pendingNotes,
@@ -20,6 +22,7 @@ public class AttemptProcessingJobDraftFactory {
         return new AttemptProcessingJob(
                 trackingId,
                 challenge,
+                member,
                 AttemptProcessingJobStatus.PENDING,
                 processingMode,
                 runtimeState,

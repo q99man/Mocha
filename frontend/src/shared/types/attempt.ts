@@ -12,6 +12,9 @@ export type AttemptSummary = {
   id: number;
   challengeId: number;
   challengeTitle: string;
+  memberId: number;
+  memberDisplayName: string;
+  memberEmail: string;
   score: number;
   status: AttemptStatus;
   resultSource: AttemptResultSource;

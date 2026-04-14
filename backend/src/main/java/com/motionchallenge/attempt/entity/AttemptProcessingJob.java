@@ -2,6 +2,7 @@ package com.motionchallenge.attempt.entity;
 
 import com.motionchallenge.challenge.entity.Challenge;
 import com.motionchallenge.global.common.BaseTimeEntity;
+import com.motionchallenge.member.entity.Member;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -28,6 +29,10 @@ public class AttemptProcessingJob extends BaseTimeEntity {
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "challenge_id", nullable = false)
     private Challenge challenge;
+
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "member_id", nullable = false)
+    private Member member;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
@@ -72,6 +77,7 @@ public class AttemptProcessingJob extends BaseTimeEntity {
     public AttemptProcessingJob(
             String trackingId,
             Challenge challenge,
+            Member member,
             AttemptProcessingJobStatus status,
             String processingMode,
             String runtimeState,
@@ -83,6 +89,7 @@ public class AttemptProcessingJob extends BaseTimeEntity {
             String pendingNotes) {
         this.trackingId = trackingId;
         this.challenge = challenge;
+        this.member = member;
         this.status = status;
         this.processingMode = processingMode;
         this.runtimeState = runtimeState;
@@ -105,6 +112,10 @@ public class AttemptProcessingJob extends BaseTimeEntity {
 
     public Challenge getChallenge() {
         return challenge;
+    }
+
+    public Member getMember() {
+        return member;
     }
 
     public AttemptProcessingJobStatus getStatus() {

@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.motionchallenge.attempt.entity.Attempt;
 import com.motionchallenge.attempt.entity.AttemptProcessingJob;
+import com.motionchallenge.attempt.entity.AttemptVideo;
 import com.motionchallenge.attempt.repository.AttemptProcessingJobRepository;
 import com.motionchallenge.attempt.repository.ChallengeRetryAttemptProjection;
 import com.motionchallenge.attempt.repository.AttemptRepository;
@@ -15,6 +16,7 @@ import com.motionchallenge.challenge.dto.ChallengeReferencePoseFrameResponse;
 import com.motionchallenge.challenge.dto.ChallengeReferencePosePointResponse;
 import com.motionchallenge.challenge.dto.ChallengeReferencePosePreviewResponse;
 import com.motionchallenge.challenge.dto.ChallengeResponse;
+import com.motionchallenge.challenge.dto.ChallengeUpdateRequest;
 import com.motionchallenge.challenge.dto.MotionSessionStateResponse;
 import com.motionchallenge.challenge.entity.Challenge;
 import com.motionchallenge.challenge.entity.ChallengeMotionProfile;
@@ -31,6 +33,7 @@ import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Comparator;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -182,6 +185,113 @@ public class ChallengeService {
                 storedVideo.size()));
 
         return toResponses(List.of(challenge)).get(0);
+    }
+
+    @Transactional
+    public ChallengeResponse updateChallenge(Long challengeId, ChallengeUpdateRequest request) {
+        Challenge challenge = challengeRepository.findById(challengeId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "챌린지를 찾을 수 없습니다."));
+
+        challenge.updateDetails(
+                request.getTitle(),
+                request.getDescription(),
+                request.getCategory(),
+                request.getDifficulty(),
+                normalizeOptionalText(request.getThumbnailUrl()),
+                normalizeOptionalText(request.getGuideVideoUrl()),
+                request.getDurationSec());
+
+        if (request.getReferenceVideo() != null && !request.getReferenceVideo().isEmpty()) {
+            replaceReferenceVideo(challenge, request.getReferenceVideo());
+        }
+
+        challengeCacheService.evictPopularChallenges();
+        return toResponses(List.of(challenge)).get(0);
+    }
+
+    @Transactional
+    public ChallengeResponse updateChallengeActive(Long challengeId, boolean active) {
+        Challenge challenge = challengeRepository.findById(challengeId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "챌린지를 찾을 수 없습니다."));
+
+        challenge.updateActive(active);
+        challengeCacheService.evictPopularChallenges();
+        return toResponses(List.of(challenge)).get(0);
+    }
+
+    @Transactional
+    public void deleteChallenge(Long challengeId) {
+        Challenge challenge = challengeRepository.findById(challengeId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "梨뚮┛吏瑜?李얠쓣 ???놁뒿?덈떎."));
+
+        Optional<ChallengeVideo> challengeVideoOptional = challengeVideoRepository.findByChallengeId(challengeId);
+        List<Attempt> attempts = attemptRepository.findByChallengeIdOrderByCreatedAtAscIdAsc(challengeId);
+        Set<Long> attemptIds = new HashSet<>();
+        for (Attempt attempt : attempts) {
+            attemptIds.add(attempt.getId());
+        }
+        List<AttemptVideo> attemptVideos = attemptIds.isEmpty()
+                ? List.of()
+                : attemptVideoRepository.findByAttemptIdIn(attemptIds);
+        List<AttemptProcessingJob> processingJobs = attemptProcessingJobRepository.findByChallengeIdOrderByCreatedAtAsc(challengeId);
+
+        LinkedHashSet<String> storagePathsToDelete = new LinkedHashSet<>();
+        challengeVideoOptional.map(ChallengeVideo::getStoragePath).ifPresent(storagePathsToDelete::add);
+        for (AttemptVideo attemptVideo : attemptVideos) {
+            storagePathsToDelete.add(attemptVideo.getStoragePath());
+        }
+        for (AttemptProcessingJob processingJob : processingJobs) {
+            String storagePath = processingJob.getStoragePath();
+            if (storagePath != null && !storagePath.isBlank()) {
+                storagePathsToDelete.add(storagePath);
+            }
+        }
+
+        if (!attemptVideos.isEmpty()) {
+            attemptVideoRepository.deleteAllInBatch(attemptVideos);
+        }
+        if (!attempts.isEmpty()) {
+            attemptRepository.deleteAllInBatch(attempts);
+        }
+        if (!processingJobs.isEmpty()) {
+            attemptProcessingJobRepository.deleteAllInBatch(processingJobs);
+        }
+        challengeMotionProfileRepository.deleteByChallengeId(challengeId);
+        challengeVideoOptional.ifPresent(challengeVideoRepository::delete);
+        challengeRepository.delete(challenge);
+
+        for (String storagePath : storagePathsToDelete) {
+            videoStorageService.deleteStoredVideo(storagePath);
+        }
+        challengeCacheService.evictPopularChallenges();
+    }
+
+    private void replaceReferenceVideo(Challenge challenge, org.springframework.web.multipart.MultipartFile referenceVideo) {
+        StoredVideo storedVideo = videoStorageService.storeChallengeReferenceVideo(challenge.getId(), referenceVideo);
+        Optional<ChallengeVideo> existingVideoOptional = challengeVideoRepository.findByChallengeId(challenge.getId());
+        String previousStoragePath = existingVideoOptional.map(ChallengeVideo::getStoragePath).orElse(null);
+
+        if (existingVideoOptional.isPresent()) {
+            existingVideoOptional.get().updateStoredVideo(
+                    storedVideo.originalFileName(),
+                    storedVideo.storagePath(),
+                    storedVideo.contentType(),
+                    storedVideo.size());
+        } else {
+            challengeVideoRepository.save(new ChallengeVideo(
+                    challenge,
+                    storedVideo.originalFileName(),
+                    storedVideo.storagePath(),
+                    storedVideo.contentType(),
+                    storedVideo.size()));
+        }
+
+        challengeMotionProfileRepository.deleteByChallengeId(challenge.getId());
+        challenge.resetReferenceAnalysis();
+
+        if (previousStoragePath != null && !previousStoragePath.equals(storedVideo.storagePath())) {
+            videoStorageService.deleteStoredVideo(previousStoragePath);
+        }
     }
 
     @Transactional(noRollbackFor = ResponseStatusException.class)
@@ -555,6 +665,14 @@ public class ChallengeService {
             return null;
         }
         return value;
+    }
+
+    private String normalizeOptionalText(String value) {
+        if (value == null) {
+            return null;
+        }
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? null : trimmed;
     }
 
     private boolean looksGarbled(String value) {

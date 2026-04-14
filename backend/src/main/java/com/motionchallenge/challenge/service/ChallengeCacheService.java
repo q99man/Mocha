@@ -54,4 +54,12 @@ public class ChallengeCacheService {
 
         return fallback;
     }
+
+    public void evictPopularChallenges() {
+        try {
+            redisTemplate.delete(POPULAR_CHALLENGES_CACHE_KEY);
+        } catch (Exception exception) {
+            log.warn("Redis cache evict failed for popular challenges.", exception);
+        }
+    }
 }

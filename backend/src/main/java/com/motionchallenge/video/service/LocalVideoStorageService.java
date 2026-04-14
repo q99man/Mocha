@@ -42,6 +42,25 @@ public class LocalVideoStorageService implements VideoStorageService {
         return new StoredVideo(originalFileName, storagePath, absolutePath, contentType, size);
     }
 
+    @Override
+    public void deleteStoredVideo(String storagePath) {
+        if (storagePath == null || storagePath.isBlank()) {
+            return;
+        }
+
+        Path absolutePath = rootPath.resolve(storagePath).normalize();
+        if (!absolutePath.startsWith(rootPath)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "鍮꾨뵒???뚯씪 寃쎈줈媛 ?좏슚?섏? ?딆뒿?덈떎.");
+        }
+
+        try {
+            Files.deleteIfExists(absolutePath);
+            cleanupEmptyParents(absolutePath.getParent());
+        } catch (IOException exception) {
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "鍮꾨뵒???뚯씪 ?곗궘??ㅽ뙣?덉뒿?덈떎.", exception);
+        }
+    }
+
     private StoredVideo store(MultipartFile file, Path subDirectory) {
         if (file == null || file.isEmpty()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "비디오 파일이 필요합니다.");
@@ -78,5 +97,22 @@ public class LocalVideoStorageService implements VideoStorageService {
         }
 
         return originalFileName.substring(lastDotIndex);
+    }
+
+    private void cleanupEmptyParents(Path directory) throws IOException {
+        Path current = directory;
+        while (current != null && current.startsWith(rootPath) && !current.equals(rootPath)) {
+            if (!Files.exists(current) || !isDirectoryEmpty(current)) {
+                return;
+            }
+            Files.deleteIfExists(current);
+            current = current.getParent();
+        }
+    }
+
+    private boolean isDirectoryEmpty(Path directory) throws IOException {
+        try (var children = Files.list(directory)) {
+            return children.findAny().isEmpty();
+        }
     }
 }

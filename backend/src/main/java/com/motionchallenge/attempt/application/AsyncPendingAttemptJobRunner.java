@@ -52,7 +52,7 @@ public class AsyncPendingAttemptJobRunner {
         executorService.schedule(
                 () -> {
                     try {
-                        asyncPendingAttemptCompletionService.completePendingAttempt(challengeId, trackingId, notes);
+                        asyncPendingAttemptCompletionService.completePendingAttemptInternal(challengeId, trackingId, notes);
                     } catch (RuntimeException ignored) {
                         scheduleRetryIfEligible(trackingId, challengeId, notes);
                     }

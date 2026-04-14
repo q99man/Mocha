@@ -9,4 +9,6 @@ public interface VideoStorageService {
     StoredVideo storeAttemptVideo(Long challengeId, MultipartFile file);
 
     StoredVideo loadStoredVideo(String originalFileName, String storagePath, String contentType, long size);
+
+    void deleteStoredVideo(String storagePath);
 }

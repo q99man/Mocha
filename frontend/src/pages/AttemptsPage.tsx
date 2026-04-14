@@ -3,6 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 
 import { AttemptHistoryList } from '../features/attempts/AttemptHistoryList';
 import { getAttempts } from '../shared/api/attemptApi';
+import { useAuth } from '../shared/auth/AuthProvider';
 import { toAttemptBreakdownLabel } from '../shared/presentation/attemptBreakdown';
 import type { AttemptBreakdownArea, AttemptResultSource, AttemptSummary } from '../shared/types/attempt';
 
@@ -13,6 +14,7 @@ type AttemptSort = 'RECENT' | 'OLDEST' | 'SCORE_HIGH' | 'SCORE_LOW' | 'MOST_IMPR
 type AttemptChallengeFilter = 'ALL' | number;
 
 export function AttemptsPage() {
+  const { user } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const [attempts, setAttempts] = useState<AttemptSummary[]>([]);
   const [loading, setLoading] = useState(true);
@@ -309,10 +311,11 @@ export function AttemptsPage() {
       <section className="hero hero--catalog">
         <div className="hero__content">
           <span className="hero__eyebrow">아카이브 / 시도 기록</span>
-          <h2>준비 기록, 샘플 미리보기, 실제 업로드 결과를 한곳에서 비교해 보세요</h2>
+          <h2>준비 기록, 샘플 미리보기, 실제 업로드 결과</h2>
           <p>
             이 화면은 채점 아카이브를 읽기 쉽게 유지하면서 추가 처리 확인이 필요한 시도도 함께 보여줍니다.
           </p>
+          {user ? <p className="hero__member-note">현재 아카이브: {user.displayName} / {user.email}</p> : null}
           <div className="inline-actions">
             <Link className="button-link button-link--secondary" to="/challenges">
               챌린지 목록 열기

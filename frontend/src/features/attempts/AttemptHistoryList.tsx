@@ -153,6 +153,10 @@ export function AttemptHistoryList({
                 <StatusGlyph kind="SAVE" tone="neutral" />
                 CH-{String(attempt.challengeId).padStart(2, '0')}
               </span>
+              <span className="pill">
+                <StatusGlyph kind="USR" tone="neutral" />
+                {attempt.memberDisplayName}
+              </span>
             </div>
 
             <div className="archive-card__banner panel-lift panel-lift--accent">
@@ -227,6 +231,10 @@ export function AttemptHistoryList({
             ) : null}
 
             <div className="archive-card__footer">
+              <div className="archive-card__owner">
+                <p>{attempt.memberDisplayName}</p>
+                <span>{attempt.memberEmail}</span>
+              </div>
               <p>생성 시각 {new Date(attempt.attemptedAt).toLocaleString('ko-KR')}</p>
               <div className="inline-actions">
                 <Link className="button-link" to={`/attempts/${attempt.id}/result`}>

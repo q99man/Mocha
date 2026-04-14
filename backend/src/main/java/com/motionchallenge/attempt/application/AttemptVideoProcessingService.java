@@ -6,6 +6,7 @@ import com.motionchallenge.attempt.repository.AttemptRepository;
 import com.motionchallenge.attempt.repository.AttemptVideoRepository;
 import com.motionchallenge.challenge.entity.Challenge;
 import com.motionchallenge.challenge.entity.ChallengeMotionProfile;
+import com.motionchallenge.member.entity.Member;
 import com.motionchallenge.motion.service.MotionAnalysisResult;
 import com.motionchallenge.motion.service.MotionAnalysisService;
 import com.motionchallenge.scoring.application.ScoringResult;
@@ -46,6 +47,7 @@ public class AttemptVideoProcessingService {
 
     public AttemptResultResponse processUploadedAttempt(
             Challenge challenge,
+            Member member,
             ChallengeMotionProfile referenceProfile,
             StoredVideo storedVideo,
             String notes) {
@@ -54,6 +56,7 @@ public class AttemptVideoProcessingService {
 
         Attempt attempt = attemptRepository.save(new Attempt(
                 challenge,
+                member,
                 scoringResult.score(),
                 AttemptStatus.COMPLETED,
                 PROCESSING_MODE_SYNC_INLINE,
@@ -78,7 +81,7 @@ public class AttemptVideoProcessingService {
                 attempt.getStatus(),
                 scoringResult.score());
 
-        Attempt previousAttempt = resolvePreviousScoredAttempt(challenge.getId(), attempt.getId());
+        Attempt previousAttempt = resolvePreviousScoredAttempt(challenge.getId(), member.getId(), attempt.getId());
 
         return new AttemptResultResponse(
                 attempt.getId(),
@@ -114,8 +117,8 @@ public class AttemptVideoProcessingService {
                 attempt.getCreatedAt());
     }
 
-    private Attempt resolvePreviousScoredAttempt(Long challengeId, Long currentAttemptId) {
-        List<Attempt> attempts = attemptRepository.findByChallengeIdOrderByCreatedAtAscIdAsc(challengeId);
+    private Attempt resolvePreviousScoredAttempt(Long challengeId, Long memberId, Long currentAttemptId) {
+        List<Attempt> attempts = attemptRepository.findByChallengeIdAndMemberIdOrderByCreatedAtAscIdAsc(challengeId, memberId);
         Set<Long> uploadedAttemptIds = findUploadedAttemptIds(attempts);
         Attempt previousAttempt = null;
         for (Attempt candidate : attempts) {

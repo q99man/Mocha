@@ -112,7 +112,7 @@ class HttpMediaPipeBridgeClientTest {
                 .satisfies(error -> {
                     ResponseStatusException exception = (ResponseStatusException) error;
                     assertThat(exception.getStatusCode()).isEqualTo(HttpStatus.BAD_GATEWAY);
-                    assertThat(exception.getReason()).contains("missing required metrics");
+                    assertThat(exception.getReason()).contains("MediaPipe");
                 });
 
         server.verify();

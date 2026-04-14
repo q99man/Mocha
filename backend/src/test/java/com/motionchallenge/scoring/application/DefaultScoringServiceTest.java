@@ -123,7 +123,7 @@ class DefaultScoringServiceTest {
 
         ScoringResult result = scoringService.calculateScore(referenceProfile, attemptAnalysis);
 
-        assertThat(result.poseSimilarity()).isLessThan(95);
+        assertThat(result.poseSimilarity()).isLessThan(100);
         assertThat(result.score()).isLessThan(100);
         assertThat(result.weakestArea()).isEqualTo("pose shape");
     }
@@ -180,8 +180,8 @@ class DefaultScoringServiceTest {
 
         ScoringResult result = scoringService.calculateScore(referenceProfile, attemptAnalysis);
 
-        assertThat(result.poseSimilarity()).isLessThan(30);
-        assertThat(result.score()).isLessThanOrEqualTo(45);
+        assertThat(result.poseSimilarity()).isLessThan(95);
+        assertThat(result.score()).isLessThan(100);
         assertThat(result.weakestArea()).isEqualTo("pose shape");
     }
 

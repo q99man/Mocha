@@ -142,6 +142,27 @@ public class Challenge extends BaseTimeEntity {
         return referenceAnalyzedAt;
     }
 
+    public void updateDetails(
+            String title,
+            String description,
+            String category,
+            String difficulty,
+            String thumbnailUrl,
+            String guideVideoUrl,
+            Integer durationSec) {
+        this.title = title;
+        this.description = description;
+        this.category = category;
+        this.difficulty = difficulty;
+        this.thumbnailUrl = thumbnailUrl;
+        this.guideVideoUrl = guideVideoUrl;
+        this.durationSec = durationSec;
+    }
+
+    public void updateActive(boolean active) {
+        this.isActive = active;
+    }
+
     public void markReferenceAnalyzing() {
         this.referenceAnalysisStatus = ReferenceAnalysisStatus.ANALYZING;
     }
@@ -153,5 +174,10 @@ public class Challenge extends BaseTimeEntity {
 
     public void markReferenceAnalysisFailed() {
         this.referenceAnalysisStatus = ReferenceAnalysisStatus.FAILED;
+    }
+
+    public void resetReferenceAnalysis() {
+        this.referenceAnalysisStatus = ReferenceAnalysisStatus.NOT_ANALYZED;
+        this.referenceAnalyzedAt = null;
     }
 }

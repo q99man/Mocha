@@ -40,6 +40,7 @@ public class AsyncPendingAttemptVideoProcessingDispatcher implements AttemptVide
         var draft = attemptProcessingJobRepository.save(
                 attemptProcessingJobDraftFactory.createPendingDraft(
                         command.challenge(),
+                        command.member(),
                         trackingId,
                         command.storedVideo(),
                         command.notes(),

@@ -110,6 +110,13 @@ function renderGlyph(kind: string) {
           <circle cx="12" cy="15.5" r="2.2" fill="currentColor" stroke="none" />
         </>
       );
+    case 'USR':
+      return (
+        <>
+          <circle cx="12" cy="9" r="3" />
+          <path d="M6.5 18c1.4-2.7 3.3-4 5.5-4s4.1 1.3 5.5 4" />
+        </>
+      );
     case 'SAMP':
     case 'SAVE':
       return (

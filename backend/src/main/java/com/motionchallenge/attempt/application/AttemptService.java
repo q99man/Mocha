@@ -11,6 +11,8 @@ import com.motionchallenge.challenge.entity.ReferenceAnalysisStatus;
 import com.motionchallenge.challenge.repository.ChallengeMotionProfileRepository;
 import com.motionchallenge.challenge.repository.ChallengeRepository;
 import com.motionchallenge.challenge.service.MotionSessionRuntimeEventPublisher;
+import com.motionchallenge.member.entity.Member;
+import com.motionchallenge.member.service.CurrentMemberService;
 import com.motionchallenge.scoring.application.SimpleScoringPreviewService;
 import com.motionchallenge.scoring.application.SimpleScoringResult;
 import com.motionchallenge.video.service.StoredVideo;
@@ -57,6 +59,7 @@ public class AttemptService {
     private final AttemptVideoProcessingDispatcher attemptVideoProcessingDispatcher;
     private final MotionSessionRuntimeEventPublisher motionSessionRuntimeEventPublisher;
     private final AttemptAsyncPendingProperties asyncPendingProperties;
+    private final CurrentMemberService currentMemberService;
 
     public AttemptService(
             AttemptRepository attemptRepository,
@@ -68,7 +71,8 @@ public class AttemptService {
             VideoStorageService videoStorageService,
             AttemptVideoProcessingDispatcher attemptVideoProcessingDispatcher,
             MotionSessionRuntimeEventPublisher motionSessionRuntimeEventPublisher,
-            AttemptAsyncPendingProperties asyncPendingProperties) {
+            AttemptAsyncPendingProperties asyncPendingProperties,
+            CurrentMemberService currentMemberService) {
         this.attemptRepository = attemptRepository;
         this.attemptProcessingJobRepository = attemptProcessingJobRepository;
         this.attemptVideoRepository = attemptVideoRepository;
@@ -79,10 +83,12 @@ public class AttemptService {
         this.attemptVideoProcessingDispatcher = attemptVideoProcessingDispatcher;
         this.motionSessionRuntimeEventPublisher = motionSessionRuntimeEventPublisher;
         this.asyncPendingProperties = asyncPendingProperties;
+        this.currentMemberService = currentMemberService;
     }
 
     public List<AttemptSummaryResponse> getAttempts() {
-        List<Attempt> attempts = attemptRepository.findAllWithChallengeOrderByCreatedAtDesc();
+        Member member = currentMemberService.requireCurrentMember();
+        List<Attempt> attempts = attemptRepository.findAllWithChallengeByMemberIdOrderByCreatedAtDesc(member.getId());
         Set<Long> uploadedAttemptIds = findUploadedAttemptIds(attempts);
         Map<Long, AttemptComparisonSnapshot> comparisonByAttemptId = buildComparisonByAttemptId(attempts, uploadedAttemptIds);
         Map<Long, AttemptProcessingJob> latestProcessingJobByAttemptId = findLatestProcessingJobsByAttemptId(attempts);
@@ -97,7 +103,8 @@ public class AttemptService {
     }
 
     public AttemptSummaryResponse getAttempt(Long id) {
-        Attempt attempt = attemptRepository.findById(id)
+        Member member = currentMemberService.requireCurrentMember();
+        Attempt attempt = attemptRepository.findByIdAndMemberIdWithChallenge(id, member.getId())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "시도 기록을 찾을 수 없습니다."));
 
         boolean hasUploadedVideo = findUploadedAttemptIds(List.of(attempt)).contains(attempt.getId());
@@ -107,12 +114,14 @@ public class AttemptService {
     }
 
     public AttemptProcessingJobProgressResponse getAttemptVideoProcessingProgressFallback(Long challengeId, String trackingId) {
-        AttemptProcessingJob processingJob = resolveProcessingJobFallback(challengeId, trackingId);
+        Member member = currentMemberService.requireCurrentMember();
+        AttemptProcessingJob processingJob = resolveProcessingJobFallback(member.getId(), challengeId, trackingId);
         return toProgressResponse(processingJob);
     }
 
     public AttemptProcessingJobProgressResponse getAttemptVideoProcessingProgressByTrackingId(String trackingId) {
-        AttemptProcessingJob processingJob = attemptProcessingJobRepository.findByTrackingId(trackingId)
+        Member member = currentMemberService.requireCurrentMember();
+        AttemptProcessingJob processingJob = attemptProcessingJobRepository.findByTrackingIdAndMemberId(trackingId, member.getId())
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.NOT_FOUND,
                         "입력한 trackingId에 해당하는 처리 작업을 찾을 수 없습니다."));
@@ -136,10 +145,12 @@ public class AttemptService {
 
     @Transactional
     public AttemptSummaryResponse createPreparedAttempt(Long challengeId, String notes) {
+        Member member = currentMemberService.requireCurrentMember();
         Challenge challenge = findActiveChallenge(challengeId);
 
         Attempt attempt = attemptRepository.save(new Attempt(
                 challenge,
+                member,
                 PREPARED_SCORE,
                 AttemptStatus.PREPARED,
                 null,
@@ -152,11 +163,13 @@ public class AttemptService {
 
     @Transactional
     public AttemptSummaryResponse createCompletedAttempt(CompletedAttemptCommand command) {
+        Member member = currentMemberService.requireCurrentMember();
         Challenge challenge = findActiveChallenge(command.challengeId());
         int normalizedScore = normalizeCompletedScore(command.score());
 
         Attempt attempt = attemptRepository.save(new Attempt(
                 challenge,
+                member,
                 normalizedScore,
                 AttemptStatus.COMPLETED,
                 null,
@@ -169,6 +182,7 @@ public class AttemptService {
 
     @Transactional
     public AttemptResultResponse submitAttemptVideo(AttemptVideoUploadRequest request) {
+        Member member = currentMemberService.requireCurrentMember();
         if (request.getAttemptVideo() == null || request.getAttemptVideo().isEmpty()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "시도 영상 파일이 필요합니다.");
         }
@@ -200,6 +214,7 @@ public class AttemptService {
             try {
                 AttemptResultResponse response = attemptVideoProcessingDispatcher.dispatch(new AttemptVideoProcessingCommand(
                         challenge,
+                        member,
                         referenceProfile,
                         storedVideo,
                         request.getNotes()));
@@ -223,13 +238,13 @@ public class AttemptService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "챌린지를 찾을 수 없습니다."));
     }
 
-    private AttemptProcessingJob resolveProcessingJobFallback(Long challengeId, String trackingId) {
+    private AttemptProcessingJob resolveProcessingJobFallback(Long memberId, Long challengeId, String trackingId) {
         AttemptProcessingJob processingJob = (trackingId != null && !trackingId.isBlank())
-                ? attemptProcessingJobRepository.findByTrackingId(trackingId)
+                ? attemptProcessingJobRepository.findByTrackingIdAndMemberId(trackingId, memberId)
                         .orElseThrow(() -> new ResponseStatusException(
                                 HttpStatus.NOT_FOUND,
                                 "입력한 trackingId에 해당하는 처리 작업을 찾을 수 없습니다."))
-                : attemptProcessingJobRepository.findTopByChallengeIdOrderByUpdatedAtDesc(challengeId)
+                : attemptProcessingJobRepository.findTopByChallengeIdAndMemberIdOrderByUpdatedAtDesc(challengeId, memberId)
                         .orElseThrow(() -> new ResponseStatusException(
                                 HttpStatus.NOT_FOUND,
                                 "이 챌린지의 처리 작업 이력을 찾을 수 없습니다."));
@@ -284,6 +299,9 @@ public class AttemptService {
                 attempt.getId(),
                 attempt.getChallenge().getId(),
                 attempt.getChallenge().getTitle(),
+                attempt.getMember().getId(),
+                attempt.getMember().getDisplayName(),
+                attempt.getMember().getEmail(),
                 attempt.getScore(),
                 displayStatus,
                 resultSource,
@@ -354,7 +372,9 @@ public class AttemptService {
             return null;
         }
 
-        List<Attempt> attempts = attemptRepository.findByChallengeIdWithChallengeOrderByCreatedAtAsc(attempt.getChallenge().getId());
+        List<Attempt> attempts = attemptRepository.findByChallengeIdAndMemberIdWithChallengeOrderByCreatedAtAsc(
+                attempt.getChallenge().getId(),
+                attempt.getMember().getId());
         Set<Long> uploadedAttemptIds = findUploadedAttemptIds(attempts);
         Attempt previousAttempt = null;
         for (Attempt candidate : attempts) {

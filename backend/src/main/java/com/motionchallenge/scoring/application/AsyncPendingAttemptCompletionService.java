@@ -10,6 +10,8 @@ import com.motionchallenge.challenge.entity.ChallengeMotionProfile;
 import com.motionchallenge.challenge.repository.ChallengeMotionProfileRepository;
 import com.motionchallenge.challenge.repository.ChallengeRepository;
 import com.motionchallenge.challenge.service.MotionSessionRuntimeEventPublisher;
+import com.motionchallenge.member.entity.Member;
+import com.motionchallenge.member.service.CurrentMemberService;
 import com.motionchallenge.video.service.StoredVideo;
 import com.motionchallenge.video.service.VideoStorageService;
 import java.util.Optional;
@@ -42,6 +44,7 @@ public class AsyncPendingAttemptCompletionService {
     private final MotionSessionRuntimeEventPublisher motionSessionRuntimeEventPublisher;
     private final AttemptProcessingJobRepository attemptProcessingJobRepository;
     private final VideoStorageService videoStorageService;
+    private final CurrentMemberService currentMemberService;
 
     public AsyncPendingAttemptCompletionService(
             ChallengeRepository challengeRepository,
@@ -50,7 +53,8 @@ public class AsyncPendingAttemptCompletionService {
             AttemptProcessingJobStateService attemptProcessingJobStateService,
             MotionSessionRuntimeEventPublisher motionSessionRuntimeEventPublisher,
             AttemptProcessingJobRepository attemptProcessingJobRepository,
-            VideoStorageService videoStorageService) {
+            VideoStorageService videoStorageService,
+            CurrentMemberService currentMemberService) {
         this.challengeRepository = challengeRepository;
         this.challengeMotionProfileRepository = challengeMotionProfileRepository;
         this.attemptVideoProcessingService = attemptVideoProcessingService;
@@ -58,13 +62,30 @@ public class AsyncPendingAttemptCompletionService {
         this.motionSessionRuntimeEventPublisher = motionSessionRuntimeEventPublisher;
         this.attemptProcessingJobRepository = attemptProcessingJobRepository;
         this.videoStorageService = videoStorageService;
+        this.currentMemberService = currentMemberService;
     }
 
     public AttemptResultResponse completePendingAttempt(Long challengeId, String trackingId, String notes) {
-        AttemptProcessingJob processingJob = resolveProcessingJob(challengeId, trackingId)
+        Member member = currentMemberService.requireCurrentMember();
+        AttemptProcessingJob processingJob = resolveProcessingJob(member.getId(), challengeId, trackingId)
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.NOT_FOUND,
                         "완료 처리할 비동기 대기 업로드를 찾을 수 없습니다."));
+        return completePendingAttempt(processingJob, notes);
+    }
+
+    public AttemptResultResponse completePendingAttemptInternal(Long challengeId, String trackingId, String notes) {
+        AttemptProcessingJob processingJob = attemptProcessingJobRepository.findByTrackingId(trackingId)
+                .filter(job -> job.getChallenge().getId().equals(challengeId))
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "완료 처리할 비동기 대기 업로드를 찾을 수 없습니다."));
+        return completePendingAttempt(processingJob, notes);
+    }
+
+    private AttemptResultResponse completePendingAttempt(AttemptProcessingJob processingJob, String notes) {
+        Long challengeId = processingJob.getChallenge().getId();
+        Member member = processingJob.getMember();
         StoredVideo storedVideo = toStoredVideo(processingJob);
         String resolvedTrackingId = processingJob.getTrackingId();
 
@@ -86,6 +107,7 @@ public class AsyncPendingAttemptCompletionService {
         try {
             AttemptResultResponse response = attemptVideoProcessingService.processUploadedAttempt(
                     challenge,
+                    member,
                     referenceProfile,
                     storedVideo,
                     normalizeNotes(notes, processingJob.getPendingNotes()));
@@ -117,12 +139,12 @@ public class AsyncPendingAttemptCompletionService {
         }
     }
 
-    private Optional<AttemptProcessingJob> resolveProcessingJob(Long challengeId, String trackingId) {
+    private Optional<AttemptProcessingJob> resolveProcessingJob(Long memberId, Long challengeId, String trackingId) {
         if (trackingId != null && !trackingId.isBlank()) {
-            return attemptProcessingJobRepository.findByTrackingId(trackingId)
+            return attemptProcessingJobRepository.findByTrackingIdAndMemberId(trackingId, memberId)
                     .filter(job -> job.getChallenge().getId().equals(challengeId));
         }
-        return attemptProcessingJobRepository.findTopByChallengeIdOrderByUpdatedAtDesc(challengeId);
+        return attemptProcessingJobRepository.findTopByChallengeIdAndMemberIdOrderByUpdatedAtDesc(challengeId, memberId);
     }
 
     private StoredVideo toStoredVideo(AttemptProcessingJob processingJob) {

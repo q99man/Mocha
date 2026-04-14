@@ -1,10 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { ChallengeVisual } from '../features/challenges/ChallengeVisual';
 import { getChallenges } from '../shared/api/challengeApi';
-import { toAttemptBreakdownLabel } from '../shared/presentation/attemptBreakdown';
 import type { Challenge } from '../shared/types/challenge';
-
-type RetrySpotlight = { challenge: Challenge; delta: number | null };
 
 export function HomePage() {
   const [challenges, setChallenges] = useState<Challenge[]>([]);
@@ -12,12 +10,13 @@ export function HomePage() {
 
   useEffect(() => {
     let active = true;
-    async function loadHomeSignals() {
+
+    async function loadChallenges() {
       setLoading(true);
       try {
-        const challengeResponse = await getChallenges().catch(() => []);
+        const response = await getChallenges().catch(() => []);
         if (active) {
-          setChallenges(challengeResponse);
+          setChallenges(response);
         }
       } finally {
         if (active) {
@@ -25,170 +24,166 @@ export function HomePage() {
         }
       }
     }
-    void loadHomeSignals();
-    return () => { active = false; };
+
+    void loadChallenges();
+    return () => {
+      active = false;
+    };
   }, []);
 
-  const retrySpotlights = useMemo(() => {
-    return challenges
-      .filter((challenge) => challenge.latestRetrySummary)
-      .map((challenge) => ({
-        challenge,
-        delta: challenge.latestRetrySummary?.scoreDeltaFromPrevious ?? null,
-      }))
-      .sort(
-        (left, right) =>
-          Date.parse(right.challenge.latestRetrySummary?.latestAttemptedAt ?? '') -
-          Date.parse(left.challenge.latestRetrySummary?.latestAttemptedAt ?? ''),
-      );
-  }, [challenges]);
-
-  const recentSpotlight = retrySpotlights[0] ?? null;
-  const topImprovement = useMemo(
-    () =>
-      retrySpotlights
-        .filter((item) => item.delta != null && item.delta > 0)
-        .sort((left, right) => (right.delta ?? 0) - (left.delta ?? 0))[0] ?? null,
-    [retrySpotlights],
+  const readyChallenges = useMemo(
+    () => challenges.filter((challenge) => challenge.referenceVideoUploaded && challenge.referenceMotionProfileReady),
+    [challenges],
   );
-  const readyCount = challenges.filter((challenge) => challenge.referenceVideoUploaded && challenge.referenceMotionProfileReady).length;
-  const scoredCount = retrySpotlights.length;
+  const featuredChallenge = readyChallenges[0] ?? challenges[0] ?? null;
+  const latestScoredChallenge = useMemo(
+    () =>
+      [...challenges]
+        .filter((challenge) => challenge.latestRetrySummary)
+        .sort(
+          (left, right) =>
+            Date.parse(right.latestRetrySummary?.latestAttemptedAt ?? '') -
+            Date.parse(left.latestRetrySummary?.latestAttemptedAt ?? ''),
+        )[0] ?? null,
+    [challenges],
+  );
 
   return (
-    <div className="page">
-      <section className="hero hero--stage">
-        <div className="hero__content">
-          <span className="hero__eyebrow">시작 화면 / 웹 MVP</span>
-          <h2>하나의 모션 콘솔에서 챌린지를 고르고, 세팅을 확인하고, 재도전 결과까지 이어서 살펴보세요</h2>
-          <p>Mocha는 모션 챌린지를 둘러보고 실제 시도를 업로드한 뒤 재도전 결과를 한 흐름에서 비교할 수 있는 가벼운 웹 콘솔입니다.</p>
-          <div className="inline-actions">
-            <Link className="button-link" to="/challenges">챌린지 목록 열기</Link>
-            <Link className="button-link button-link--secondary" to="/attempts">아카이브 열기</Link>
+    <div className="page page--stage">
+      <section className="landing-hero">
+        <div className="landing-hero__copy">
+          <span className="landing-hero__eyebrow">Stage Entry</span>
+          <h2>모션 챌린지</h2>
+          <p>
+            챌린지를 고르고, 준비 상태를 확인하고, 촬영 흐름으로 곧바로 도전해 보세요.
+          </p>
+          <div className="landing-hero__actions">
+            <Link className="button-link" to="/challenges">
+              챌린지 선택
+            </Link>
+            <Link className="button-link button-link--secondary" to="/attempts">
+              최근 기록 보기
+            </Link>
           </div>
         </div>
-        <div className="hero__aside hero__aside--stage">
-          <div className="signal-panel panel-lift panel-lift--accent">
-            <span className="signal-panel__label">시스템 상태</span>
-            <strong>{loading ? '실시간 상태 동기화 중' : '챌린지 흐름 준비 완료'}</strong>
-            <p>홈, 챌린지 흐름, 결과, 아카이브가 이제 하나의 재도전 흐름으로 연결됩니다.</p>
-          </div>
-          <div className="signal-grid">
-            <div className="signal-grid__item panel-lift"><span>챌린지</span><strong>{String(challenges.length).padStart(2, '0')}</strong><p>불러온 챌린지 수</p></div>
-            <div className="signal-grid__item panel-lift"><span>준비 완료</span><strong>{String(readyCount).padStart(2, '0')}</strong><p>실업로드 채점이 가능한 챌린지</p></div>
-            <div className="signal-grid__item panel-lift"><span>채점 기록</span><strong>{String(scoredCount).padStart(2, '0')}</strong><p>채점 이력이 있는 챌린지</p></div>
-            <div className="signal-grid__item panel-lift"><span>연결 상태</span><strong>{loading ? '--' : '동기화'}</strong><p>챌린지 요약에 재도전 맥락이 반영됩니다</p></div>
-          </div>
-        </div>
-      </section>
 
-      <section className="panel panel--section panel-lift home-spotlight">
-        <div className="section-heading">
-          <span className="section-heading__code">01</span>
-          <div>
-            <h2>재도전 스포트라이트</h2>
-            <p>다른 페이지로 이동하지 않아도 최근 채점 결과와 가장 큰 향상 폭을 바로 볼 수 있습니다.</p>
-          </div>
-        </div>
-        <div className="dashboard-grid home-spotlight__grid">
-          <article className="panel panel--section home-spotlight__card">
-            <span className="home-spotlight__label">가장 최근 채점 결과</span>
-            {recentSpotlight && recentSpotlight.challenge.latestRetrySummary ? (
-              <>
-                <strong>{recentSpotlight.challenge.title}</strong>
-                <p>{recentSpotlight.challenge.latestRetrySummary.latestScore}점 / {formatDelta(recentSpotlight.delta)}</p>
-                <p>
-                  {recentSpotlight.challenge.latestRetrySummary.retryFocus ??
-                    (recentSpotlight.challenge.latestRetrySummary.weakestArea
-                      ? `다음 재도전 전에는 ${toAttemptBreakdownLabel(recentSpotlight.challenge.latestRetrySummary.weakestArea)}부터 확인해 보세요.`
-                      : '최신 결과를 열어 세부 분석을 확인한 뒤 다시 촬영해 보세요.')}
-                </p>
-                <div className="inline-actions">
-                  <Link className="button-link button-link--secondary" to={`/attempts/${recentSpotlight.challenge.latestRetrySummary.latestAttemptId}/result`}>
-                    최신 결과 보기
-                  </Link>
-                  <Link className="button-link button-link--secondary" to={`/challenges/${recentSpotlight.challenge.id}/start`}>
-                    지금 다시 도전
-                  </Link>
+        <div className="landing-hero__feature">
+          {featuredChallenge ? (
+            <article className="feature-poster">
+              <div className="feature-poster__media">
+                <ChallengeVisual
+                  title={featuredChallenge.title}
+                  thumbnailUrl={featuredChallenge.thumbnailUrl}
+                  fallbackThumbnailVideoUrl={featuredChallenge.fallbackThumbnailVideoUrl}
+                  className="feature-poster__image"
+                  placeholderClassName="feature-poster__image feature-poster__image--placeholder"
+                />
+              </div>
+              <div className="feature-poster__body">
+                <span className="feature-poster__label">Featured Track</span>
+                <strong>{featuredChallenge.title}</strong>
+                <p>{featuredChallenge.description}</p>
+                <div className="feature-poster__meta">
+                  <span>{featuredChallenge.category}</span>
+                  <span>{featuredChallenge.difficulty}</span>
+                  <span>{featuredChallenge.durationSec}초</span>
                 </div>
-              </>
-            ) : (
-              <>
-                <strong>아직 채점 결과가 없습니다</strong>
-                <p>첫 실제 비교 결과가 저장되면 여기에 자동 채점 업로드가 표시됩니다.</p>
-              </>
-            )}
-          </article>
-
-          <article className="panel panel--section home-spotlight__card">
-            <span className="home-spotlight__label">가장 큰 향상</span>
-            {topImprovement && topImprovement.challenge.latestRetrySummary ? (
-              <>
-                <strong>{topImprovement.challenge.title}</strong>
-                <p>{formatDelta(topImprovement.delta)} / 최신 점수 {topImprovement.challenge.latestRetrySummary.latestScore}점</p>
-                <p>
-                  {topImprovement.challenge.latestRetrySummary.keepStableFocus ??
-                    (topImprovement.challenge.latestRetrySummary.strongestArea
-                      ? `직전 재도전에서는 ${toAttemptBreakdownLabel(topImprovement.challenge.latestRetrySummary.strongestArea)}이 가장 안정적으로 유지됐습니다.`
-                      : '결과 페이지에서 전체 비교와 강점 영역을 확인해 보세요.')}
-                </p>
-                <div className="inline-actions">
-                  <Link className="button-link button-link--secondary" to={`/challenges/${topImprovement.challenge.id}`}>
-                    챌린지 상세 보기
-                  </Link>
-                  <Link className="button-link button-link--secondary" to="/attempts">
-                    아카이브 열기
-                  </Link>
-                </div>
-              </>
-            ) : (
-              <>
-                <strong>아직 향상 추세가 없습니다</strong>
-                <p>같은 챌린지에 채점 결과가 두 번 이상 쌓이면 가장 큰 점수 상승이 여기에 표시됩니다.</p>
-              </>
-            )}
-          </article>
+                <Link className="button-link" to={`/challenges/${featuredChallenge.id}`}>
+                  트랙 보기
+                </Link>
+              </div>
+            </article>
+          ) : (
+            <article className="feature-poster feature-poster--empty">
+              <span className="feature-poster__label">Featured Track</span>
+              <strong>아직 준비된 챌린지가 없습니다</strong>
+              <p>운영 화면에서 레퍼런스 영상을 등록하면 이 자리부터 스테이지 흐름이 시작됩니다.</p>
+            </article>
+          )}
         </div>
       </section>
 
-      <section className="panel panel--section panel-lift">
-        <div className="section-heading">
-          <span className="section-heading__code">02</span>
-          <div>
-            <h2>현재 핵심 흐름</h2>
-            <p>지금 MVP는 일회성 데모보다 재도전 루프를 중심으로 동작합니다.</p>
+      <section className="stage-strip">
+        <article className="stage-stat">
+          <span className="stage-stat__label">Library</span>
+          <strong>{String(challenges.length).padStart(2, '0')}</strong>
+          <p>현재 로드된 챌린지 수</p>
+        </article>
+        <article className="stage-stat">
+          <span className="stage-stat__label">Ready</span>
+          <strong>{String(readyChallenges.length).padStart(2, '0')}</strong>
+          <p>바로 촬영 가능한 챌린지</p>
+        </article>
+        <article className="stage-stat">
+          <span className="stage-stat__label">Scored</span>
+          <strong>{String(challenges.filter((challenge) => challenge.latestRetrySummary).length).padStart(2, '0')}</strong>
+          <p>점수 이력이 있는 챌린지</p>
+        </article>
+        <article className="stage-stat">
+          <span className="stage-stat__label">Status</span>
+          <strong>{loading ? 'SYNC' : 'READY'}</strong>
+          <p>{loading ? '챌린지 메타데이터를 불러오는 중입니다.' : '스테이지 진입 준비가 끝났습니다.'}</p>
+        </article>
+      </section>
+
+      <section className="stage-grid">
+        <article className="stage-panel">
+          <div className="stage-panel__heading">
+            <span>Quick Flow</span>
+            <h3>한 번에 이어지는 기본 루프</h3>
           </div>
-        </div>
-        <div className="stat-row">
-          <div className="stat-card stat-card--accent panel-lift panel-lift--accent"><strong>챌린지 탐색</strong><p>다음 이동 전에 챌린지 메타데이터, 준비 상태, 재도전 맥락을 먼저 확인합니다.</p></div>
-          <div className="stat-card panel-lift"><strong>실업로드 흐름</strong><p>별도 프로토타입 경로 없이 시작 화면에서 실제 채점 업로드까지 바로 이어집니다.</p></div>
-          <div className="stat-card panel-lift"><strong>재도전 비교</strong><p>결과 페이지와 아카이브 카드에서 점수 변화, 세부 분석, 코칭 힌트를 함께 봅니다.</p></div>
-        </div>
-      </section>
-
-      <section className="dashboard-grid">
-        <article className="panel panel--section panel-lift">
-          <div className="section-heading"><span className="section-heading__code">03</span><div><h2>추천 흐름</h2><p>지금 가장 유용한 흐름은 최근 재도전 결과를 확인한 뒤 같은 챌린지로 다시 들어가는 방식입니다.</p></div></div>
-          <div className="detail-flow detail-flow--stack">
-            <div className="detail-flow__item">1. 홈 스포트라이트에서 최신 채점 결과나 가장 큰 향상을 확인합니다</div>
-            <div className="detail-flow__item">2. 같은 챌린지의 상세 또는 시작 화면으로 이동합니다</div>
-            <div className="detail-flow__item">3. 같은 세팅으로 새 시도를 업로드합니다</div>
-            <div className="detail-flow__item">4. 결과 페이지에서 점수 변화, 세부 분석, 코칭을 비교합니다</div>
+          <div className="flow-list">
+            <div className="flow-list__item">
+              <strong>01</strong>
+              <p>챌린지 라이브러리에서 지금 들어갈 트랙을 고릅니다.</p>
+            </div>
+            <div className="flow-list__item">
+              <strong>02</strong>
+              <p>레퍼런스 준비 상태와 최근 점수 흐름을 보고 시작 여부를 판단합니다.</p>
+            </div>
+            <div className="flow-list__item">
+              <strong>03</strong>
+              <p>촬영 또는 업로드로 진입하고, 결과 화면에서 바로 다음 리트라이 방향을 확인합니다.</p>
+            </div>
           </div>
         </article>
 
-        <article className="panel panel--section panel-lift">
-          <div className="section-heading"><span className="section-heading__code">04</span><div><h2>다음 완성 목표</h2><p>다음 단계는 재도전 신호를 더 강한 코칭과 가이드로 연결하는 것입니다.</p></div></div>
-          <ul className="detail-list">
-            <li><strong>재도전 연속성</strong>홈, 목록, 상세, 시작, 결과, 아카이브 전반에 같은 챌린지 맥락이 이어지도록 유지합니다.</li>
-            <li><strong>코칭 품질</strong>약한 영역과 점수 변화 신호를 다음 재도전 촬영 가이드로 더 선명하게 바꿉니다.</li>
-            <li><strong>운영 가시성</strong>모델, 레퍼런스, 채점 결과 상태를 숨은 가정 없이 UI에서 읽을 수 있게 만듭니다.</li>
-          </ul>
+        <article className="stage-panel">
+          <div className="stage-panel__heading">
+            <span>Latest Signal</span>
+            <h3>최근 점수 흐름</h3>
+          </div>
+          {latestScoredChallenge?.latestRetrySummary ? (
+            <div className="signal-card">
+              <strong>{latestScoredChallenge.title}</strong>
+              <p>
+                최근 점수 {latestScoredChallenge.latestRetrySummary.latestScore}점
+                {latestScoredChallenge.latestRetrySummary.scoreDeltaFromPrevious != null
+                  ? ` / 변화 ${formatDelta(latestScoredChallenge.latestRetrySummary.scoreDeltaFromPrevious)}`
+                  : ''}
+              </p>
+              <p>{latestScoredChallenge.latestRetrySummary.retryFocus ?? latestScoredChallenge.latestRetrySummary.coachingTeaser ?? '결과 화면에서 자세한 비교와 코칭을 확인할 수 있습니다.'}</p>
+              <div className="landing-hero__actions">
+                <Link className="button-link button-link--secondary" to={`/attempts/${latestScoredChallenge.latestRetrySummary.latestAttemptId}/result`}>
+                  최근 결과
+                </Link>
+                <Link className="button-link button-link--secondary" to={`/challenges/${latestScoredChallenge.id}/start`}>
+                  다시 도전
+                </Link>
+              </div>
+            </div>
+          ) : (
+            <div className="signal-card signal-card--empty">
+              <strong>아직 점수 신호가 없습니다</strong>
+              <p>첫 시도 결과가 생기면 최근 점수 흐름과 리트라이 힌트를 여기서 바로 보여줍니다.</p>
+            </div>
+          )}
         </article>
       </section>
     </div>
   );
 }
 
-function formatDelta(delta: number | null) {
-  return delta == null ? '기준점' : delta === 0 ? '변화 없음' : `${delta > 0 ? '+' : ''}${delta}점`;
+function formatDelta(delta: number) {
+  return `${delta > 0 ? '+' : ''}${delta}점`;
 }

@@ -1,0 +1,115 @@
+package com.motionchallenge.member.controller;
+
+import com.motionchallenge.attempt.repository.AttemptProcessingJobRepository;
+import com.motionchallenge.attempt.repository.AttemptRepository;
+import com.motionchallenge.attempt.repository.AttemptVideoRepository;
+import com.motionchallenge.member.repository.MemberRepository;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.mock.web.MockHttpSession;
+import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.TestPropertySource;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
+import org.springframework.transaction.annotation.Transactional;
+
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+@SpringBootTest
+@AutoConfigureMockMvc
+@ActiveProfiles("test")
+@TestPropertySource(properties = {
+        "spring.jpa.hibernate.ddl-auto=create-drop",
+        "app.storage.local-root=build/test-uploads"
+})
+@Transactional
+class AuthIntegrationTest {
+
+    @Autowired
+    private MockMvc mockMvc;
+
+    @Autowired
+    private MemberRepository memberRepository;
+
+    @Autowired
+    private AttemptVideoRepository attemptVideoRepository;
+
+    @Autowired
+    private AttemptProcessingJobRepository attemptProcessingJobRepository;
+
+    @Autowired
+    private AttemptRepository attemptRepository;
+
+    @BeforeEach
+    void resetMembers() {
+        attemptVideoRepository.deleteAllInBatch();
+        attemptProcessingJobRepository.deleteAllInBatch();
+        attemptRepository.deleteAllInBatch();
+        memberRepository.deleteAllInBatch();
+    }
+
+    @Test
+    void firstRegisteredMemberBecomesAdminAndCanAccessAdminApi() throws Exception {
+        MvcResult registerResult = mockMvc.perform(post("/api/auth/register")
+                        .contentType("application/json")
+                        .content("""
+                                {
+                                  "email": "admin@example.com",
+                                  "password": "password123",
+                                  "displayName": "Admin User"
+                                }
+                                """))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.email").value("admin@example.com"))
+                .andExpect(jsonPath("$.role").value("ADMIN"))
+                .andReturn();
+
+        MockHttpSession session = (MockHttpSession) registerResult.getRequest().getSession(false);
+
+        mockMvc.perform(get("/api/auth/me").session(session))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.authenticated").value(true))
+                .andExpect(jsonPath("$.displayName").value("Admin User"));
+
+        mockMvc.perform(get("/api/admin/model-assets/pose-landmarker").session(session))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void unauthenticatedAdminApiRequestIsRejected() throws Exception {
+        mockMvc.perform(get("/api/admin/model-assets/pose-landmarker"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void secondRegisteredMemberBecomesUser() throws Exception {
+        mockMvc.perform(post("/api/auth/register")
+                        .contentType("application/json")
+                        .content("""
+                                {
+                                  "email": "admin@example.com",
+                                  "password": "password123",
+                                  "displayName": "Admin User"
+                                }
+                                """))
+                .andExpect(status().isCreated());
+
+        mockMvc.perform(post("/api/auth/register")
+                        .contentType("application/json")
+                        .content("""
+                                {
+                                  "email": "member@example.com",
+                                  "password": "password123",
+                                  "displayName": "Member User"
+                                }
+                                """))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.role").value("USER"));
+    }
+}

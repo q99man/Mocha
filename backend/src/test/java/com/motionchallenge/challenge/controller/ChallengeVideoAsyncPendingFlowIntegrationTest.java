@@ -15,6 +15,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.SpyBean;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
@@ -32,12 +33,14 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @SpringBootTest
 @AutoConfigureMockMvc
-@ActiveProfiles("mysql")
+@ActiveProfiles("test")
 @TestPropertySource(properties = {
         "spring.jpa.hibernate.ddl-auto=create-drop",
         "app.storage.local-root=build/test-uploads-async",
-        "app.attempt.video-processing-mode=async-pending-stub"
+        "app.attempt.video-processing-mode=async-pending-stub",
+        "app.scoring.sample-stub-enabled=true"
 })
+@WithMockUser(username = "admin@example.com", roles = "ADMIN")
 class ChallengeVideoAsyncPendingFlowIntegrationTest {
 
     private static final Path TEST_UPLOAD_ROOT = Path.of("build", "test-uploads-async");
@@ -70,7 +73,7 @@ class ChallengeVideoAsyncPendingFlowIntegrationTest {
     void attemptUploadReturnsAsyncPendingStubResponse() throws Exception {
         Long challengeId = createChallengeWithReferenceVideo();
 
-        mockMvc.perform(post("/api/challenges/{id}/analyze-reference", challengeId))
+        mockMvc.perform(post("/api/admin/challenges/{id}/analyze-reference", challengeId))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.analysisStatus").value("COMPLETED"));
 
@@ -133,7 +136,7 @@ class ChallengeVideoAsyncPendingFlowIntegrationTest {
     void asyncPendingCompletionStubCreatesCompletedAttemptAndUpdatesMotionSession() throws Exception {
         Long challengeId = createChallengeWithReferenceVideo();
 
-        mockMvc.perform(post("/api/challenges/{id}/analyze-reference", challengeId))
+        mockMvc.perform(post("/api/admin/challenges/{id}/analyze-reference", challengeId))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.analysisStatus").value("COMPLETED"));
 
@@ -322,7 +325,7 @@ class ChallengeVideoAsyncPendingFlowIntegrationTest {
     void asyncPendingCompletionFailureUpdatesProgressAndMotionSession() throws Exception {
         Long challengeId = createChallengeWithReferenceVideo();
 
-        mockMvc.perform(post("/api/challenges/{id}/analyze-reference", challengeId))
+        mockMvc.perform(post("/api/admin/challenges/{id}/analyze-reference", challengeId))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.analysisStatus").value("COMPLETED"));
 
@@ -390,7 +393,7 @@ class ChallengeVideoAsyncPendingFlowIntegrationTest {
     void asyncPendingRetryIncrementsAttemptsAndRetryCount() throws Exception {
         Long challengeId = createChallengeWithReferenceVideo();
 
-        mockMvc.perform(post("/api/challenges/{id}/analyze-reference", challengeId))
+        mockMvc.perform(post("/api/admin/challenges/{id}/analyze-reference", challengeId))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.analysisStatus").value("COMPLETED"));
 
@@ -472,7 +475,7 @@ class ChallengeVideoAsyncPendingFlowIntegrationTest {
                 "video/mp4",
                 "reference-video-content-for-demo".getBytes());
 
-        MvcResult result = mockMvc.perform(multipart("/api/challenges")
+        MvcResult result = mockMvc.perform(multipart("/api/admin/challenges")
                         .file(referenceVideo)
                         .param("title", "async pending challenge")
                         .param("description", "integration test reference upload")
@@ -493,7 +496,7 @@ class ChallengeVideoAsyncPendingFlowIntegrationTest {
     private Long createAnalyzedChallengeWithPendingUpload(String fileName) throws Exception {
         Long challengeId = createChallengeWithReferenceVideo();
 
-        mockMvc.perform(post("/api/challenges/{id}/analyze-reference", challengeId))
+        mockMvc.perform(post("/api/admin/challenges/{id}/analyze-reference", challengeId))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.analysisStatus").value("COMPLETED"));
 

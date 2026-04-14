@@ -17,6 +17,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
@@ -31,7 +32,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @SpringBootTest
 @AutoConfigureMockMvc
-@ActiveProfiles("mysql")
+@ActiveProfiles("test")
+@WithMockUser(username = "admin@example.com", roles = "ADMIN")
 class ChallengeVideoMediaPipeHttpBridgeIntegrationTest {
 
     private static final Path TEST_UPLOAD_ROOT = Path.of("build", "test-uploads-mediapipe-http-bridge");
@@ -83,7 +85,7 @@ class ChallengeVideoMediaPipeHttpBridgeIntegrationTest {
     void challengeCreateAnalyzeAndAttemptUploadFlowWorksWithMediaPipeHttpBridge() throws Exception {
         Long challengeId = createChallengeWithReferenceVideo();
 
-        mockMvc.perform(post("/api/challenges/{id}/analyze-reference", challengeId))
+        mockMvc.perform(post("/api/admin/challenges/{id}/analyze-reference", challengeId))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.challengeId").value(challengeId))
                 .andExpect(jsonPath("$.analysisStatus").value("COMPLETED"))
@@ -120,7 +122,7 @@ class ChallengeVideoMediaPipeHttpBridgeIntegrationTest {
                 "video/mp4",
                 "reference-video-content-for-mediapipe-http-bridge".getBytes());
 
-        MvcResult result = mockMvc.perform(multipart("/api/challenges")
+        MvcResult result = mockMvc.perform(multipart("/api/admin/challenges")
                         .file(referenceVideo)
                         .param("title", "mediapipe http bridge reference challenge")
                         .param("description", "integration test reference upload")
