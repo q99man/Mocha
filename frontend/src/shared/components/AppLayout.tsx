@@ -19,29 +19,25 @@ export function AppLayout() {
       <div className="stage-shell stage-shell--landing">
         <header className="stage-topbar stage-topbar--landing">
           <Link className="stage-topbar__brand stage-topbar__brand--landing" to="/">
-            <span className="stage-topbar__kicker stage-topbar__kicker--landing">Mocha</span>
+            <span className="stage-topbar__kicker stage-topbar__kicker--landing">Move with precision</span>
             <div className="stage-topbar__title-row stage-topbar__title-row--landing">
               <h1>Mocha</h1>
             </div>
           </Link>
 
-          <nav className="stage-nav stage-nav--landing" aria-label="랜딩 메뉴">
+          <nav className="stage-nav stage-nav--landing" aria-label="Landing menu">
             <a href="#feature">Feature</a>
             <a href="#showcase">Showcase</a>
             <a href="#use-case">Use case</a>
-            <a href="#footer">Footer</a>
-            {isAdmin ? (
-              <NavLink to="/admin/model-assets">
-                Admin
-              </NavLink>
-            ) : null}
+            <a href="#cta">Start</a>
+            {isAdmin ? <NavLink to="/admin/model-assets">Admin</NavLink> : null}
             {isAuthenticated ? (
               <NavLink className="stage-nav__cta" to="/challenges">
-                Try now
+                Start now
               </NavLink>
             ) : (
               <button className="stage-nav__cta" type="button" onClick={() => navigate('/auth')}>
-                Try now
+                Start now
               </button>
             )}
           </nav>

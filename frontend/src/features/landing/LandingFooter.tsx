@@ -10,7 +10,6 @@ export function LandingFooter({ isAuthenticated }: LandingFooterProps) {
       <div className="lp-footer__top">
         <div className="lp-footer__brand">
           <span>Mocha</span>
-          <p>Motion challenge, scoring, and retry flow in one compact loop.</p>
         </div>
 
         <div className="lp-footer__links">
@@ -26,8 +25,8 @@ export function LandingFooter({ isAuthenticated }: LandingFooterProps) {
           </div>
           <div>
             <strong>Start</strong>
-            <Link to={isAuthenticated ? '/challenges' : '/auth'}>Try now</Link>
-            <a href="#use-case">Use case</a>
+            <Link to={isAuthenticated ? '/challenges' : '/auth'}>Start now</Link>
+            <a href="#cta">CTA</a>
           </div>
         </div>
       </div>

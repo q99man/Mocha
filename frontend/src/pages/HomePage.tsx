@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from 'react';
 import { getChallenges } from '../shared/api/challengeApi';
 import { useAuth } from '../shared/auth/AuthProvider';
 import type { Challenge } from '../shared/types/challenge';
-import { LandingCtaSection } from '../features/landing/LandingCtaSection';
 import { LandingFeatureSection } from '../features/landing/LandingFeatureSection';
 import { LandingFooter } from '../features/landing/LandingFooter';
 import { LandingHero } from '../features/landing/LandingHero';
@@ -61,10 +60,13 @@ export function HomePage() {
         isAuthenticated={isAuthenticated}
         loading={loading}
       />
-      <LandingFeatureSection />
-      <LandingShowcaseSection challenges={showcaseChallenges} />
-      <LandingUseCaseSection readyCount={readyChallenges.length} latestScoredChallenge={latestScoredChallenge} />
-      <LandingCtaSection />
+
+      <main className="lp-main">
+        <LandingFeatureSection />
+        <LandingShowcaseSection challenges={showcaseChallenges} />
+        <LandingUseCaseSection readyCount={readyChallenges.length} latestScoredChallenge={latestScoredChallenge} />
+      </main>
+
       <LandingFooter isAuthenticated={isAuthenticated} />
     </div>
   );

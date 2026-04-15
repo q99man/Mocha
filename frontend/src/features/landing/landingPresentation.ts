@@ -25,21 +25,22 @@ export function pickLatestScoredChallenge(challenges: Challenge[]) {
 }
 
 export function buildShortText(text: string, limit: number) {
-  if (text.length <= limit) {
-    return text;
+  const normalized = text.trim();
+  if (normalized.length <= limit) {
+    return normalized;
   }
 
-  return `${text.slice(0, Math.max(0, limit - 1)).trim()}...`;
+  return `${normalized.slice(0, Math.max(0, limit - 1)).trim()}...`;
 }
 
 export function formatDeltaText(delta: number | null) {
   if (delta == null) {
-    return 'No previous';
+    return '첫 기록';
   }
 
   if (delta === 0) {
-    return 'No change';
+    return '변화 없음';
   }
 
-  return `${delta > 0 ? '+' : ''}${delta}`;
+  return `${delta > 0 ? '+' : ''}${delta}점`;
 }
