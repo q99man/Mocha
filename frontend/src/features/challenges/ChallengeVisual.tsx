@@ -6,6 +6,7 @@ type ChallengeVisualProps = {
   fallbackThumbnailVideoUrl: string | null;
   className: string;
   placeholderClassName: string;
+  videoAutoPlay?: boolean;
 };
 
 export function ChallengeVisual({
@@ -14,6 +15,7 @@ export function ChallengeVisual({
   fallbackThumbnailVideoUrl,
   className,
   placeholderClassName,
+  videoAutoPlay = false,
 }: ChallengeVisualProps) {
   if (thumbnailUrl) {
     return <img className={className} src={thumbnailUrl} alt={title} />;
@@ -25,6 +27,8 @@ export function ChallengeVisual({
         className={className}
         src={resolveApiUrl(fallbackThumbnailVideoUrl)}
         aria-label={title}
+        autoPlay={videoAutoPlay}
+        loop={videoAutoPlay}
         muted
         playsInline
         preload="metadata"

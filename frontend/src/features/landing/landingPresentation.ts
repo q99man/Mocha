@@ -1,15 +1,34 @@
 import type { Challenge } from '../../shared/types/challenge';
 
-export function pickFeaturedChallenge(challenges: Challenge[]) {
-  const ready = challenges.filter((challenge) => challenge.referenceVideoUploaded && challenge.referenceMotionProfileReady);
-  return ready[0] ?? challenges[0] ?? null;
+export type LandingMetricCard = {
+  label: string;
+  value: string;
+  meta: string;
+};
+
+export function summarizeChallenges(challenges: Challenge[]) {
+  const activeChallenges = challenges.filter((challenge) => challenge.isActive);
+  const readyChallenges = challenges.filter((challenge) => challenge.referenceVideoUploaded && challenge.referenceMotionProfileReady);
+  const scoredChallenges = challenges.filter((challenge) => challenge.latestRetrySummary);
+  const categories = [...new Set(challenges.map((challenge) => challenge.category).filter(Boolean))];
+  const averageDurationSec =
+    challenges.length > 0 ? Math.round(challenges.reduce((sum, challenge) => sum + challenge.durationSec, 0) / challenges.length) : 0;
+
+  return {
+    totalCount: challenges.length,
+    activeCount: activeChallenges.length,
+    readyCount: readyChallenges.length,
+    scoredCount: scoredChallenges.length,
+    categories,
+    averageDurationSec,
+  };
 }
 
 export function pickShowcaseChallenges(challenges: Challenge[]) {
   const ready = challenges.filter((challenge) => challenge.referenceVideoUploaded && challenge.referenceMotionProfileReady);
   const active = challenges.filter((challenge) => challenge.isActive);
   const source = ready.length > 0 ? ready : active.length > 0 ? active : challenges;
-  return source.slice(0, 4);
+  return source.slice(0, 8);
 }
 
 export function pickLatestScoredChallenge(challenges: Challenge[]) {
@@ -24,13 +43,31 @@ export function pickLatestScoredChallenge(challenges: Challenge[]) {
   );
 }
 
-export function buildShortText(text: string, limit: number) {
-  const normalized = text.trim();
-  if (normalized.length <= limit) {
-    return normalized;
-  }
+export function buildLandingMetricCards(challenges: Challenge[]): LandingMetricCard[] {
+  const summary = summarizeChallenges(challenges);
+  const latestScoredChallenge = pickLatestScoredChallenge(challenges);
+  const categoryMeta =
+    summary.categories.length > 0 ? summary.categories.slice(0, 3).join(' / ') : '등록 후 자동 노출';
 
-  return `${normalized.slice(0, Math.max(0, limit - 1)).trim()}...`;
+  return [
+    {
+      label: 'Ready',
+      value: String(summary.readyCount),
+      meta: categoryMeta,
+    },
+    {
+      label: 'Live',
+      value: String(summary.activeCount),
+      meta: summary.totalCount > 0 ? `${summary.totalCount} tracks` : '등록 대기',
+    },
+    {
+      label: 'Retry',
+      value: summary.scoredCount > 0 ? String(summary.scoredCount) : '0',
+      meta: latestScoredChallenge?.latestRetrySummary
+        ? `${latestScoredChallenge.title} ${formatDeltaText(latestScoredChallenge.latestRetrySummary.scoreDeltaFromPrevious)}`
+        : '첫 기록 대기',
+    },
+  ];
 }
 
 export function formatDeltaText(delta: number | null) {

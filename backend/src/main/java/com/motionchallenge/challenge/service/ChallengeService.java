@@ -28,6 +28,7 @@ import com.motionchallenge.challenge.repository.ChallengeVideoRepository;
 import com.motionchallenge.motion.service.MotionAnalysisResult;
 import com.motionchallenge.motion.service.MotionAnalysisModeSupport;
 import com.motionchallenge.motion.service.MotionAnalysisService;
+import com.motionchallenge.review.repository.ReviewRepository;
 import com.motionchallenge.video.service.StoredVideo;
 import com.motionchallenge.video.service.VideoStorageService;
 import java.time.LocalDateTime;
@@ -65,6 +66,7 @@ public class ChallengeService {
     private final VideoStorageService videoStorageService;
     private final MotionAnalysisService motionAnalysisService;
     private final ObjectMapper objectMapper;
+    private final ReviewRepository reviewRepository;
 
     public ChallengeService(
             ChallengeRepository challengeRepository,
@@ -78,7 +80,8 @@ public class ChallengeService {
             AttemptVideoRepository attemptVideoRepository,
             VideoStorageService videoStorageService,
             MotionAnalysisService motionAnalysisService,
-            ObjectMapper objectMapper) {
+            ObjectMapper objectMapper,
+            ReviewRepository reviewRepository) {
         this.challengeRepository = challengeRepository;
         this.challengeCacheService = challengeCacheService;
         this.motionSessionStateFactory = motionSessionStateFactory;
@@ -91,6 +94,7 @@ public class ChallengeService {
         this.videoStorageService = videoStorageService;
         this.motionAnalysisService = motionAnalysisService;
         this.objectMapper = objectMapper;
+        this.reviewRepository = reviewRepository;
     }
 
     public List<ChallengeResponse> getChallenges() {
@@ -288,6 +292,7 @@ public class ChallengeService {
         if (!processingJobs.isEmpty()) {
             attemptProcessingJobRepository.deleteAllInBatch(processingJobs);
         }
+        reviewRepository.deleteByChallengeId(challengeId);
         challengeMotionProfileRepository.deleteByChallengeId(challengeId);
         challengeVideoOptional.ifPresent(challengeVideoRepository::delete);
         challengeRepository.delete(challenge);

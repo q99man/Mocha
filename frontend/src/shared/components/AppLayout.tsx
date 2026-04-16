@@ -1,46 +1,75 @@
+import { useEffect, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthProvider';
 
 const BASE_NAV_ITEMS = [
   { to: '/', label: 'Landing' },
-  { to: '/challenges', label: 'Select' },
-  { to: '/attempts', label: 'Archive' },
+  { to: '/challenges', label: 'Challenges' },
 ];
 
 export function AppLayout() {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, isAdmin, isAuthenticated, logout } = useAuth();
-  const navItems = isAdmin ? [...BASE_NAV_ITEMS, { to: '/admin/model-assets', label: 'Admin' }] : BASE_NAV_ITEMS;
   const isLandingRoute = location.pathname === '/';
+  const [isLandingTopbarScrolled, setIsLandingTopbarScrolled] = useState(false);
+
+  const navItems = [
+    ...BASE_NAV_ITEMS,
+    ...(isAuthenticated && !isAdmin ? [{ to: '/mypage', label: 'My Page' }] : []),
+    ...(isAuthenticated ? [{ to: '/attempts', label: 'Archive' }] : []),
+    ...(isAdmin ? [{ to: '/admin/model-assets', label: 'Admin' }] : []),
+  ];
+
+  useEffect(() => {
+    if (!isLandingRoute) {
+      setIsLandingTopbarScrolled(false);
+      return;
+    }
+
+    const updateLandingTopbar = () => {
+      setIsLandingTopbarScrolled(window.scrollY > 28);
+    };
+
+    updateLandingTopbar();
+    window.addEventListener('scroll', updateLandingTopbar, { passive: true });
+
+    return () => {
+      window.removeEventListener('scroll', updateLandingTopbar);
+    };
+  }, [isLandingRoute]);
 
   if (isLandingRoute) {
     return (
       <div className="stage-shell stage-shell--landing">
-        <header className="stage-topbar stage-topbar--landing">
+        <header className={`stage-topbar stage-topbar--landing${isLandingTopbarScrolled ? ' is-scrolled' : ''}`}>
           <Link className="stage-topbar__brand stage-topbar__brand--landing" to="/">
-            <span className="stage-topbar__kicker stage-topbar__kicker--landing">Move with precision</span>
             <div className="stage-topbar__title-row stage-topbar__title-row--landing">
               <h1>Mocha</h1>
             </div>
           </Link>
 
-          <nav className="stage-nav stage-nav--landing" aria-label="Landing menu">
-            <a href="#feature">Feature</a>
-            <a href="#showcase">Showcase</a>
-            <a href="#use-case">Use case</a>
-            <a href="#cta">Start</a>
-            {isAdmin ? <NavLink to="/admin/model-assets">Admin</NavLink> : null}
-            {isAuthenticated ? (
-              <NavLink className="stage-nav__cta" to="/challenges">
-                Start now
+          <div className="stage-topbar__actions stage-topbar__actions--landing">
+            {isAdmin ? (
+              <NavLink className="stage-nav__utility" to="/admin/model-assets">
+                관리자
               </NavLink>
-            ) : (
-              <button className="stage-nav__cta" type="button" onClick={() => navigate('/auth')}>
-                Start now
+            ) : null}
+            {isAuthenticated && !isAdmin ? (
+              <NavLink className="stage-nav__utility" to="/mypage">
+                마이페이지
+              </NavLink>
+            ) : null}
+            {isAuthenticated ? (
+              <button className="stage-nav__utility" type="button" onClick={() => void logout()}>
+                로그아웃
               </button>
+            ) : (
+              <NavLink className="stage-nav__cta" to="/auth">
+                로그인
+              </NavLink>
             )}
-          </nav>
+          </div>
         </header>
 
         <main className="stage-main stage-main--landing">
@@ -51,42 +80,48 @@ export function AppLayout() {
   }
 
   return (
-    <div className="stage-shell">
-      <div className="stage-shell__halo stage-shell__halo--cyan" aria-hidden="true" />
-      <div className="stage-shell__halo stage-shell__halo--pink" aria-hidden="true" />
-      <header className="stage-topbar">
-        <div className="stage-topbar__brand">
-          <span className="stage-topbar__kicker">MOCHA / MOTION SIGNAL</span>
-          <div className="stage-topbar__title-row">
-            <h1>Mocha Stage</h1>
-            <span className="stage-topbar__status">Live Build</span>
-          </div>
-          <p>챌린지를 고르고 바로 촬영 흐름으로 진입하고, 결과까지 한 화면으로 이어지는 리듬 게임형 모션 스테이지입니다.</p>
-        </div>
-        <nav className="stage-nav" aria-label="주요 메뉴">
+    <div className="app-shell app-shell--glass">
+      <div className="app-shell__ambient" aria-hidden="true" />
+
+      <header className="app-header-glass">
+        <Link className="app-header-glass__brand" to="/">
+          <span className="app-header-glass__eyebrow">Motion Challenge</span>
+          <strong>Mocha</strong>
+        </Link>
+
+        <nav className="app-header-glass__nav" aria-label="주요 메뉴">
           {navItems.map((item) => (
             <NavLink key={item.to} to={item.to} end={item.to === '/'}>
               {item.label}
             </NavLink>
           ))}
+        </nav>
+
+        <div className="app-header-glass__actions">
           {isAuthenticated ? (
-            <button
-              className="stage-nav__action"
-              type="button"
-              onClick={() => {
-                void logout().then(() => navigate('/'));
-              }}
-            >
-              {user?.displayName ?? 'Account'} / Logout
-            </button>
+            <>
+              <span className="app-header-glass__account">
+                {user?.displayName ?? 'User'}
+              </span>
+              <button
+                className="stage-nav__utility"
+                type="button"
+                onClick={() => {
+                  void logout().then(() => navigate('/'));
+                }}
+              >
+                로그아웃
+              </button>
+            </>
           ) : (
-            <button className="stage-nav__action" type="button" onClick={() => navigate('/auth')}>
-              Login
+            <button className="stage-nav__cta" type="button" onClick={() => navigate('/auth')}>
+              로그인
             </button>
           )}
-        </nav>
+        </div>
       </header>
-      <main className="stage-main">
+
+      <main className="app-main-glass">
         <Outlet />
       </main>
     </div>

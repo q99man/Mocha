@@ -12,6 +12,7 @@ import { ChallengeDetailPage } from '../pages/ChallengeDetailPage';
 import { ChallengeStartPage } from '../pages/ChallengeStartPage';
 import { ChallengesPage } from '../pages/ChallengesPage';
 import { HomePage } from '../pages/HomePage';
+import { MyPage } from '../pages/MyPage';
 
 export const router = createBrowserRouter([
   {
@@ -47,6 +48,14 @@ export const router = createBrowserRouter([
         element: (
           <RequireAuth>
             <AttemptsPage />
+          </RequireAuth>
+        ),
+      },
+      {
+        path: 'mypage',
+        element: (
+          <RequireAuth>
+            <MyPage />
           </RequireAuth>
         ),
       },

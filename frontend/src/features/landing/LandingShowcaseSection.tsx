@@ -1,59 +1,60 @@
 import { Link } from 'react-router-dom';
+import { ChallengeVisual } from '../challenges/ChallengeVisual';
 import type { Challenge } from '../../shared/types/challenge';
-import { buildShortText } from './landingPresentation';
 
 type LandingShowcaseSectionProps = {
   challenges: Challenge[];
 };
 
 export function LandingShowcaseSection({ challenges }: LandingShowcaseSectionProps) {
-  const primary = challenges[0] ?? null;
-  const secondary = challenges.slice(1, 4);
+  const hasLoop = challenges.length > 1;
+  const trackChallenges = hasLoop ? [...challenges, ...challenges] : challenges;
 
   return (
     <section className="lp-section lp-section--showcase" id="showcase">
       <div className="lp-section__header">
         <span className="lp-kicker">Showcase</span>
-        <h3>지금 바로 들어갈 수 있는 트랙.</h3>
       </div>
 
       <div className="lp-showcase">
-        <div className="lp-showcase__lead">
-          {primary ? (
-            <article className="lp-showcase__primary-card">
-              <div className="lp-showcase__primary-body">
-                <span>Lead track</span>
-                <strong>{primary.title}</strong>
-                <div className="lp-meta-row">
-                  <span>{primary.category}</span>
-                  <span>{primary.difficulty}</span>
-                  <span>{primary.durationSec} sec</span>
-                </div>
-                <Link className="lp-inline-link" to={`/challenges/${primary.id}`}>
-                  Open track
+        {challenges.length > 0 ? (
+          <div className="lp-showcase__viewport">
+            <div className={`lp-showcase__track${hasLoop ? ' lp-showcase__track--marquee' : ''}`}>
+              {trackChallenges.map((challenge, index) => (
+                <Link
+                  className="lp-showcase__card lp-panel-glass"
+                  to={`/challenges/${challenge.id}`}
+                  key={`${challenge.id}-${index < challenges.length ? 'base' : 'clone'}`}
+                  aria-hidden={hasLoop && index >= challenges.length}
+                >
+                  <div className="lp-showcase__card-media">
+                    <ChallengeVisual
+                      title={challenge.title}
+                      thumbnailUrl={challenge.thumbnailUrl}
+                      fallbackThumbnailVideoUrl={challenge.fallbackThumbnailVideoUrl}
+                      className="lp-showcase__card-image"
+                      placeholderClassName="lp-showcase__placeholder"
+                      videoAutoPlay
+                    />
+                  </div>
+                  <div className="lp-showcase__card-body">
+                    <span className="lp-showcase__badge">{challenge.category}</span>
+                    <strong className="lp-showcase__title lp-showcase__title--mini">{challenge.title}</strong>
+                    <div className="lp-meta-row">
+                      <span>{challenge.difficulty}</span>
+                      <span>{challenge.durationSec} sec</span>
+                      <span>{challenge.referenceMotionProfileReady ? 'ready' : 'processing'}</span>
+                    </div>
+                  </div>
                 </Link>
-              </div>
-            </article>
-          ) : (
-            <article className="lp-showcase__primary-card lp-showcase__primary-card--empty">
-              <strong>챌린지 라이브러리를 불러오는 중입니다.</strong>
-            </article>
-          )}
-        </div>
-
-        <div className="lp-showcase__stack">
-          {secondary.map((challenge) => (
-            <article className="lp-showcase__mini-card" key={challenge.id}>
-              <div className="lp-showcase__mini-body">
-                <strong>{challenge.title}</strong>
-                <div className="lp-meta-row">
-                  <span>{challenge.category}</span>
-                  <span>{challenge.difficulty}</span>
-                </div>
-              </div>
-            </article>
-          ))}
-        </div>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <article className="lp-showcase__card lp-showcase__card--empty lp-panel-glass">
+            <strong>등록된 챌린지가 아직 없습니다.</strong>
+          </article>
+        )}
       </div>
     </section>
   );
