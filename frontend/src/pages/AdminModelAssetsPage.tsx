@@ -1,6 +1,7 @@
 ﻿import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
+  deletePoseLandmarkerModel,
   getActivePoseLandmarkerAsset,
   getPoseLandmarkerAssets,
   uploadPoseLandmarkerModel,
@@ -34,6 +35,7 @@ export function AdminModelAssetsPage() {
   const [uploadSuccess, setUploadSuccess] = useState<string | null>(null);
   const [selectedModelFile, setSelectedModelFile] = useState<File | null>(null);
   const [versionLabel, setVersionLabel] = useState('');
+  const [deletingAssetId, setDeletingAssetId] = useState<number | null>(null);
 
   const [challengeForm, setChallengeForm] = useState(initialChallengeForm);
   const [selectedReferenceVideo, setSelectedReferenceVideo] = useState<File | null>(null);
@@ -154,6 +156,29 @@ export function AdminModelAssetsPage() {
       setUploadError(submitError instanceof Error ? submitError.message : '모델 업로드에 실패했습니다.');
     } finally {
       setUploading(false);
+    }
+  }
+
+  async function handleDeleteModelAsset(asset: ModelAsset) {
+    const confirmed = window.confirm(
+      `"${asset.originalFileName}" 모델을 삭제하시겠습니까?\n활성 모델이면 런타임 모델도 함께 정리되고, 남아 있는 최신 모델이 있으면 자동으로 다시 활성화됩니다.`,
+    );
+    if (!confirmed) {
+      return;
+    }
+
+    setDeletingAssetId(asset.id);
+    setUploadError(null);
+    setUploadSuccess(null);
+
+    try {
+      await deletePoseLandmarkerModel(asset.id);
+      setUploadSuccess(`모델 삭제 완료: ${asset.originalFileName}`);
+      await loadAdminData();
+    } catch (deleteError) {
+      setUploadError(deleteError instanceof Error ? deleteError.message : '모델 삭제에 실패했습니다.');
+    } finally {
+      setDeletingAssetId(null);
     }
   }
 
@@ -386,7 +411,12 @@ export function AdminModelAssetsPage() {
               <button className="button-link" type="submit" disabled={uploading}>
                 {uploading ? '업로드 중...' : '모델 업로드'}
               </button>
-              <button className="button-link button-link--secondary" type="button" onClick={() => void loadAdminData()} disabled={loading}>
+              <button
+                className="button-link button-link--secondary"
+                type="button"
+                onClick={() => void loadAdminData()}
+                disabled={loading || uploading || deletingAssetId !== null}
+              >
                 새로고침
               </button>
             </div>
@@ -644,6 +674,16 @@ export function AdminModelAssetsPage() {
                   <p>{asset.versionLabel ? `버전 ${asset.versionLabel}` : '버전 라벨 없음'}</p>
                   <p>크기: {formatFileSize(asset.size)}</p>
                   <p>저장 시각: {new Date(asset.createdAt).toLocaleString('ko-KR')}</p>
+                  <div className="inline-actions">
+                    <button
+                      className="button-link button-link--secondary"
+                      type="button"
+                      disabled={deletingAssetId === asset.id || uploading}
+                      onClick={() => void handleDeleteModelAsset(asset)}
+                    >
+                      {deletingAssetId === asset.id ? '삭제 중...' : '모델 삭제'}
+                    </button>
+                  </div>
                 </article>
               ))}
             </div>

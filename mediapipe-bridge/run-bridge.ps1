@@ -12,6 +12,7 @@ $cacheRoot = Join-Path $root ".cache"
 $tempRoot = Join-Path $cacheRoot "temp"
 $matplotlibConfigRoot = Join-Path $cacheRoot "matplotlib"
 $modelsRoot = Join-Path $root "models"
+$defaultModelPath = Join-Path $modelsRoot "pose_landmarker_lite.task"
 
 function Test-CommandAvailable {
     param([string]$Name)
@@ -70,6 +71,18 @@ if (-not $env:MPLCONFIGDIR) {
     $env:MPLCONFIGDIR = $matplotlibConfigRoot
 }
 $env:MEDIAPIPE_BRIDGE_MODE = "mediapipe"
+$configuredModelPath = $env:MEDIAPIPE_BRIDGE_MODEL_PATH
+if ([string]::IsNullOrWhiteSpace($configuredModelPath)) {
+    if (Test-Path $defaultModelPath) {
+        $env:MEDIAPIPE_BRIDGE_MODEL_PATH = $defaultModelPath
+    }
+} elseif (-not (Test-Path $configuredModelPath)) {
+    Write-Warning "Configured MEDIAPIPE_BRIDGE_MODEL_PATH does not exist: $configuredModelPath"
+    if (Test-Path $defaultModelPath) {
+        Write-Host "Falling back to bundled model: $defaultModelPath"
+        $env:MEDIAPIPE_BRIDGE_MODEL_PATH = $defaultModelPath
+    }
+}
 
 function Invoke-PythonStep {
     param(
@@ -101,6 +114,7 @@ Write-Host "Bridge mode: $($env:MEDIAPIPE_BRIDGE_MODE)"
 Write-Host "Temp dir: $($env:TEMP)"
 Write-Host "Matplotlib config dir: $($env:MPLCONFIGDIR)"
 Write-Host "Model dir: $modelsRoot"
+Write-Host "Model path: $($env:MEDIAPIPE_BRIDGE_MODEL_PATH)"
 $uvicornArguments = @("-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "$Port")
 if ($Reload) {
     $uvicornArguments += "--reload"

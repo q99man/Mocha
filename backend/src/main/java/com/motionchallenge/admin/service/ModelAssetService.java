@@ -46,7 +46,7 @@ public class ModelAssetService {
     public ModelAssetResponse getActivePoseLandmarkerAsset() {
         return modelAssetRepository.findTopByAssetTypeAndActiveTrueOrderByCreatedAtDesc(ModelAssetType.POSE_LANDMARKER)
                 .map(ModelAssetResponse::from)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "활성화된 Pose Landmarker 모델이 등록되어 있지 않습니다."));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "활성화된 Pose Landmarker 모델이 없습니다."));
     }
 
     @Transactional
@@ -67,8 +67,7 @@ public class ModelAssetService {
         copyMultipartFile(modelFile, archivePath);
         copyPath(archivePath, runtimePath);
 
-        modelAssetRepository.findAllByAssetTypeOrderByCreatedAtDesc(ModelAssetType.POSE_LANDMARKER)
-                .stream()
+        modelAssetRepository.findAllByAssetTypeOrderByCreatedAtDesc(ModelAssetType.POSE_LANDMARKER).stream()
                 .filter(ModelAsset::isActive)
                 .forEach(ModelAsset::deactivate);
 
@@ -85,6 +84,25 @@ public class ModelAssetService {
         return ModelAssetResponse.from(saved);
     }
 
+    @Transactional
+    public void deletePoseLandmarker(Long assetId) {
+        ModelAsset asset = modelAssetRepository.findByIdAndAssetType(assetId, ModelAssetType.POSE_LANDMARKER)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "삭제할 Pose Landmarker 모델을 찾을 수 없습니다."));
+
+        Path runtimeDirectory = resolveRuntimeModelDirectory();
+        Path runtimePath = runtimeDirectory.resolve(motionAnalysisProperties.getMediapipe().getActiveModelFileName()).normalize();
+        Path archivePath = storageRootPath.resolve(asset.getStoragePath()).normalize();
+        boolean wasActive = asset.isActive();
+
+        modelAssetRepository.delete(asset);
+        deleteIfExists(archivePath);
+
+        if (wasActive) {
+            deleteIfExists(runtimePath);
+            reactivateLatestArchivedPoseLandmarker(asset.getId(), runtimePath);
+        }
+    }
+
     private void validateModelFile(MultipartFile modelFile) {
         if (modelFile == null || modelFile.isEmpty()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "모델 파일이 필요합니다.");
@@ -92,7 +110,7 @@ public class ModelAssetService {
 
         String originalFileName = modelFile.getOriginalFilename();
         if (originalFileName == null || !originalFileName.toLowerCase().endsWith(".task")) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ".task 모델 파일만 지원합니다.");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ".task 모델 파일만 업로드할 수 있습니다.");
         }
     }
 
@@ -117,7 +135,7 @@ public class ModelAssetService {
         try {
             Files.createDirectories(path);
         } catch (IOException exception) {
-            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "모델 저장 디렉터리를 준비하지 못했습니다.");
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "모델 디렉터리를 준비하지 못했습니다.");
         }
     }
 
@@ -133,7 +151,32 @@ public class ModelAssetService {
         try {
             Files.copy(sourcePath, targetPath, StandardCopyOption.REPLACE_EXISTING);
         } catch (IOException exception) {
-            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "업로드한 모델 파일을 활성화하지 못했습니다.");
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "활성 모델 파일을 갱신하지 못했습니다.");
+        }
+    }
+
+    private void reactivateLatestArchivedPoseLandmarker(Long deletedAssetId, Path runtimePath) {
+        modelAssetRepository.findAllByAssetTypeOrderByCreatedAtDesc(ModelAssetType.POSE_LANDMARKER).stream()
+                .filter(candidate -> !candidate.getId().equals(deletedAssetId))
+                .findFirst()
+                .ifPresent(candidate -> {
+                    Path candidateArchivePath = storageRootPath.resolve(candidate.getStoragePath()).normalize();
+                    if (!Files.exists(candidateArchivePath)) {
+                        throw new ResponseStatusException(
+                                HttpStatus.CONFLICT,
+                                "대체 활성 모델 파일을 찾을 수 없습니다. 관리자에서 모델을 다시 업로드해 주세요.");
+                    }
+                    ensureDirectory(runtimePath.getParent());
+                    copyPath(candidateArchivePath, runtimePath);
+                    candidate.activate();
+                });
+    }
+
+    private void deleteIfExists(Path targetPath) {
+        try {
+            Files.deleteIfExists(targetPath);
+        } catch (IOException exception) {
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "모델 파일을 삭제하지 못했습니다.");
         }
     }
 

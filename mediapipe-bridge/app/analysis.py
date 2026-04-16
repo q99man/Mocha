@@ -63,7 +63,9 @@ def analyze_with_mediapipe(payload: AnalyzeRequest) -> AnalyzeResponse:
         raise bridge_error(
             503,
             "POSE_LANDMARKER_MODEL_MISSING",
-            "Pose landmarker model file is missing. Set MEDIAPIPE_BRIDGE_MODEL_PATH or place a .task model under "
+            "Pose landmarker model file is missing. "
+            f"Resolved path: {model_path}. "
+            "Set MEDIAPIPE_BRIDGE_MODEL_PATH or place a .task model under "
             "mediapipe-bridge/models/pose_landmarker_lite.task.",
         )
 
@@ -244,11 +246,23 @@ def task_landmark_name(index: int) -> str:
 
 def resolve_pose_landmarker_model_path() -> Path:
     configured_model_path = os.getenv("MEDIAPIPE_BRIDGE_MODEL_PATH", "").strip()
-    if configured_model_path:
-        return Path(configured_model_path).resolve()
-
     project_root = Path(__file__).resolve().parents[1]
-    return project_root.joinpath("models", "pose_landmarker_lite.task").resolve()
+    default_model_path = project_root.joinpath("models", "pose_landmarker_lite.task").resolve()
+
+    if configured_model_path:
+        configured_path = Path(configured_model_path).resolve()
+        if configured_path.exists():
+            return configured_path
+
+        print(
+            "[bridge-model]",
+            f"configuredPathMissing={configured_path}",
+            f"fallbackPath={default_model_path}",
+            flush=True,
+        )
+        return default_model_path
+
+    return default_model_path
 
 
 def resolve_video_path(storage_path: str) -> Path:

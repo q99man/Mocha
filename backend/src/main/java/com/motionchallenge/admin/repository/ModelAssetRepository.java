@@ -11,4 +11,6 @@ public interface ModelAssetRepository extends JpaRepository<ModelAsset, Long> {
     List<ModelAsset> findAllByAssetTypeOrderByCreatedAtDesc(ModelAssetType assetType);
 
     Optional<ModelAsset> findTopByAssetTypeAndActiveTrueOrderByCreatedAtDesc(ModelAssetType assetType);
+
+    Optional<ModelAsset> findByIdAndAssetType(Long id, ModelAssetType assetType);
 }

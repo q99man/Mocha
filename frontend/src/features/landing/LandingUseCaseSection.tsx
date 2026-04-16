@@ -8,6 +8,12 @@ type LandingUseCaseSectionProps = {
 };
 
 export function LandingUseCaseSection({ reviews }: LandingUseCaseSectionProps) {
+  const firstRow = reviews.filter((_, index) => index % 2 === 0);
+  const secondRow = reviews.filter((_, index) => index % 2 === 1);
+  const firstRowLoop = firstRow.length > 1 ? [...firstRow, ...firstRow] : firstRow;
+  const secondRowSource = secondRow.length > 0 ? secondRow : firstRow;
+  const secondRowLoop = secondRowSource.length > 1 ? [...secondRowSource, ...secondRowSource] : secondRowSource;
+
   return (
     <section className="lp-section lp-section--light" id="use-case">
       <div className="lp-section__header lp-section__header--light">
@@ -15,30 +21,30 @@ export function LandingUseCaseSection({ reviews }: LandingUseCaseSectionProps) {
       </div>
 
       {reviews.length > 0 ? (
-        <div className="lp-usecase-grid">
-          {reviews.map((review) => (
-            <article className="lp-usecase-grid__card lp-review-card lp-panel-glass" key={review.id}>
-              <div className="lp-review-card__top">
-                <div className="lp-review-card__meta">
-                  <span className="lp-kicker">Challenge</span>
-                  <strong>{review.challengeTitle}</strong>
-                </div>
-                <ReviewStars value={review.rating} />
-              </div>
+        <div className="lp-review-marquee">
+          <div className="lp-review-marquee__viewport">
+            <div className="lp-review-marquee__track lp-review-marquee__track--left">
+              {firstRowLoop.map((review, index) => (
+                <ReviewCard
+                  key={`${review.id}-left-${index < firstRow.length ? 'base' : 'clone'}`}
+                  review={review}
+                  ariaHidden={firstRow.length > 1 && index >= firstRow.length}
+                />
+              ))}
+            </div>
+          </div>
 
-              <p className="lp-review-card__content">{review.content}</p>
-
-              <div className="lp-review-card__bottom">
-                <div className="lp-review-card__author">
-                  <strong>{review.memberDisplayName}</strong>
-                  <span>{formatReviewDate(review.updatedAt)}</span>
-                </div>
-                <Link className="lp-review-card__link" to={`/challenges/${review.challengeId}`}>
-                  챌린지 보기
-                </Link>
-              </div>
-            </article>
-          ))}
+          <div className="lp-review-marquee__viewport">
+            <div className="lp-review-marquee__track lp-review-marquee__track--right">
+              {secondRowLoop.map((review, index) => (
+                <ReviewCard
+                  key={`${review.id}-right-${index < secondRowSource.length ? 'base' : 'clone'}`}
+                  review={review}
+                  ariaHidden={secondRowSource.length > 1 && index >= secondRowSource.length}
+                />
+              ))}
+            </div>
+          </div>
         </div>
       ) : (
         <article className="lp-review-empty lp-panel-glass">
@@ -48,6 +54,37 @@ export function LandingUseCaseSection({ reviews }: LandingUseCaseSectionProps) {
         </article>
       )}
     </section>
+  );
+}
+
+type ReviewCardProps = {
+  review: Review;
+  ariaHidden: boolean;
+};
+
+function ReviewCard({ review, ariaHidden }: ReviewCardProps) {
+  return (
+    <article className="lp-usecase-grid__card lp-review-card lp-panel-glass" aria-hidden={ariaHidden}>
+      <div className="lp-review-card__top">
+        <div className="lp-review-card__meta">
+          <span className="lp-kicker">Challenge</span>
+          <strong>{review.challengeTitle}</strong>
+        </div>
+        <ReviewStars value={review.rating} />
+      </div>
+
+      <p className="lp-review-card__content">{review.content}</p>
+
+      <div className="lp-review-card__bottom">
+        <div className="lp-review-card__author">
+          <strong>{review.memberDisplayName}</strong>
+          <span>{formatReviewDate(review.updatedAt)}</span>
+        </div>
+        <Link className="lp-review-card__link" to={`/challenges/${review.challengeId}`}>
+          챌린지 보기
+        </Link>
+      </div>
+    </article>
   );
 }
 

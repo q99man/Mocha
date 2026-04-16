@@ -1,4 +1,4 @@
-﻿import { fetchJson, postFormData } from './client';
+import { deleteJson, fetchJson, postFormData } from './client';
 import type { ModelAsset } from '../types/admin';
 
 export async function getPoseLandmarkerAssets(): Promise<ModelAsset[]> {
@@ -17,4 +17,8 @@ export async function uploadPoseLandmarkerModel(modelFile: File, versionLabel?: 
   }
 
   return postFormData<ModelAsset>('/api/admin/model-assets/pose-landmarker', formData);
+}
+
+export async function deletePoseLandmarkerModel(id: number): Promise<void> {
+  return deleteJson(`/api/admin/model-assets/pose-landmarker/${id}`);
 }

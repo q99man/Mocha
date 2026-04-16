@@ -6,6 +6,7 @@ import com.motionchallenge.attempt.repository.AttemptVideoRepository;
 import com.motionchallenge.challenge.entity.Challenge;
 import com.motionchallenge.challenge.repository.ChallengeRepository;
 import com.motionchallenge.member.repository.MemberRepository;
+import org.springframework.mock.web.MockMultipartFile;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -18,7 +19,9 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.transaction.annotation.Transactional;
 
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -28,7 +31,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @ActiveProfiles("test")
 @TestPropertySource(properties = {
         "spring.jpa.hibernate.ddl-auto=create-drop",
-        "app.storage.local-root=build/test-uploads"
+        "app.storage.local-root=build/test-uploads",
+        "app.motion.analysis.mediapipe.model-directory=build/test-models"
 })
 @Transactional
 class AuthIntegrationTest {
@@ -91,6 +95,43 @@ class AuthIntegrationTest {
     void unauthenticatedAdminApiRequestIsRejected() throws Exception {
         mockMvc.perform(get("/api/admin/model-assets/pose-landmarker"))
                 .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void adminCanDeleteUploadedModelAsset() throws Exception {
+        MvcResult registerResult = mockMvc.perform(post("/api/auth/register")
+                        .contentType("application/json")
+                        .content("""
+                                {
+                                  "email": "admin@example.com",
+                                  "password": "password123",
+                                  "displayName": "Admin User"
+                                }
+                                """))
+                .andExpect(status().isCreated())
+                .andReturn();
+
+        MockHttpSession session = (MockHttpSession) registerResult.getRequest().getSession(false);
+        MockMultipartFile modelFile = new MockMultipartFile(
+                "modelFile",
+                "pose_landmarker_lite.task",
+                "application/octet-stream",
+                "fake-model".getBytes());
+
+        String responseBody = mockMvc.perform(multipart("/api/admin/model-assets/pose-landmarker")
+                        .file(modelFile)
+                        .param("versionLabel", "test-v1")
+                        .session(session))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.id").isNumber())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        String assetId = responseBody.replaceAll(".*\"id\":(\\d+).*", "$1");
+
+        mockMvc.perform(delete("/api/admin/model-assets/pose-landmarker/{id}", assetId).session(session))
+                .andExpect(status().isNoContent());
     }
 
     @Test
