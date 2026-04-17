@@ -1,4 +1,5 @@
 import type { FormEvent } from 'react';
+
 import type { ReviewInput } from '../../shared/types/review';
 import { ReviewStars } from './ReviewStars';
 
@@ -31,13 +32,14 @@ export function ReviewComposer({
   }
 
   return (
-    <form className="review-composer" onSubmit={(event) => void handleSubmit(event)}>
-      <div className="review-composer__header">
+    <form className="glass-panel glass-panel--nested glass-form" onSubmit={(event) => void handleSubmit(event)}>
+      <div className="glass-toolbar">
         <div>
-          <h3>{hasExistingReview ? '내 후기 수정' : '후기 남기기'}</h3>
-          <p>챌린지를 시도한 뒤, 동작 난이도와 경험을 짧고 선명하게 남겨주세요.</p>
+          <h3 className="glass-section-title">{hasExistingReview ? '후기 수정' : '후기 작성'}</h3>
+          <p className="glass-toolbar__note">직접 시도해 본 느낌과 동작 피드백을 짧고 분명하게 남겨 주세요.</p>
         </div>
-        <div className="review-composer__score">
+
+        <div className="glass-select">
           <span>평점</span>
           <ReviewStars
             value={value.rating}
@@ -47,23 +49,28 @@ export function ReviewComposer({
         </div>
       </div>
 
-      <label className="admin-form__field">
+      <label className="glass-field">
         <span>후기 내용</span>
         <textarea
           value={value.content}
           rows={5}
           maxLength={1200}
           disabled={busy}
-          placeholder="예: 동작 타이밍은 어렵지만 가이드가 좋아서 반복 연습하기 좋았어요."
+          placeholder="무엇이 좋았는지, 어려웠는지, 다시 시도할 때 도움이 될 포인트를 적어 주세요."
           onChange={(event) => onChange({ ...value, content: event.target.value })}
         />
       </label>
 
-      <div className="review-composer__footer">
-        <p className="review-composer__hint">{value.content.trim().length}/1200</p>
+      <div className="glass-toolbar">
+        <p className="glass-toolbar__note">{value.content.trim().length}/1200</p>
         <div className="inline-actions">
           {hasExistingReview && onDelete ? (
-            <button className="button-link button-link--secondary" type="button" disabled={busy} onClick={() => void onDelete()}>
+            <button
+              className="button-link button-link--secondary"
+              type="button"
+              disabled={busy}
+              onClick={() => void onDelete()}
+            >
               후기 삭제
             </button>
           ) : null}

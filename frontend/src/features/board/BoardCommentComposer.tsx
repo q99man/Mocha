@@ -1,0 +1,59 @@
+import { type FormEvent } from 'react';
+
+type BoardCommentComposerProps = {
+  value: string;
+  busy: boolean;
+  submitLabel: string;
+  placeholder: string;
+  error?: string | null;
+  success?: string | null;
+  onChange: (value: string) => void;
+  onSubmit: () => void;
+  onCancel?: () => void;
+};
+
+export function BoardCommentComposer({
+  value,
+  busy,
+  submitLabel,
+  placeholder,
+  error,
+  success,
+  onChange,
+  onSubmit,
+  onCancel,
+}: BoardCommentComposerProps) {
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    onSubmit();
+  }
+
+  return (
+    <form className="glass-form board-comment-editor" onSubmit={handleSubmit}>
+      <label className="glass-field">
+        <span>댓글</span>
+        <textarea
+          rows={4}
+          maxLength={1200}
+          value={value}
+          placeholder={placeholder}
+          onChange={(event) => onChange(event.target.value)}
+        />
+      </label>
+
+      {success ? <p className="review-composer__message review-composer__message--success">{success}</p> : null}
+      {error ? <p className="review-composer__message review-composer__message--error">{error}</p> : null}
+
+      <div className="inline-actions">
+        {onCancel ? (
+          <button className="button-link button-link--secondary" type="button" onClick={onCancel} disabled={busy}>
+            취소
+          </button>
+        ) : null}
+        <button className="button-link" type="submit" disabled={busy || value.trim().length === 0}>
+          {busy ? '저장 중...' : submitLabel}
+        </button>
+      </div>
+    </form>
+  );
+}

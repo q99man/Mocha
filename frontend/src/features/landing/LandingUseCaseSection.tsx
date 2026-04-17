@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 
-import { ReviewStars } from '../reviews/ReviewStars';
 import type { Review } from '../../shared/types/review';
+import { ReviewStars } from '../reviews/ReviewStars';
 
 type LandingUseCaseSectionProps = {
   reviews: Review[];
@@ -17,7 +17,7 @@ export function LandingUseCaseSection({ reviews }: LandingUseCaseSectionProps) {
   return (
     <section className="lp-section lp-section--light" id="use-case">
       <div className="lp-section__header lp-section__header--light">
-        <span className="lp-kicker">Reviews</span>
+        <span className="lp-kicker">Review</span>
       </div>
 
       {reviews.length > 0 ? (
@@ -49,8 +49,6 @@ export function LandingUseCaseSection({ reviews }: LandingUseCaseSectionProps) {
       ) : (
         <article className="lp-review-empty lp-panel-glass">
           <span className="lp-kicker">Coming soon</span>
-          <strong>등록된 사용자 후기가 여기에 표시됩니다.</strong>
-          <p>실제 리뷰 데이터가 연결되면 이 영역에서 자연스럽게 노출되도록 준비된 상태입니다.</p>
         </article>
       )}
     </section>
@@ -63,6 +61,12 @@ type ReviewCardProps = {
 };
 
 function ReviewCard({ review, ariaHidden }: ReviewCardProps) {
+  const challengeReviewQuery = new URLSearchParams({
+    sourceType: 'REVIEW_SYNC',
+    challengeId: String(review.challengeId),
+    challengeTitle: review.challengeTitle,
+  }).toString();
+
   return (
     <article className="lp-usecase-grid__card lp-review-card lp-panel-glass" aria-hidden={ariaHidden}>
       <div className="lp-review-card__top">
@@ -80,9 +84,20 @@ function ReviewCard({ review, ariaHidden }: ReviewCardProps) {
           <strong>{review.memberDisplayName}</strong>
           <span>{formatReviewDate(review.updatedAt)}</span>
         </div>
-        <Link className="lp-review-card__link" to={`/challenges/${review.challengeId}`}>
-          챌린지 보기
-        </Link>
+
+        <div className="lp-review-card__actions">
+          <Link className="lp-review-card__link" to={`/challenges/${review.challengeId}`}>
+            챌린지 보기
+          </Link>
+          <Link className="lp-review-card__link lp-review-card__link--secondary" to={`/board?${challengeReviewQuery}`}>
+            같은 챌린지 후기
+          </Link>
+          {review.boardPostId ? (
+            <Link className="lp-review-card__link lp-review-card__link--secondary" to={`/board/${review.boardPostId}`}>
+              게시판 후기
+            </Link>
+          ) : null}
+        </div>
       </div>
     </article>
   );

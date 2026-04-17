@@ -1,5 +1,6 @@
 export type Review = {
   id: number;
+  boardPostId: number | null;
   challengeId: number;
   challengeTitle: string;
   memberId: number;

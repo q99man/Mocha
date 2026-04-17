@@ -1,4 +1,5 @@
-﻿import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from 'react';
+import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import {
   deletePoseLandmarkerModel,
@@ -6,7 +7,15 @@ import {
   getPoseLandmarkerAssets,
   uploadPoseLandmarkerModel,
 } from '../shared/api/adminApi';
-import { analyzeChallengeReference, createChallenge, deleteChallenge, getAdminChallenges, updateChallenge, updateChallengeActive } from '../shared/api/challengeApi';
+import {
+  analyzeChallengeReference,
+  createChallenge,
+  deleteChallenge,
+  getAdminChallenges,
+  updateChallenge,
+  updateChallengeActive,
+} from '../shared/api/challengeApi';
+import { Pagination } from '../shared/components/Pagination';
 import type { ModelAsset } from '../shared/types/admin';
 import type { Challenge } from '../shared/types/challenge';
 
@@ -23,6 +32,9 @@ const initialChallengeForm = {
 type ChallengeStatusFilter = 'ALL' | 'ACTIVE' | 'INACTIVE';
 type ChallengeSortOption = 'NEWEST' | 'OLDEST' | 'TITLE_ASC' | 'TITLE_DESC';
 
+const CHALLENGES_PER_PAGE = 6;
+const ASSETS_PER_PAGE = 5;
+
 export function AdminModelAssetsPage() {
   const [assets, setAssets] = useState<ModelAsset[]>([]);
   const [activeAsset, setActiveAsset] = useState<ModelAsset | null>(null);
@@ -37,6 +49,7 @@ export function AdminModelAssetsPage() {
   const [versionLabel, setVersionLabel] = useState('');
   const [deletingAssetId, setDeletingAssetId] = useState<number | null>(null);
 
+  const [challengeModalOpen, setChallengeModalOpen] = useState(false);
   const [challengeForm, setChallengeForm] = useState(initialChallengeForm);
   const [selectedReferenceVideo, setSelectedReferenceVideo] = useState<File | null>(null);
   const [challengeSubmitting, setChallengeSubmitting] = useState(false);
@@ -53,6 +66,8 @@ export function AdminModelAssetsPage() {
   const [togglingId, setTogglingId] = useState<number | null>(null);
   const [analysisMessage, setAnalysisMessage] = useState<string | null>(null);
   const [analysisError, setAnalysisError] = useState<string | null>(null);
+  const [challengePage, setChallengePage] = useState(1);
+  const [assetPage, setAssetPage] = useState(1);
 
   useEffect(() => {
     void loadAdminData();
@@ -63,54 +78,89 @@ export function AdminModelAssetsPage() {
     [challenges],
   );
 
+  const activeChallenges = useMemo(() => challenges.filter((challenge) => challenge.isActive), [challenges]);
+
   const categoryOptions = useMemo(() => {
     const categories = new Set<string>();
     challenges.forEach((challenge) => {
-      if (challenge.category.trim()) {
-        categories.add(challenge.category);
-      }
+      if (challenge.category.trim()) categories.add(challenge.category);
     });
     return ['ALL', ...Array.from(categories).sort((left, right) => left.localeCompare(right, 'ko-KR'))];
   }, [challenges]);
 
   const filteredChallenges = useMemo(() => {
     const normalizedSearch = challengeSearch.trim().toLowerCase();
-
-    const filtered = challenges.filter((challenge) => {
-      const matchesCategory = activeCategoryFilter === 'ALL' || challenge.category === activeCategoryFilter;
-      const matchesStatus =
-        activeStatusFilter === 'ALL' ||
-        (activeStatusFilter === 'ACTIVE' && challenge.isActive) ||
-        (activeStatusFilter === 'INACTIVE' && !challenge.isActive);
-      const matchesSearch =
-        normalizedSearch.length === 0 ||
-        challenge.title.toLowerCase().includes(normalizedSearch) ||
-        challenge.description.toLowerCase().includes(normalizedSearch) ||
-        challenge.category.toLowerCase().includes(normalizedSearch) ||
-        String(challenge.id).includes(normalizedSearch);
-
-      return matchesCategory && matchesStatus && matchesSearch;
-    });
-
-    return filtered.sort((left, right) => {
-      switch (activeSort) {
-        case 'OLDEST':
-          return left.id - right.id;
-        case 'TITLE_ASC':
-          return left.title.localeCompare(right.title, 'ko-KR');
-        case 'TITLE_DESC':
-          return right.title.localeCompare(left.title, 'ko-KR');
-        case 'NEWEST':
-        default:
-          return right.id - left.id;
-      }
-    });
+    return challenges
+      .filter((challenge) => {
+        const matchesCategory = activeCategoryFilter === 'ALL' || challenge.category === activeCategoryFilter;
+        const matchesStatus =
+          activeStatusFilter === 'ALL' ||
+          (activeStatusFilter === 'ACTIVE' && challenge.isActive) ||
+          (activeStatusFilter === 'INACTIVE' && !challenge.isActive);
+        const matchesSearch =
+          normalizedSearch.length === 0 ||
+          challenge.title.toLowerCase().includes(normalizedSearch) ||
+          challenge.description.toLowerCase().includes(normalizedSearch) ||
+          challenge.category.toLowerCase().includes(normalizedSearch) ||
+          String(challenge.id).includes(normalizedSearch);
+        return matchesCategory && matchesStatus && matchesSearch;
+      })
+      .sort((left, right) => {
+        switch (activeSort) {
+          case 'OLDEST':
+            return left.id - right.id;
+          case 'TITLE_ASC':
+            return left.title.localeCompare(right.title, 'ko-KR');
+          case 'TITLE_DESC':
+            return right.title.localeCompare(left.title, 'ko-KR');
+          case 'NEWEST':
+          default:
+            return right.id - left.id;
+        }
+      });
   }, [activeCategoryFilter, activeSort, activeStatusFilter, challengeSearch, challenges]);
+
+  const challengeTotalPages = Math.max(1, Math.ceil(filteredChallenges.length / CHALLENGES_PER_PAGE));
+  const assetTotalPages = Math.max(1, Math.ceil(assets.length / ASSETS_PER_PAGE));
+
+  useEffect(() => {
+    setChallengePage(1);
+  }, [activeCategoryFilter, activeSort, activeStatusFilter, challengeSearch]);
+
+  useEffect(() => {
+    if (challengePage > challengeTotalPages) setChallengePage(challengeTotalPages);
+  }, [challengePage, challengeTotalPages]);
+
+  useEffect(() => {
+    if (assetPage > assetTotalPages) setAssetPage(assetTotalPages);
+  }, [assetPage, assetTotalPages]);
+
+  useEffect(() => {
+    const body = document.body;
+    if (!challengeModalOpen) {
+      body.classList.remove('body--modal-open');
+      return;
+    }
+
+    body.classList.add('body--modal-open');
+    return () => {
+      body.classList.remove('body--modal-open');
+    };
+  }, [challengeModalOpen]);
+
+  const pagedChallenges = useMemo(() => {
+    const startIndex = (challengePage - 1) * CHALLENGES_PER_PAGE;
+    return filteredChallenges.slice(startIndex, startIndex + CHALLENGES_PER_PAGE);
+  }, [challengePage, filteredChallenges]);
+
+  const pagedAssets = useMemo(() => {
+    const startIndex = (assetPage - 1) * ASSETS_PER_PAGE;
+    return assets.slice(startIndex, startIndex + ASSETS_PER_PAGE);
+  }, [assetPage, assets]);
 
   async function loadAdminData() {
     setLoading(true);
     setError(null);
-
     try {
       const [assetList, active, challengeList] = await Promise.all([
         getPoseLandmarkerAssets(),
@@ -128,24 +178,20 @@ export function AdminModelAssetsPage() {
   }
 
   function handleModelFileChange(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0] ?? null;
-    setSelectedModelFile(file);
+    setSelectedModelFile(event.target.files?.[0] ?? null);
     setUploadError(null);
     setUploadSuccess(null);
   }
 
   async function handleModelSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-
     if (!selectedModelFile) {
       setUploadError('.task 모델 파일을 먼저 선택해 주세요.');
       return;
     }
-
     setUploading(true);
     setUploadError(null);
     setUploadSuccess(null);
-
     try {
       const uploaded = await uploadPoseLandmarkerModel(selectedModelFile, versionLabel);
       setUploadSuccess(`모델 업로드 완료: ${uploaded.originalFileName}`);
@@ -158,19 +204,14 @@ export function AdminModelAssetsPage() {
       setUploading(false);
     }
   }
-
   async function handleDeleteModelAsset(asset: ModelAsset) {
     const confirmed = window.confirm(
-      `"${asset.originalFileName}" 모델을 삭제하시겠습니까?\n활성 모델이면 런타임 모델도 함께 정리되고, 남아 있는 최신 모델이 있으면 자동으로 다시 활성화됩니다.`,
+      `"${asset.originalFileName}" 모델을 삭제하시겠습니까?\n활성 모델이라면 상태를 정리하고, 다른 최신 모델이 있으면 자동으로 다시 활성화됩니다.`,
     );
-    if (!confirmed) {
-      return;
-    }
-
+    if (!confirmed) return;
     setDeletingAssetId(asset.id);
     setUploadError(null);
     setUploadSuccess(null);
-
     try {
       await deletePoseLandmarkerModel(asset.id);
       setUploadSuccess(`모델 삭제 완료: ${asset.originalFileName}`);
@@ -182,11 +223,12 @@ export function AdminModelAssetsPage() {
     }
   }
 
-  function handleReferenceVideoChange(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0] ?? null;
-    setSelectedReferenceVideo(file);
+  function openCreateChallengeModal() {
+    setEditingChallengeId(null);
+    setChallengeForm(initialChallengeForm);
+    setSelectedReferenceVideo(null);
     setChallengeError(null);
-    setChallengeSuccess(null);
+    setChallengeModalOpen(true);
   }
 
   function handleEditChallenge(challenge: Challenge) {
@@ -202,33 +244,34 @@ export function AdminModelAssetsPage() {
     });
     setSelectedReferenceVideo(null);
     setChallengeError(null);
-    setChallengeSuccess(null);
-    setAnalysisMessage(null);
-    setAnalysisError(null);
+    setChallengeModalOpen(true);
   }
 
-  function handleCancelChallengeEdit() {
+  function closeChallengeModal() {
+    if (challengeSubmitting) return;
+    setChallengeModalOpen(false);
     setEditingChallengeId(null);
     setChallengeForm(initialChallengeForm);
     setSelectedReferenceVideo(null);
     setChallengeError(null);
-    setChallengeSuccess(null);
+  }
+
+  function handleReferenceVideoChange(event: ChangeEvent<HTMLInputElement>) {
+    setSelectedReferenceVideo(event.target.files?.[0] ?? null);
+    setChallengeError(null);
   }
 
   async function handleChallengeSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-
     if (!editingChallengeId && !selectedReferenceVideo) {
       setChallengeError('레퍼런스 영상을 먼저 선택해 주세요.');
       return;
     }
-
     setChallengeSubmitting(true);
     setChallengeError(null);
     setChallengeSuccess(null);
     setAnalysisMessage(null);
     setAnalysisError(null);
-
     try {
       const payload = {
         title: challengeForm.title,
@@ -239,25 +282,16 @@ export function AdminModelAssetsPage() {
         guideVideoUrl: challengeForm.guideVideoUrl,
         durationSec: Number(challengeForm.durationSec),
       };
-
       if (editingChallengeId) {
-        const updated = await updateChallenge(editingChallengeId, {
-          ...payload,
-          referenceVideo: selectedReferenceVideo,
-        });
+        const updated = await updateChallenge(editingChallengeId, { ...payload, referenceVideo: selectedReferenceVideo });
         setChallengeSuccess(`챌린지 수정 완료: ${updated.title} (#${updated.id})`);
-        setEditingChallengeId(null);
       } else {
-        const created = await createChallenge({
-          ...payload,
-          referenceVideo: selectedReferenceVideo!,
-        });
+        const created = await createChallenge({ ...payload, referenceVideo: selectedReferenceVideo! });
         setCreatedChallengeId(created.id);
         setChallengeSuccess(`챌린지 생성 완료: ${created.title} (#${created.id})`);
       }
-      setChallengeForm(initialChallengeForm);
-      setSelectedReferenceVideo(null);
       await loadAdminData();
+      closeChallengeModal();
     } catch (submitError) {
       setChallengeError(
         submitError instanceof Error
@@ -275,7 +309,6 @@ export function AdminModelAssetsPage() {
     setAnalyzingId(challengeId);
     setAnalysisMessage(null);
     setAnalysisError(null);
-
     try {
       const result = await analyzeChallengeReference(challengeId);
       setAnalysisMessage(`레퍼런스 분석 완료: #${result.challengeId} / ${result.analyzerName ?? '분석기 정보 없음'}`);
@@ -289,25 +322,15 @@ export function AdminModelAssetsPage() {
 
   async function handleDeleteChallenge(challenge: Challenge) {
     const confirmed = window.confirm(`정말로 "${challenge.title}" 챌린지를 삭제하시겠습니까?\n연결된 시도 기록과 업로드 파일도 함께 정리됩니다.`);
-    if (!confirmed) {
-      return;
-    }
-
+    if (!confirmed) return;
     setDeletingId(challenge.id);
     setAnalysisMessage(null);
     setAnalysisError(null);
     setChallengeSuccess(null);
-    setChallengeError(null);
-
     try {
       await deleteChallenge(challenge.id);
       setAnalysisMessage(`챌린지 삭제 완료: ${challenge.title} (#${challenge.id})`);
-      if (createdChallengeId === challenge.id) {
-        setCreatedChallengeId(null);
-      }
-      if (editingChallengeId === challenge.id) {
-        handleCancelChallengeEdit();
-      }
+      if (createdChallengeId === challenge.id) setCreatedChallengeId(null);
       await loadAdminData();
     } catch (deleteError) {
       setAnalysisError(deleteError instanceof Error ? deleteError.message : '챌린지 삭제에 실패했습니다.');
@@ -321,14 +344,9 @@ export function AdminModelAssetsPage() {
     setAnalysisMessage(null);
     setAnalysisError(null);
     setChallengeSuccess(null);
-    setChallengeError(null);
-
     try {
       const updated = await updateChallengeActive(challenge.id, !challenge.isActive);
       setAnalysisMessage(`챌린지 상태 변경 완료: ${updated.title} (#${updated.id}) / ${updated.isActive ? '활성' : '비활성'}`);
-      if (editingChallengeId === challenge.id) {
-        setEditingChallengeId(updated.id);
-      }
       await loadAdminData();
     } catch (toggleError) {
       setAnalysisError(toggleError instanceof Error ? toggleError.message : '챌린지 상태 변경에 실패했습니다.');
@@ -338,361 +356,197 @@ export function AdminModelAssetsPage() {
   }
 
   return (
-    <div className="page admin-page">
-      <section className="hero hero--detail">
-        <div className="hero__content">
-          <span className="hero__eyebrow">운영 / 운영 허브</span>
-          <h2>운영 허브</h2>
-          <p>모델 자산 업로드와 실제 레퍼런스 기반 챌린지 생성을 한 화면에서 관리합니다. 시드 프로필 대신 실제 레퍼런스 프로필을 만들 때 이 페이지를 사용하면 됩니다.</p>
-          <div className="signal-panel">
-            <span className="signal-panel__label">현재 활성 모델</span>
-            <strong>{activeAsset ? activeAsset.originalFileName : '활성 모델 없음'}</strong>
-            <p>{activeAsset ? buildActiveDescription(activeAsset) : '활성 모델이 없습니다. 먼저 Pose Landmarker .task 파일을 업로드해 주세요.'}</p>
+    <>
+      <div className="glass-page">
+        <section className="glass-intro">
+          <div>
+            <span className="glass-intro__eyebrow">운영 허브</span>
+            <h2>모델과 챌린지를 한 흐름으로 관리합니다</h2>
+            <p>상단은 모델 등록과 자산 확인, 하단은 챌린지 상태 관리와 분석 실행에 집중하도록 재구성했습니다.</p>
           </div>
-        </div>
-
-        <div className="hero__aside">
-          <article className="panel panel--section">
-            <div className="section-heading">
-              <span className="section-heading__code">운영</span>
-              <div>
-                <h2>운영 현황</h2>
-                <p>실제 레퍼런스 기반으로 테스트 가능한 챌린지 수와 최근 모델 상태를 빠르게 확인합니다.</p>
-              </div>
-            </div>
-            <div className="signal-grid">
-              <div className="signal-grid__item">
-                <span>활성 모델</span>
-                <strong>{activeAsset ? '준비됨' : '없음'}</strong>
-                <p>{activeAsset?.versionLabel ?? '모델 업로드 필요'}</p>
-              </div>
-              <div className="signal-grid__item">
-                <span>준비된 챌린지</span>
-                <strong>{readyChallenges.length}</strong>
-                <p>레퍼런스 영상 + 모션 프로필 준비 완료</p>
-              </div>
-              <div className="signal-grid__item">
-                <span>최근 생성</span>
-                <strong>{createdChallengeId ? `#${createdChallengeId}` : '없음'}</strong>
-                <p>{challengeSuccess ?? '이번 세션 생성 기록 없음'}</p>
-              </div>
-            </div>
-          </article>
-        </div>
-      </section>
-
-      <section className="dashboard-grid admin-grid admin-grid--wide">
-        <article className="panel panel--section">
-          <div className="section-heading">
-            <span className="section-heading__code">01</span>
-            <div>
-              <h2>모델 업로드</h2>
-              <p>Pose Landmarker `.task` 파일을 업로드하면 DB에 자산으로 등록하고 브리지 active 모델로 복사합니다.</p>
-            </div>
+          <div className="glass-intro__meta">
+            <div><span>활성 모델</span><strong>{activeAsset ? '1' : '0'}</strong></div>
+            <div><span>활성 챌린지</span><strong>{String(activeChallenges.length).padStart(2, '0')}</strong></div>
+            <div><span>분석 준비</span><strong>{String(readyChallenges.length).padStart(2, '0')}</strong></div>
           </div>
+        </section>
 
-          <form className="admin-form" onSubmit={(event) => void handleModelSubmit(event)}>
-            <label className="admin-form__field">
-              <span>모델 파일</span>
-              <input type="file" accept=".task" onChange={handleModelFileChange} />
-            </label>
+        <section className="glass-panel">
+          <div className="glass-form-grid">
+            <form className="glass-panel glass-panel--nested glass-form" onSubmit={(event) => void handleModelSubmit(event)}>
+              <div className="glass-toolbar">
+                <div>
+                  <h3 className="glass-section-title">모델 등록</h3>
+                  <p className="glass-toolbar__note">새 `.task` 모델을 올리면 즉시 운영 자산으로 반영됩니다.</p>
+                </div>
+              </div>
+              <label className="glass-field"><span>모델 파일</span><input type="file" accept=".task" onChange={handleModelFileChange} /></label>
+              <label className="glass-field"><span>버전 라벨</span><input type="text" value={versionLabel} onChange={(event) => setVersionLabel(event.target.value)} placeholder="예: lite-v1" /></label>
+              <div className="inline-actions"><button className="button-link" type="submit" disabled={uploading}>{uploading ? '업로드 중...' : '모델 업로드'}</button></div>
+              {selectedModelFile ? <p className="glass-toolbar__note">선택 파일: {selectedModelFile.name}</p> : null}
+              {uploadSuccess ? <p className="review-composer__message review-composer__message--success">{uploadSuccess}</p> : null}
+              {uploadError ? <p className="review-composer__message review-composer__message--error">{uploadError}</p> : null}
+            </form>
 
-            <label className="admin-form__field">
-              <span>버전 라벨</span>
-              <input
-                type="text"
-                value={versionLabel}
-                onChange={(event) => setVersionLabel(event.target.value)}
-                placeholder="예: lite-v1"
-              />
-            </label>
-
-            <div className="inline-actions">
-              <button className="button-link" type="submit" disabled={uploading}>
-                {uploading ? '업로드 중...' : '모델 업로드'}
-              </button>
-              <button
-                className="button-link button-link--secondary"
-                type="button"
-                onClick={() => void loadAdminData()}
-                disabled={loading || uploading || deletingAssetId !== null}
-              >
-                새로고침
-              </button>
-            </div>
-          </form>
-
-          {selectedModelFile ? <p className="admin-form__hint">선택 파일: {selectedModelFile.name}</p> : null}
-          {uploadSuccess ? <p className="admin-form__message admin-form__message--success">{uploadSuccess}</p> : null}
-          {uploadError ? <p className="admin-form__message admin-form__message--error">{uploadError}</p> : null}
-        </article>
-
-        <article className="panel panel--section">
-          <div className="section-heading">
-            <span className="section-heading__code">02</span>
-            <div>
-              <h2>{editingChallengeId ? '챌린지 수정' : '실제 레퍼런스 챌린지 생성'}</h2>
-              <p>
-                {editingChallengeId
-                  ? '기본 정보는 바로 수정할 수 있고, 새 레퍼런스 영상을 넣으면 분석 상태가 초기화됩니다.'
-                  : '실제 레퍼런스 영상을 업로드해 새 챌린지를 만들고, 이후 같은 화면에서 바로 분석까지 실행할 수 있습니다.'}
-              </p>
-            </div>
-          </div>
-
-          <form className="admin-form" onSubmit={(event) => void handleChallengeSubmit(event)}>
-            <label className="admin-form__field">
-              <span>챌린지 제목</span>
-              <input type="text" value={challengeForm.title} onChange={(event) => setChallengeForm((current) => ({ ...current, title: event.target.value }))} placeholder="예: 사이드 스텝 테스트" />
-            </label>
-
-            <label className="admin-form__field">
-              <span>설명</span>
-              <textarea value={challengeForm.description} onChange={(event) => setChallengeForm((current) => ({ ...current, description: event.target.value }))} placeholder="레퍼런스 동작 설명" rows={4} />
-            </label>
-
-            <div className="admin-form__split">
-              <label className="admin-form__field">
-                <span>카테고리</span>
-                <input type="text" value={challengeForm.category} onChange={(event) => setChallengeForm((current) => ({ ...current, category: event.target.value }))} />
-              </label>
-              <label className="admin-form__field">
-                <span>난이도</span>
-                <input type="text" value={challengeForm.difficulty} onChange={(event) => setChallengeForm((current) => ({ ...current, difficulty: event.target.value }))} />
-              </label>
-            </div>
-
-            <div className="admin-form__split">
-              <label className="admin-form__field">
-                <span>길이(초)</span>
-                <input type="number" min={5} max={600} value={challengeForm.durationSec} onChange={(event) => setChallengeForm((current) => ({ ...current, durationSec: event.target.value }))} />
-              </label>
-              <label className="admin-form__field">
-                <span>썸네일 URL</span>
-                <input type="text" value={challengeForm.thumbnailUrl} onChange={(event) => setChallengeForm((current) => ({ ...current, thumbnailUrl: event.target.value }))} placeholder="선택" />
-              </label>
-            </div>
-
-            <label className="admin-form__field">
-              <span>가이드 영상 URL</span>
-              <input type="text" value={challengeForm.guideVideoUrl} onChange={(event) => setChallengeForm((current) => ({ ...current, guideVideoUrl: event.target.value }))} placeholder="선택" />
-            </label>
-
-            <label className="admin-form__field">
-              <span>{editingChallengeId ? '레퍼런스 영상 교체(선택)' : '레퍼런스 영상'}</span>
-              <input type="file" accept="video/*" onChange={handleReferenceVideoChange} />
-            </label>
-
-            <div className="inline-actions">
-              <button className="button-link" type="submit" disabled={challengeSubmitting}>
-                {challengeSubmitting ? (editingChallengeId ? '수정 중...' : '생성 중...') : (editingChallengeId ? '챌린지 수정 저장' : '챌린지 생성')}
-              </button>
-              {editingChallengeId ? (
-                <button className="button-link button-link--secondary" type="button" onClick={handleCancelChallengeEdit} disabled={challengeSubmitting}>
-                  수정 취소
-                </button>
+            <div className="glass-panel glass-panel--nested">
+              <div className="glass-toolbar">
+                <div>
+                  <h3 className="glass-section-title">모델 자산</h3>
+                  <p className="glass-toolbar__note">등록된 모델 자산을 확인하고 필요 없는 항목은 바로 정리할 수 있습니다.</p>
+                </div>
+              </div>
+              <div className="glass-inline-meta">
+                <span>현재 모델 {activeAsset?.originalFileName ?? '없음'}</span>
+                <span>{activeAsset ? buildActiveDescription(activeAsset) : '업로드 필요'}</span>
+                {createdChallengeId ? <span>최근 생성 #{createdChallengeId}</span> : null}
+              </div>
+              {loading ? <div className="glass-panel glass-panel--nested glass-panel--empty"><strong>모델 자산을 불러오는 중입니다.</strong></div> : null}
+              {!loading && pagedAssets.length === 0 ? <div className="glass-panel glass-panel--nested glass-panel--empty"><strong>등록된 모델 자산이 없습니다.</strong></div> : null}
+              {!loading && pagedAssets.length > 0 ? (
+                <div className="glass-list">
+                  {pagedAssets.map((asset) => (
+                    <article className="glass-list-item" key={asset.id}>
+                      <div className="glass-list-item__content">
+                        <div className="glass-list-item__header">
+                          <div><span className="glass-list-item__eyebrow">모델 #{asset.id}</span><strong>{asset.originalFileName}</strong></div>
+                          <span className={`glass-badge${asset.active ? ' is-accent' : ''}`}>{asset.active ? '활성' : '보관'}</span>
+                        </div>
+                        <div className="glass-inline-meta"><span>{asset.versionLabel ?? '버전 라벨 없음'}</span><span>{formatFileSize(asset.size)}</span><span>{new Date(asset.createdAt).toLocaleString('ko-KR')}</span></div>
+                      </div>
+                      <div className="glass-list-item__actions"><button className="button-link button-link--secondary" type="button" disabled={deletingAssetId === asset.id || uploading} onClick={() => void handleDeleteModelAsset(asset)}>{deletingAssetId === asset.id ? '삭제 중...' : '모델 삭제'}</button></div>
+                    </article>
+                  ))}
+                </div>
               ) : null}
+              <Pagination currentPage={assetPage} totalPages={assetTotalPages} onPageChange={setAssetPage} />
             </div>
-          </form>
-
-          {selectedReferenceVideo ? <p className="admin-form__hint">선택 영상: {selectedReferenceVideo.name}</p> : null}
-          {editingChallengeId ? <p className="admin-form__hint">수정 중 챌린지 ID: #{editingChallengeId}</p> : null}
-          {challengeSuccess ? <p className="admin-form__message admin-form__message--success">{challengeSuccess}</p> : null}
-          {challengeError ? <p className="admin-form__message admin-form__message--error">{challengeError}</p> : null}
-        </article>
-      </section>
-
-      <section className="dashboard-grid admin-grid admin-grid--wide">
-        <article className="panel panel--section">
-          <div className="section-heading">
-            <span className="section-heading__code">03</span>
+          </div>
+        </section>
+        <section className="glass-panel">
+          <div className="glass-toolbar">
             <div>
-              <h2>레퍼런스 분석 실행</h2>
-              <p>검색, 카테고리, 상태 필터와 정렬로 대상을 빠르게 찾고 레퍼런스 분석을 함께 관리합니다.</p>
+              <h3 className="glass-section-title">챌린지 관리</h3>
+              <p className="glass-toolbar__note">필터링, 상태 변경, 분석 실행을 한 곳에서 관리하고 생성은 모달로 분리했습니다.</p>
+            </div>
+            <div className="inline-actions">
+              <button className="button-link button-link--secondary" type="button" onClick={() => void loadAdminData()}>새로고침</button>
+              <button className="button-link" type="button" onClick={openCreateChallengeModal}>챌린지 등록</button>
             </div>
           </div>
 
-          {analysisMessage ? <p className="admin-form__message admin-form__message--success">{analysisMessage}</p> : null}
-          {analysisError ? <p className="admin-form__message admin-form__message--error">{analysisError}</p> : null}
-          {error ? <p className="admin-form__message admin-form__message--error">{error}</p> : null}
-
-          <div className="admin-filter-bar">
-            <label className="admin-form__field admin-filter-bar__search">
-              <span>검색</span>
-              <input
-                type="text"
-                value={challengeSearch}
-                onChange={(event) => setChallengeSearch(event.target.value)}
-                placeholder="제목, 설명, 카테고리, ID 검색"
-              />
-            </label>
-            <div className="admin-filter-bar__categories">
-              <span className="admin-filter-bar__label">카테고리</span>
-              <div className="archive-filter-group">
-                {categoryOptions.map((category) => {
-                  const isActive = activeCategoryFilter === category;
-                  const count =
-                    category === 'ALL'
-                      ? challenges.length
-                      : challenges.filter((challenge) => challenge.category === category).length;
-
-                  return (
-                    <button
-                      key={category}
-                      className={`archive-filter ${isActive ? 'archive-filter--active' : ''}`}
-                      type="button"
-                      onClick={() => setActiveCategoryFilter(category)}
-                    >
-                      <span>{category === 'ALL' ? '전체' : category}</span>
-                      <strong>{count}</strong>
-                    </button>
-                  );
-                })}
-              </div>
+          {(analysisMessage || analysisError || error || challengeSuccess) ? (
+            <div className="glass-status-stack">
+              {analysisMessage ? <p className="review-composer__message review-composer__message--success">{analysisMessage}</p> : null}
+              {challengeSuccess ? <p className="review-composer__message review-composer__message--success">{challengeSuccess}</p> : null}
+              {analysisError ? <p className="review-composer__message review-composer__message--error">{analysisError}</p> : null}
+              {error ? <p className="review-composer__message review-composer__message--error">{error}</p> : null}
             </div>
-            <div className="admin-filter-bar__categories">
-              <span className="admin-filter-bar__label">상태</span>
-              <div className="archive-filter-group">
-                {[
-                  { key: 'ALL', label: '전체', count: challenges.length },
-                  { key: 'ACTIVE', label: '활성', count: challenges.filter((challenge) => challenge.isActive).length },
-                  { key: 'INACTIVE', label: '비활성', count: challenges.filter((challenge) => !challenge.isActive).length },
-                ].map((filter) => {
-                  const isActive = activeStatusFilter === filter.key;
-                  return (
-                    <button
-                      key={filter.key}
-                      className={`archive-filter ${isActive ? 'archive-filter--active' : ''}`}
-                      type="button"
-                      onClick={() => setActiveStatusFilter(filter.key as ChallengeStatusFilter)}
-                    >
-                      <span>{filter.label}</span>
-                      <strong>{filter.count}</strong>
-                    </button>
-                  );
-                })}
-              </div>
+          ) : null}
+
+          <div className="glass-toolbar glass-toolbar--stack">
+            <div className="glass-toolbar__row">
+              <label className="glass-select">
+                <span>검색</span>
+                <input type="text" value={challengeSearch} onChange={(event) => setChallengeSearch(event.target.value)} placeholder="제목, 설명, 카테고리, ID" />
+              </label>
+              <label className="glass-select">
+                <span>카테고리</span>
+                <select value={activeCategoryFilter} onChange={(event) => setActiveCategoryFilter(event.target.value)}>
+                  {categoryOptions.map((category) => <option key={category} value={category}>{category === 'ALL' ? '전체' : category}</option>)}
+                </select>
+              </label>
+              <label className="glass-select">
+                <span>상태</span>
+                <select value={activeStatusFilter} onChange={(event) => setActiveStatusFilter(event.target.value as ChallengeStatusFilter)}>
+                  <option value="ALL">전체</option>
+                  <option value="ACTIVE">활성</option>
+                  <option value="INACTIVE">비활성</option>
+                </select>
+              </label>
+              <label className="glass-select">
+                <span>정렬</span>
+                <select value={activeSort} onChange={(event) => setActiveSort(event.target.value as ChallengeSortOption)}>
+                  <option value="NEWEST">최신순</option>
+                  <option value="OLDEST">오래된순</option>
+                  <option value="TITLE_ASC">제목 오름차순</option>
+                  <option value="TITLE_DESC">제목 내림차순</option>
+                </select>
+              </label>
             </div>
-            <label className="admin-form__field admin-filter-bar__sort">
-              <span>정렬</span>
-              <select value={activeSort} onChange={(event) => setActiveSort(event.target.value as ChallengeSortOption)}>
-                <option value="NEWEST">최신 등록순</option>
-                <option value="OLDEST">오래된 등록순</option>
-                <option value="TITLE_ASC">제목 오름차순</option>
-                <option value="TITLE_DESC">제목 내림차순</option>
-              </select>
-            </label>
+            <p className="glass-toolbar__note">현재 조건에 맞는 챌린지 {filteredChallenges.length}개</p>
           </div>
 
-          <p className="archive-filter__summary">
-            <strong>{filteredChallenges.length}</strong>개 챌린지가 현재 필터와 정렬 기준에 맞습니다.
-          </p>
-
-          {loading ? (
-            <p>챌린지 목록을 불러오는 중입니다.</p>
-          ) : filteredChallenges.length === 0 ? (
-            <p>검색 조건에 맞는 챌린지가 없습니다.</p>
-          ) : (
-            <div className="admin-asset-list">
-              {filteredChallenges.map((challenge) => (
-                <article key={challenge.id} className={`admin-asset-card${challenge.referenceMotionProfileReady ? ' admin-asset-card--active' : ''}`}>
-                  <div className="admin-asset-card__header">
-                    <strong>{challenge.title}</strong>
-                    <div className="admin-asset-card__meta">
-                      <span className={`pill ${challenge.isActive ? '' : 'pill--muted'}`}>{challenge.isActive ? '활성' : '비활성'}</span>
-                      <span className="pill">#{challenge.id}</span>
+          {loading ? <div className="glass-panel glass-panel--nested glass-panel--empty"><strong>챌린지 목록을 불러오는 중입니다.</strong></div> : null}
+          {!loading && pagedChallenges.length === 0 ? <div className="glass-panel glass-panel--nested glass-panel--empty"><strong>조건에 맞는 챌린지가 없습니다.</strong></div> : null}
+          {!loading && pagedChallenges.length > 0 ? (
+            <div className="glass-list">
+              {pagedChallenges.map((challenge) => (
+                <article className="glass-list-item" key={challenge.id}>
+                  <div className="glass-list-item__content">
+                    <div className="glass-list-item__header">
+                      <div><span className="glass-list-item__eyebrow">챌린지 #{challenge.id}</span><strong>{challenge.title}</strong></div>
+                      <div className="glass-list-item__actions">
+                        <span className={`glass-badge${challenge.isActive ? ' is-accent' : ''}`}>{challenge.isActive ? '활성' : '비활성'}</span>
+                        <span className={`glass-badge${challenge.referenceMotionProfileReady ? ' is-accent' : ''}`}>{challenge.referenceMotionProfileReady ? '준비 완료' : '프로필 대기'}</span>
+                      </div>
                     </div>
+                    <p className="glass-list-item__description">{challenge.description}</p>
+                    <div className="glass-inline-meta"><span>{challenge.category}</span><span>{challenge.difficulty}</span><span>영상 {challenge.referenceVideoUploaded ? '등록됨' : '없음'}</span><span>분석 {formatReferenceStatus(challenge.referenceAnalysisStatus)}</span></div>
                   </div>
-                  <p>레퍼런스 영상: {challenge.referenceVideoUploaded ? '업로드됨' : '없음'}</p>
-                  <p>분석 상태: {challenge.referenceAnalysisStatus}</p>
-                  <p>프로필 상태: {challenge.referenceMotionProfileReady ? '준비됨' : '대기 중'}</p>
-                  <div className="inline-actions">
-                    <Link
-                      className="button-link button-link--secondary"
-                      to={`/admin/challenges/${challenge.id}/analysis`}
-                    >
-                      분석 상세 보기
-                    </Link>
-                    <button
-                      className="button-link button-link--secondary"
-                      type="button"
-                      disabled={analyzingId === challenge.id || deletingId === challenge.id || togglingId === challenge.id}
-                      onClick={() => void handleToggleChallengeActive(challenge)}
-                    >
-                      {togglingId === challenge.id ? '변경 중...' : challenge.isActive ? '비활성으로 전환' : '활성으로 전환'}
-                    </button>
-                    <button
-                      className="button-link button-link--secondary"
-                      type="button"
-                      disabled={analyzingId === challenge.id || deletingId === challenge.id || togglingId === challenge.id}
-                      onClick={() => handleEditChallenge(challenge)}
-                    >
-                      수정
-                    </button>
-                    <button
-                      className="button-link"
-                      type="button"
-                      disabled={!challenge.referenceVideoUploaded || analyzingId === challenge.id || deletingId === challenge.id || togglingId === challenge.id || !challenge.isActive}
-                      onClick={() => void handleAnalyzeReference(challenge.id)}
-                    >
-                      {analyzingId === challenge.id ? '분석 중...' : '레퍼런스 분석 실행'}
-                    </button>
-                    <button
-                      className="button-link button-link--secondary"
-                      type="button"
-                      disabled={analyzingId === challenge.id || deletingId === challenge.id || togglingId === challenge.id}
-                      onClick={() => void handleDeleteChallenge(challenge)}
-                    >
-                      {deletingId === challenge.id ? '삭제 중...' : '챌린지 삭제'}
-                    </button>
+                  <div className="glass-list-item__actions">
+                    <Link className="button-link button-link--secondary" to={`/admin/challenges/${challenge.id}/analysis`}>분석 보기</Link>
+                    <button className="button-link button-link--secondary" type="button" disabled={analyzingId === challenge.id || deletingId === challenge.id || togglingId === challenge.id} onClick={() => handleEditChallenge(challenge)}>수정</button>
+                    <button className="button-link button-link--secondary" type="button" disabled={analyzingId === challenge.id || deletingId === challenge.id || togglingId === challenge.id} onClick={() => void handleToggleChallengeActive(challenge)}>{togglingId === challenge.id ? '변경 중...' : challenge.isActive ? '비활성' : '활성'}</button>
+                    <button className="button-link" type="button" disabled={!challenge.referenceVideoUploaded || !challenge.isActive || analyzingId === challenge.id || deletingId === challenge.id || togglingId === challenge.id} onClick={() => void handleAnalyzeReference(challenge.id)}>{analyzingId === challenge.id ? '분석 중...' : '분석 실행'}</button>
+                    <button className="button-link button-link--secondary" type="button" disabled={analyzingId === challenge.id || deletingId === challenge.id || togglingId === challenge.id} onClick={() => void handleDeleteChallenge(challenge)}>{deletingId === challenge.id ? '삭제 중...' : '삭제'}</button>
                   </div>
                 </article>
               ))}
             </div>
-          )}
-        </article>
+          ) : null}
+          <Pagination currentPage={challengePage} totalPages={challengeTotalPages} onPageChange={setChallengePage} />
+        </section>
+      </div>
 
-        <article className="panel panel--section">
-          <div className="section-heading">
-            <span className="section-heading__code">04</span>
-            <div>
-              <h2>모델 이력</h2>
-              <p>업로드된 모델 자산 목록입니다. 새 업로드가 자동으로 active 상태가 됩니다.</p>
-            </div>
-          </div>
-
-          {loading ? (
-            <p>모델 이력을 불러오는 중입니다.</p>
-          ) : assets.length > 0 ? (
-            <div className="admin-asset-list">
-              {assets.map((asset) => (
-                <article key={asset.id} className={`admin-asset-card${asset.active ? ' admin-asset-card--active' : ''}`}>
-                  <div className="admin-asset-card__header">
-                    <strong>{asset.originalFileName}</strong>
-                    <span className="pill">{asset.active ? '활성' : '보관'}</span>
+      {challengeModalOpen && typeof document !== 'undefined'
+        ? createPortal(
+            <div className="glass-modal" role="dialog" aria-modal="true" aria-labelledby="challenge-modal-title">
+              <div className="glass-modal__backdrop" onClick={closeChallengeModal} />
+              <div className="glass-modal__panel">
+                <form className="glass-panel glass-form" onSubmit={(event) => void handleChallengeSubmit(event)}>
+                  <div className="glass-toolbar">
+                    <div>
+                      <h3 className="glass-section-title" id="challenge-modal-title">{editingChallengeId ? '챌린지 수정' : '챌린지 생성'}</h3>
+                      <p className="glass-toolbar__note">{editingChallengeId ? '기본 정보를 수정하고 필요하면 레퍼런스 영상도 함께 교체합니다.' : '레퍼런스 영상을 등록해 새 챌린지를 생성합니다.'}</p>
+                    </div>
+                    <button className="button-link button-link--secondary" type="button" onClick={closeChallengeModal} disabled={challengeSubmitting}>닫기</button>
                   </div>
-                  <p>{asset.versionLabel ? `버전 ${asset.versionLabel}` : '버전 라벨 없음'}</p>
-                  <p>크기: {formatFileSize(asset.size)}</p>
-                  <p>저장 시각: {new Date(asset.createdAt).toLocaleString('ko-KR')}</p>
+                  <label className="glass-field"><span>챌린지 제목</span><input type="text" value={challengeForm.title} onChange={(event) => setChallengeForm((current) => ({ ...current, title: event.target.value }))} placeholder="예: 사이드 스텝 테스트" /></label>
+                  <label className="glass-field"><span>설명</span><textarea value={challengeForm.description} rows={4} onChange={(event) => setChallengeForm((current) => ({ ...current, description: event.target.value }))} placeholder="레퍼런스 동작 설명" /></label>
+                  <div className="glass-form__split">
+                    <label className="glass-field"><span>카테고리</span><input type="text" value={challengeForm.category} onChange={(event) => setChallengeForm((current) => ({ ...current, category: event.target.value }))} /></label>
+                    <label className="glass-field"><span>난이도</span><input type="text" value={challengeForm.difficulty} onChange={(event) => setChallengeForm((current) => ({ ...current, difficulty: event.target.value }))} /></label>
+                  </div>
+                  <div className="glass-form__split">
+                    <label className="glass-field"><span>길이(초)</span><input type="number" min={5} max={600} value={challengeForm.durationSec} onChange={(event) => setChallengeForm((current) => ({ ...current, durationSec: event.target.value }))} /></label>
+                    <label className="glass-field"><span>썸네일 URL</span><input type="text" value={challengeForm.thumbnailUrl} onChange={(event) => setChallengeForm((current) => ({ ...current, thumbnailUrl: event.target.value }))} placeholder="선택" /></label>
+                  </div>
+                  <label className="glass-field"><span>가이드 영상 URL</span><input type="text" value={challengeForm.guideVideoUrl} onChange={(event) => setChallengeForm((current) => ({ ...current, guideVideoUrl: event.target.value }))} placeholder="선택" /></label>
+                  <label className="glass-field"><span>{editingChallengeId ? '레퍼런스 영상 교체(선택)' : '레퍼런스 영상'}</span><input type="file" accept="video/*" onChange={handleReferenceVideoChange} /></label>
                   <div className="inline-actions">
-                    <button
-                      className="button-link button-link--secondary"
-                      type="button"
-                      disabled={deletingAssetId === asset.id || uploading}
-                      onClick={() => void handleDeleteModelAsset(asset)}
-                    >
-                      {deletingAssetId === asset.id ? '삭제 중...' : '모델 삭제'}
-                    </button>
+                    <button className="button-link" type="submit" disabled={challengeSubmitting}>{challengeSubmitting ? (editingChallengeId ? '수정 중...' : '생성 중...') : editingChallengeId ? '수정 저장' : '챌린지 생성'}</button>
+                    <button className="button-link button-link--secondary" type="button" onClick={closeChallengeModal} disabled={challengeSubmitting}>취소</button>
                   </div>
-                </article>
-              ))}
-            </div>
-          ) : (
-            <p>등록된 모델 자산이 아직 없습니다.</p>
-          )}
-        </article>
-      </section>
-    </div>
+                  {selectedReferenceVideo ? <p className="glass-toolbar__note">선택 영상: {selectedReferenceVideo.name}</p> : null}
+                  {editingChallengeId ? <p className="glass-toolbar__note">수정 중 챌린지 ID: #{editingChallengeId}</p> : null}
+                  {challengeError ? <p className="review-composer__message review-composer__message--error">{challengeError}</p> : null}
+                </form>
+              </div>
+            </div>,
+            document.body,
+          )
+        : null}
+    </>
   );
 }
 
@@ -700,12 +554,16 @@ function buildActiveDescription(asset: ModelAsset) {
   return `${asset.versionLabel ?? '버전 라벨 없음'} / ${formatFileSize(asset.size)} / ${new Date(asset.updatedAt).toLocaleString('ko-KR')}`;
 }
 
+function formatReferenceStatus(status: string) {
+  if (status === 'PENDING') return '대기';
+  if (status === 'PROCESSING') return '처리 중';
+  if (status === 'READY') return '준비 완료';
+  if (status === 'FAILED') return '실패';
+  return status;
+}
+
 function formatFileSize(size: number) {
-  if (size >= 1024 * 1024) {
-    return `${(size / (1024 * 1024)).toFixed(2)} MB`;
-  }
-  if (size >= 1024) {
-    return `${(size / 1024).toFixed(1)} KB`;
-  }
+  if (size >= 1024 * 1024) return `${(size / (1024 * 1024)).toFixed(2)} MB`;
+  if (size >= 1024) return `${(size / 1024).toFixed(1)} KB`;
   return `${size} B`;
 }

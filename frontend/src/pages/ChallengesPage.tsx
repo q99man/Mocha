@@ -1,16 +1,17 @@
-import { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { KeyboardEvent, useEffect, useMemo, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 
 import { ChallengeVisual } from '../features/challenges/ChallengeVisual';
-import { Pagination } from '../shared/components/Pagination';
 import { getChallenges } from '../shared/api/challengeApi';
+import { Pagination } from '../shared/components/Pagination';
 import type { Challenge } from '../shared/types/challenge';
 
 type ChallengeFilter = 'ALL' | 'READY' | 'REVIEWED';
 
-const ITEMS_PER_PAGE = 6;
+const ITEMS_PER_PAGE = 5;
 
 export function ChallengesPage() {
+  const navigate = useNavigate();
   const [challenges, setChallenges] = useState<Challenge[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -51,12 +52,12 @@ export function ChallengesPage() {
       { key: 'ALL' as const, label: '전체', count: challenges.length },
       {
         key: 'READY' as const,
-        label: '도전 가능',
+        label: '준비 완료',
         count: challenges.filter((challenge) => challenge.referenceMotionProfileReady).length,
       },
       {
         key: 'REVIEWED' as const,
-        label: '후기 있음',
+        label: '기록 있음',
         count: challenges.filter((challenge) => Boolean(challenge.latestRetrySummary)).length,
       },
     ],
@@ -92,12 +93,23 @@ export function ChallengesPage() {
     return filteredChallenges.slice(startIndex, startIndex + ITEMS_PER_PAGE);
   }, [currentPage, filteredChallenges]);
 
+  function moveToChallenge(challengeId: number) {
+    void navigate(`/challenges/${challengeId}`);
+  }
+
+  function handleCardKeyDown(event: KeyboardEvent<HTMLElement>, challengeId: number) {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      moveToChallenge(challengeId);
+    }
+  }
+
   if (loading) {
     return (
       <section className="glass-page">
         <div className="glass-panel glass-panel--empty">
           <strong>챌린지 목록을 불러오는 중입니다.</strong>
-          <p>공개된 도전 리스트를 정리하고 있습니다.</p>
+          <p>공개된 챌린지를 정리해 보여드리고 있습니다.</p>
         </div>
       </section>
     );
@@ -116,24 +128,6 @@ export function ChallengesPage() {
 
   return (
     <div className="glass-page">
-      <section className="glass-intro">
-        <div>
-          <span className="glass-intro__eyebrow">Challenge Library</span>
-          <h2>도전할 챌린지를 빠르게 고르세요</h2>
-          <p>한 화면에서 제목, 난이도, 준비 상태, 최근 반응만 보고 바로 상세나 시작으로 이동할 수 있게 간략화했습니다.</p>
-        </div>
-        <div className="glass-intro__meta">
-          <div>
-            <span>전체</span>
-            <strong>{String(challenges.length).padStart(2, '0')}</strong>
-          </div>
-          <div>
-            <span>도전 가능</span>
-            <strong>{String(filterOptions[1].count).padStart(2, '0')}</strong>
-          </div>
-        </div>
-      </section>
-
       <section className="glass-panel">
         <div className="glass-toolbar">
           <div className="glass-chip-group">
@@ -148,9 +142,7 @@ export function ChallengesPage() {
               </button>
             ))}
           </div>
-          <p className="glass-toolbar__note">
-            {filteredChallenges.length}개의 챌린지
-          </p>
+          <p className="glass-toolbar__note">현재 {filteredChallenges.length}개의 챌린지</p>
         </div>
 
         {pagedChallenges.length === 0 ? (
@@ -161,7 +153,14 @@ export function ChallengesPage() {
         ) : (
           <div className="glass-list">
             {pagedChallenges.map((challenge) => (
-              <article className="glass-list-item glass-list-item--challenge" key={challenge.id}>
+              <article
+                key={challenge.id}
+                className="glass-list-item glass-list-item--challenge glass-list-item--interactive"
+                role="button"
+                tabIndex={0}
+                onClick={() => moveToChallenge(challenge.id)}
+                onKeyDown={(event) => handleCardKeyDown(event, challenge.id)}
+              >
                 <div className="glass-list-item__visual">
                   <ChallengeVisual
                     title={challenge.title}
@@ -179,7 +178,7 @@ export function ChallengesPage() {
                       <strong>{challenge.title}</strong>
                     </div>
                     <span className={`glass-badge${challenge.referenceMotionProfileReady ? ' is-accent' : ''}`}>
-                      {challenge.referenceMotionProfileReady ? 'Ready' : 'Pending'}
+                      {challenge.referenceMotionProfileReady ? '준비 완료' : '준비 중'}
                     </span>
                   </div>
 
@@ -196,11 +195,12 @@ export function ChallengesPage() {
                 </div>
 
                 <div className="glass-list-item__actions">
-                  <Link className="button-link button-link--secondary" to={`/challenges/${challenge.id}`}>
-                    상세
-                  </Link>
-                  <Link className="button-link" to={`/challenges/${challenge.id}/start`}>
-                    시작
+                  <Link
+                    className="button-link"
+                    to={`/challenges/${challenge.id}/start`}
+                    onClick={(event) => event.stopPropagation()}
+                  >
+                    바로 시작
                   </Link>
                 </div>
               </article>

@@ -33,7 +33,7 @@ export function AttemptResultPage() {
         }
       } catch (loadError) {
         if (active) {
-          setError(loadError instanceof Error ? loadError.message : '결과를 불러오지 못했습니다.');
+          setError(loadError instanceof Error ? loadError.message : '결과 페이지를 불러오지 못했습니다.');
         }
       } finally {
         if (active) {
@@ -43,6 +43,7 @@ export function AttemptResultPage() {
     }
 
     void loadAttempt();
+
     return () => {
       active = false;
     };
@@ -72,7 +73,7 @@ export function AttemptResultPage() {
       const progress = await getAttemptVideoProcessingProgressByTrackingId(attempt.pendingTrackingId);
       await applyProgress(progress);
     } catch (loadError) {
-      setProgressMessage(loadError instanceof Error ? loadError.message : '처리 상태를 확인하지 못했습니다.');
+      setProgressMessage(loadError instanceof Error ? loadError.message : '처리 상태를 새로고침하지 못했습니다.');
     } finally {
       setProgressLoading(false);
     }
@@ -96,8 +97,8 @@ export function AttemptResultPage() {
     return (
       <section className="glass-page">
         <div className="glass-panel glass-panel--empty">
-          <strong>결과를 불러오는 중입니다.</strong>
-          <p>분석 결과와 핵심 지표를 정리하고 있습니다.</p>
+          <strong>결과 데이터를 불러오는 중입니다.</strong>
+          <p>점수와 비교 정보를 정리하고 있습니다.</p>
         </div>
       </section>
     );
@@ -111,7 +112,7 @@ export function AttemptResultPage() {
           <p>{error ?? '요청한 결과를 찾을 수 없습니다.'}</p>
           <div className="inline-actions">
             <Link className="button-link" to="/attempts">
-              기록 목록
+              기록 목록으로
             </Link>
           </div>
         </div>
@@ -125,7 +126,7 @@ export function AttemptResultPage() {
     <div className="glass-page">
       <section className="glass-intro">
         <div>
-          <span className="glass-intro__eyebrow">Attempt Result</span>
+          <span className="glass-intro__eyebrow">시도 결과</span>
           <h2>{attempt.challengeTitle}</h2>
           <p>{attempt.resultHeadline || attempt.resultSummary}</p>
         </div>
@@ -137,10 +138,10 @@ export function AttemptResultPage() {
           </div>
           <div>
             <span>상태</span>
-            <strong>{pending ? 'Pending' : 'Completed'}</strong>
+            <strong>{pending ? '처리 중' : '완료'}</strong>
           </div>
           <div>
-            <span>비교 변화</span>
+            <span>이전 대비</span>
             <strong>{formatDelta(attempt.scoreDeltaFromPrevious)}</strong>
           </div>
         </div>
@@ -150,13 +151,22 @@ export function AttemptResultPage() {
         <section className="glass-panel">
           <div className="glass-toolbar">
             <div>
-              <h3 className="glass-section-title">처리 대기 상태</h3>
-              <p className="glass-toolbar__note">{attempt.processingNotice ?? '최종 분석이 끝나면 결과가 자동으로 갱신됩니다.'}</p>
+              <h3 className="glass-section-title">처리 상태</h3>
+              <p className="glass-toolbar__note">
+                {attempt.processingNotice ?? '최종 분석이 진행 중입니다. 새로고침으로 최신 상태를 확인할 수 있습니다.'}
+              </p>
             </div>
-            <button className="button-link button-link--secondary" type="button" disabled={progressLoading} onClick={() => void handleRefreshProgress()}>
+
+            <button
+              className="button-link button-link--secondary"
+              type="button"
+              disabled={progressLoading}
+              onClick={() => void handleRefreshProgress()}
+            >
               {progressLoading ? '확인 중...' : '상태 새로고침'}
             </button>
           </div>
+
           {progressMessage ? <p className="review-composer__message review-composer__message--success">{progressMessage}</p> : null}
         </section>
       ) : null}
@@ -167,7 +177,7 @@ export function AttemptResultPage() {
             <article className="glass-summary-card" key={card.label}>
               <span>{card.label}</span>
               <strong>{card.value}</strong>
-              <p>{card.label} 축 기준 점수</p>
+              <p>{card.label} 유사도 지표</p>
             </article>
           ))}
         </div>
@@ -183,9 +193,10 @@ export function AttemptResultPage() {
                   <strong>{attempt.resultSummary}</strong>
                 </div>
               </div>
+
               <div className="glass-inline-meta">
-                <span>강점 {attempt.strongestArea ?? '없음'}</span>
-                <span>취약 {attempt.weakestArea ?? '없음'}</span>
+                <span>강점 {formatAreaLabel(attempt.strongestArea)}</span>
+                <span>보완 {formatAreaLabel(attempt.weakestArea)}</span>
                 <span>{formatDate(attempt.attemptedAt)}</span>
               </div>
             </div>
@@ -195,20 +206,22 @@ export function AttemptResultPage() {
             <div className="glass-list-item__content">
               <div className="glass-list-item__header">
                 <div>
-                  <span className="glass-list-item__eyebrow">다음 액션</span>
-                  <strong>같은 챌린지로 바로 이어가기</strong>
+                  <span className="glass-list-item__eyebrow">다음 단계</span>
+                  <strong>결과 확인 후 바로 다음 동작으로 이어갑니다</strong>
                 </div>
               </div>
+
               <p className="glass-list-item__description">
-                다시 촬영하거나 이전 기록과 비교하고 싶다면 아래 액션으로 바로 이동하세요.
+                같은 챌린지의 기록을 비교하거나, 바로 다시 시도해서 변화량을 확인할 수 있습니다.
               </p>
             </div>
+
             <div className="glass-list-item__actions">
               <Link className="button-link button-link--secondary" to={`/attempts?challengeId=${attempt.challengeId}`}>
-                기록 목록
+                기록 비교
               </Link>
               <Link className="button-link" to={`/challenges/${attempt.challengeId}/start`}>
-                다시 도전
+                다시 시도
               </Link>
             </div>
           </article>
@@ -256,7 +269,25 @@ function buildProgressMessage(progress: AttemptVideoProcessingJobProgress) {
     return '처리 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.';
   }
   if (progress.status === 'PROCESSING') {
-    return '분석이 진행 중입니다.';
+    return '분석이 계속 진행 중입니다.';
   }
-  return '업로드가 대기 중입니다.';
+  return '업로드가 대기열에서 처리 순서를 기다리는 중입니다.';
+}
+
+function formatAreaLabel(value: string | null) {
+  if (!value) {
+    return '없음';
+  }
+
+  if (value === 'pose shape') {
+    return '포즈 형태';
+  }
+  if (value === 'pose timing') {
+    return '타이밍';
+  }
+  if (value === 'detection quality') {
+    return '인식 안정성';
+  }
+
+  return value;
 }

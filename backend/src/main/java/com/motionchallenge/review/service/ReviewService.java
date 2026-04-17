@@ -1,6 +1,9 @@
 package com.motionchallenge.review.service;
 
 import com.motionchallenge.attempt.repository.AttemptRepository;
+import com.motionchallenge.board.entity.BoardPost;
+import com.motionchallenge.board.repository.BoardPostRepository;
+import com.motionchallenge.board.service.BoardService;
 import com.motionchallenge.challenge.entity.Challenge;
 import com.motionchallenge.challenge.repository.ChallengeRepository;
 import com.motionchallenge.member.entity.Member;
@@ -9,7 +12,9 @@ import com.motionchallenge.review.dto.ReviewResponse;
 import com.motionchallenge.review.dto.ReviewUpsertRequest;
 import com.motionchallenge.review.entity.Review;
 import com.motionchallenge.review.repository.ReviewRepository;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -23,16 +28,22 @@ public class ReviewService {
     private final ReviewRepository reviewRepository;
     private final ChallengeRepository challengeRepository;
     private final AttemptRepository attemptRepository;
+    private final BoardPostRepository boardPostRepository;
+    private final BoardService boardService;
     private final CurrentMemberService currentMemberService;
 
     public ReviewService(
             ReviewRepository reviewRepository,
             ChallengeRepository challengeRepository,
             AttemptRepository attemptRepository,
+            BoardPostRepository boardPostRepository,
+            BoardService boardService,
             CurrentMemberService currentMemberService) {
         this.reviewRepository = reviewRepository;
         this.challengeRepository = challengeRepository;
         this.attemptRepository = attemptRepository;
+        this.boardPostRepository = boardPostRepository;
+        this.boardService = boardService;
         this.currentMemberService = currentMemberService;
     }
 
@@ -44,23 +55,21 @@ public class ReviewService {
                 .map(Member::getId)
                 .orElse(null);
 
-        return reviewRepository.findAllByChallengeIdWithMemberAndChallengeOrderByCreatedAtDesc(challenge.getId()).stream()
-                .map(review -> toResponse(review, currentMemberId))
-                .toList();
+        return toResponses(
+                reviewRepository.findAllByChallengeIdWithMemberAndChallengeOrderByCreatedAtDesc(challenge.getId()),
+                currentMemberId);
     }
 
     public List<ReviewResponse> getRecentReviews(int limit) {
         int safeLimit = Math.max(1, Math.min(limit, 12));
-        return reviewRepository.findRecentWithMemberAndChallenge(PageRequest.of(0, safeLimit)).stream()
-                .map(review -> toResponse(review, null))
-                .toList();
+        return toResponses(reviewRepository.findRecentWithMemberAndChallenge(PageRequest.of(0, safeLimit)), null);
     }
 
     public List<ReviewResponse> getMyReviews() {
         Member currentMember = currentMemberService.requireCurrentMember();
-        return reviewRepository.findAllByMemberIdWithMemberAndChallengeOrderByCreatedAtDesc(currentMember.getId()).stream()
-                .map(review -> toResponse(review, currentMember.getId()))
-                .toList();
+        return toResponses(
+                reviewRepository.findAllByMemberIdWithMemberAndChallengeOrderByCreatedAtDesc(currentMember.getId()),
+                currentMember.getId());
     }
 
     @Transactional
@@ -80,8 +89,9 @@ public class ReviewService {
                 currentMember,
                 request.getRating(),
                 normalizeContent(request.getContent())));
+        boardService.syncReviewPost(review);
 
-        return toResponse(review, currentMember.getId());
+        return toResponse(review, currentMember.getId(), resolveBoardPostId(review.getId()));
     }
 
     @Transactional
@@ -92,7 +102,8 @@ public class ReviewService {
 
         ensureOwner(review, currentMember);
         review.update(request.getRating(), normalizeContent(request.getContent()));
-        return toResponse(review, currentMember.getId());
+        boardService.syncReviewPost(review);
+        return toResponse(review, currentMember.getId(), resolveBoardPostId(review.getId()));
     }
 
     @Transactional
@@ -102,6 +113,7 @@ public class ReviewService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "리뷰를 찾을 수 없습니다."));
 
         ensureOwner(review, currentMember);
+        boardService.deleteReviewPost(review.getId());
         reviewRepository.delete(review);
     }
 
@@ -119,9 +131,41 @@ public class ReviewService {
         }
     }
 
-    private ReviewResponse toResponse(Review review, Long currentMemberId) {
+    private List<ReviewResponse> toResponses(List<Review> reviews, Long currentMemberId) {
+        if (reviews.isEmpty()) {
+            return List.of();
+        }
+
+        Map<Long, Long> boardPostIdMap = loadBoardPostIdMap(reviews);
+        return reviews.stream()
+                .map(review -> toResponse(review, currentMemberId, boardPostIdMap.get(review.getId())))
+                .toList();
+    }
+
+    private Map<Long, Long> loadBoardPostIdMap(List<Review> reviews) {
+        List<Long> reviewIds = reviews.stream()
+                .map(Review::getId)
+                .toList();
+
+        Map<Long, Long> boardPostIdMap = new HashMap<>();
+        for (BoardPost post : boardPostRepository.findAllByReviewIdIn(reviewIds)) {
+            if (post.getReviewId() != null) {
+                boardPostIdMap.put(post.getReviewId(), post.getId());
+            }
+        }
+        return boardPostIdMap;
+    }
+
+    private Long resolveBoardPostId(Long reviewId) {
+        return boardPostRepository.findByReviewId(reviewId)
+                .map(BoardPost::getId)
+                .orElse(null);
+    }
+
+    private ReviewResponse toResponse(Review review, Long currentMemberId, Long boardPostId) {
         return new ReviewResponse(
                 review.getId(),
+                boardPostId,
                 review.getChallenge().getId(),
                 review.getChallenge().getTitle(),
                 review.getMember().getId(),

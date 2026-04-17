@@ -1,7 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
+
 import { getChallengeReferencePreview } from '../../shared/api/challengeApi';
 import { resolveApiUrl } from '../../shared/api/client';
-import type { ChallengeReferencePoseFrame, ChallengeReferencePosePoint, ChallengeReferencePosePreview } from '../../shared/types/challenge';
+import type {
+  ChallengeReferencePoseFrame,
+  ChallengeReferencePosePoint,
+  ChallengeReferencePosePreview,
+} from '../../shared/types/challenge';
 
 type Props = {
   challengeId: number;
@@ -31,26 +36,27 @@ type PartLegend = {
 };
 
 const TEXT = {
-  title: '\uB808\uD37C\uB7F0\uC2A4 \uD3EC\uC988 \uC624\uBC84\uB808\uC774',
-  descriptionSuffix: '\uC601\uC0C1 \uC704\uC5D0 \uD575\uC2EC \uAD00\uC808\uB9CC \uC815\uAD50\uD558\uAC8C \uACB9\uCCD0\uC11C \uBCF4\uC5EC\uC90D\uB2C8\uB2E4.',
-  loading: '\uB808\uD37C\uB7F0\uC2A4 \uD3EC\uC988 \uC624\uBC84\uB808\uC774\uB97C \uBD88\uB7EC\uC624\uB294 \uC911\uC785\uB2C8\uB2E4.',
-  loadError: '\uB808\uD37C\uB7F0\uC2A4 \uD3EC\uC988 \uBBF8\uB9AC\uBCF4\uAE30\uB97C \uBD88\uB7EC\uC624\uC9C0 \uBABB\uD588\uC2B5\uB2C8\uB2E4.',
-  drawError: '\uB808\uD37C\uB7F0\uC2A4 \uC601\uC0C1 \uC704\uC5D0 \uD3EC\uC988\uB97C \uADF8\uB9AC\uB294 \uC911 \uBB38\uC81C\uAC00 \uBC1C\uC0DD\uD588\uC2B5\uB2C8\uB2E4.',
-  analyzer: '\uBD84\uC11D\uAE30',
-  sampleCount: '\uC0D8\uD50C \uC218',
-  analyzedAt: '\uBD84\uC11D \uC2DC\uAC01',
-  noRecord: '\uAE30\uB85D \uC5C6\uC74C',
-  noFrames: '\uC774\uBC88 \uBD84\uC11D\uC5D0\uB294 \uD654\uBA74\uC6A9 \uD3EC\uC988 \uD504\uB808\uC784\uC774 \uC5C6\uC5B4 \uC624\uBC84\uB808\uC774\uB97C \uB9CC\uB4E4 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4.',
-  sampleLabel: '\uC0D8\uD50C',
-  startPose: '\uC2DC\uC791',
-  middlePose: '\uC911\uAC04',
-  endPose: '\uB9C8\uBB34\uB9AC',
-  filterLabel: '\uD45C\uC2DC \uBD80\uC704',
-  all: '\uC804\uCCB4',
-  head: '\uBA38\uB9AC',
-  torso: '\uBAB8\uD1B5',
-  arms: '\uD314',
-  legs: '\uB2E4\uB9AC',
+  title: '레퍼런스 포즈 오버레이',
+  descriptionSuffix: '영상 위에 핵심 관절만 겹쳐 보면서 레퍼런스 동작 흐름을 빠르게 확인할 수 있습니다.',
+  disabled: '모션 프로필이 준비되면 이 영역에서 포즈 오버레이를 확인할 수 있습니다.',
+  loading: '레퍼런스 포즈 오버레이를 불러오는 중입니다.',
+  loadError: '레퍼런스 포즈 미리보기를 불러오지 못했습니다.',
+  drawError: '레퍼런스 영상 위에 포즈를 그리는 중 문제가 발생했습니다.',
+  analyzer: '분석기',
+  sampleCount: '샘플 수',
+  analyzedAt: '분석 시각',
+  noRecord: '기록 없음',
+  noFrames: '이번 분석에는 화면별 포즈 프레임이 없어 오버레이를 생성할 수 없습니다.',
+  sampleLabel: '샘플',
+  startPose: '시작',
+  middlePose: '중간',
+  endPose: '마무리',
+  filterLabel: '표시 부위',
+  all: '전체',
+  head: '머리',
+  torso: '몸통',
+  arms: '팔',
+  legs: '다리',
 };
 
 const TILE_LABELS = [TEXT.startPose, TEXT.middlePose, TEXT.endPose];
@@ -237,9 +243,10 @@ export function ChallengeReferencePosePreview({
 
       const tiles = buildFrameTiles(preview.frames);
       const maxFrameIndex = Math.max(...preview.frames.map((frame) => frame.frameIndex), 1);
-      const durationSeconds = video.duration && Number.isFinite(video.duration)
-        ? video.duration
-        : Math.max((preview.durationMs ?? 1000) / 1000, 0.1);
+      const durationSeconds =
+        video.duration && Number.isFinite(video.duration)
+          ? video.duration
+          : Math.max((preview.durationMs ?? 1000) / 1000, 0.1);
 
       for (let index = 0; index < tiles.length; index += 1) {
         if (cancelled) {
@@ -251,9 +258,10 @@ export function ChallengeReferencePosePreview({
           continue;
         }
 
-        const timestamp = maxFrameIndex <= 0
-          ? 0
-          : Math.min(durationSeconds, Math.max(0, durationSeconds * (tiles[index].frame.frameIndex / maxFrameIndex)));
+        const timestamp =
+          maxFrameIndex <= 0
+            ? 0
+            : Math.min(durationSeconds, Math.max(0, durationSeconds * (tiles[index].frame.frameIndex / maxFrameIndex)));
 
         video.currentTime = Math.min(timestamp, Math.max(durationSeconds - 0.05, 0));
         await waitForEvent(video, 'seeked');
@@ -280,27 +288,31 @@ export function ChallengeReferencePosePreview({
   }, [preview, activePart]);
 
   return (
-    <article className="panel panel--section reference-pose-preview">
-      <div className="section-heading">
-        <span className="section-heading__code">POSE</span>
+    <article className="glass-panel reference-pose-preview">
+      <div className="glass-toolbar">
         <div>
-          <h2>{TEXT.title}</h2>
-          <p>{`${challengeTitle} ${TEXT.descriptionSuffix}`}</p>
+          <span className="glass-intro__eyebrow">Pose Overlay</span>
+          <h3 className="glass-section-title">{TEXT.title}</h3>
+          <p className="glass-toolbar__note">{`${challengeTitle} ${TEXT.descriptionSuffix}`}</p>
         </div>
       </div>
 
-      {loading ? <p>{TEXT.loading}</p> : null}
-      {error ? <p className="admin-form__message admin-form__message--error">{error}</p> : null}
+      {!enabled ? (
+        <div className="glass-panel glass-panel--nested glass-panel--empty">
+          <strong>오버레이 준비 중입니다.</strong>
+          <p>{TEXT.disabled}</p>
+        </div>
+      ) : null}
+
+      {loading ? <p className="glass-toolbar__note">{TEXT.loading}</p> : null}
+      {error ? <p className="review-composer__message review-composer__message--error">{error}</p> : null}
 
       {!loading && !error && preview ? (
         <>
-          <div className="reference-pose-preview__meta">
-            <span>{`${TEXT.analyzer}: ${preview.analyzerName ?? 'unknown'}`}</span>
-            <span>{`${TEXT.sampleCount}: ${preview.sampleCount ?? 0}`}</span>
-            <span>
-              {`${TEXT.analyzedAt}: `}
-              {preview.analyzedAt ? new Date(preview.analyzedAt).toLocaleString('ko-KR') : TEXT.noRecord}
-            </span>
+          <div className="glass-inline-meta reference-pose-preview__meta">
+            <span>{TEXT.analyzer}: {preview.analyzerName ?? '정보 없음'}</span>
+            <span>{TEXT.sampleCount}: {preview.sampleCount ?? 0}</span>
+            <span>{TEXT.analyzedAt}: {preview.analyzedAt ? new Date(preview.analyzedAt).toLocaleString('ko-KR') : TEXT.noRecord}</span>
           </div>
 
           <div className="reference-pose-preview__controls">
@@ -339,7 +351,7 @@ export function ChallengeReferencePosePreview({
                 />
                 <figcaption>
                   <strong>{tile.label}</strong>
-                  <span>{`frame ${tile.frame.frameIndex}`}</span>
+                  <span>{`프레임 ${tile.frame.frameIndex}`}</span>
                 </figcaption>
               </figure>
             ))}
@@ -347,7 +359,12 @@ export function ChallengeReferencePosePreview({
         </>
       ) : null}
 
-      {!loading && !error && preview && preview.frames.length === 0 ? <p>{TEXT.noFrames}</p> : null}
+      {!loading && !error && preview && preview.frames.length === 0 ? (
+        <div className="glass-panel glass-panel--nested glass-panel--empty">
+          <strong>표시할 프레임이 없습니다.</strong>
+          <p>{TEXT.noFrames}</p>
+        </div>
+      ) : null}
     </article>
   );
 }
@@ -369,9 +386,7 @@ function drawFrameTile(canvas: HTMLCanvasElement, video: HTMLVideoElement, tile:
 
   const normalizedPoints = normalizePoints(tile.frame.points);
   const pointMap = new Map(normalizedPoints.map((point) => [point.name, point]));
-  const visibleParts = activePart === 'all'
-    ? (['head', 'torso', 'arms', 'legs'] as RenderPart[])
-    : [activePart];
+  const visibleParts = activePart === 'all' ? (['head', 'torso', 'arms', 'legs'] as RenderPart[]) : [activePart];
 
   canvas.width = width;
   canvas.height = height;
@@ -442,7 +457,16 @@ function drawTorsoFill(
   const rightShoulder = pointMap.get('right_shoulder');
   const rightHip = pointMap.get('right_hip');
   const leftHip = pointMap.get('left_hip');
-  if (!isRenderablePoint(leftShoulder) || !isRenderablePoint(rightShoulder) || !isRenderablePoint(rightHip) || !isRenderablePoint(leftHip) || !leftShoulder || !rightShoulder || !rightHip || !leftHip) {
+  if (
+    !isRenderablePoint(leftShoulder) ||
+    !isRenderablePoint(rightShoulder) ||
+    !isRenderablePoint(rightHip) ||
+    !isRenderablePoint(leftHip) ||
+    !leftShoulder ||
+    !rightShoulder ||
+    !rightHip ||
+    !leftHip
+  ) {
     return;
   }
 

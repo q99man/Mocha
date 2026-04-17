@@ -4,6 +4,7 @@ import java.time.LocalDateTime;
 
 public record ReviewResponse(
         Long id,
+        Long boardPostId,
         Long challengeId,
         String challengeTitle,
         Long memberId,

@@ -2,9 +2,7 @@ import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 
 import { useAuth } from '../auth/AuthProvider';
 
-const ADMIN_NAV_ITEMS = [
-  { to: '/admin/model-assets', label: 'Admin Hub' },
-];
+const ADMIN_NAV_ITEMS = [{ to: '/admin/model-assets', label: '운영 허브' }];
 
 export function AdminLayout() {
   const navigate = useNavigate();
@@ -16,7 +14,7 @@ export function AdminLayout() {
 
       <header className="app-header-glass">
         <button className="app-header-glass__brand admin-header-brand" type="button" onClick={() => navigate('/admin/model-assets')}>
-          <span className="app-header-glass__eyebrow">Admin Console</span>
+          <span className="app-header-glass__eyebrow">운영 콘솔</span>
           <strong>Mocha Admin</strong>
         </button>
 
@@ -29,9 +27,9 @@ export function AdminLayout() {
         </nav>
 
         <div className="app-header-glass__actions">
-          <span className="app-header-glass__account">{user?.displayName ?? 'Admin'}</span>
+          <span className="app-header-glass__account">{user?.displayName ?? '관리자'}</span>
           <button className="stage-nav__utility" type="button" onClick={() => navigate('/')}>
-            Public
+            공개 화면
           </button>
           <button
             className="stage-nav__utility"

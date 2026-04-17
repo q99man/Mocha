@@ -8,6 +8,9 @@ import { AdminModelAssetsPage } from '../pages/AdminModelAssetsPage';
 import { AttemptResultPage } from '../pages/AttemptResultPage';
 import { AttemptsPage } from '../pages/AttemptsPage';
 import { AuthPage } from '../pages/AuthPage';
+import { BoardDetailPage } from '../pages/BoardDetailPage';
+import { BoardEditorPage } from '../pages/BoardEditorPage';
+import { BoardPage } from '../pages/BoardPage';
 import { ChallengeDetailPage } from '../pages/ChallengeDetailPage';
 import { ChallengeStartPage } from '../pages/ChallengeStartPage';
 import { ChallengesPage } from '../pages/ChallengesPage';
@@ -30,6 +33,30 @@ export const router = createBrowserRouter([
       {
         path: 'challenges',
         element: <ChallengesPage />,
+      },
+      {
+        path: 'board',
+        element: <BoardPage />,
+      },
+      {
+        path: 'board/:id',
+        element: <BoardDetailPage />,
+      },
+      {
+        path: 'board/new',
+        element: (
+          <RequireAuth>
+            <BoardEditorPage />
+          </RequireAuth>
+        ),
+      },
+      {
+        path: 'board/:id/edit',
+        element: (
+          <RequireAuth>
+            <BoardEditorPage />
+          </RequireAuth>
+        ),
       },
       {
         path: 'challenges/:id',

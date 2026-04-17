@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
+
 import { useAuth } from '../auth/AuthProvider';
 
 const BASE_NAV_ITEMS = [
-  { to: '/', label: 'Landing' },
-  { to: '/challenges', label: 'Challenges' },
+  { to: '/', label: '랜딩' },
+  { to: '/challenges', label: '챌린지' },
+  { to: '/board', label: '게시판' },
 ];
 
 export function AppLayout() {
@@ -16,9 +18,9 @@ export function AppLayout() {
 
   const navItems = [
     ...BASE_NAV_ITEMS,
-    ...(isAuthenticated && !isAdmin ? [{ to: '/mypage', label: 'My Page' }] : []),
-    ...(isAuthenticated ? [{ to: '/attempts', label: 'Archive' }] : []),
-    ...(isAdmin ? [{ to: '/admin/model-assets', label: 'Admin' }] : []),
+    ...(isAuthenticated && !isAdmin ? [{ to: '/mypage', label: '마이페이지' }] : []),
+    ...(isAuthenticated ? [{ to: '/attempts', label: '기록' }] : []),
+    ...(isAdmin ? [{ to: '/admin/model-assets', label: '관리' }] : []),
   ];
 
   useEffect(() => {
@@ -52,7 +54,7 @@ export function AppLayout() {
           <div className="stage-topbar__actions stage-topbar__actions--landing">
             {isAdmin ? (
               <NavLink className="stage-nav__utility" to="/admin/model-assets">
-                관리자
+                운영 허브
               </NavLink>
             ) : null}
             {isAuthenticated && !isAdmin ? (
@@ -66,7 +68,7 @@ export function AppLayout() {
               </button>
             ) : (
               <NavLink className="stage-nav__cta" to="/auth">
-                로그인
+                시작하기
               </NavLink>
             )}
           </div>
@@ -85,7 +87,6 @@ export function AppLayout() {
 
       <header className="app-header-glass">
         <Link className="app-header-glass__brand" to="/">
-          <span className="app-header-glass__eyebrow">Motion Challenge</span>
           <strong>Mocha</strong>
         </Link>
 
@@ -100,9 +101,7 @@ export function AppLayout() {
         <div className="app-header-glass__actions">
           {isAuthenticated ? (
             <>
-              <span className="app-header-glass__account">
-                {user?.displayName ?? 'User'}
-              </span>
+              <span className="app-header-glass__account">{user?.displayName ?? '사용자'}</span>
               <button
                 className="stage-nav__utility"
                 type="button"

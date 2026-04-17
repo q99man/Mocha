@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 
-import { Pagination } from '../shared/components/Pagination';
 import { getAttempts } from '../shared/api/attemptApi';
 import { useAuth } from '../shared/auth/AuthProvider';
+import { Pagination } from '../shared/components/Pagination';
 import type { AttemptSummary } from '../shared/types/attempt';
 
 type AttemptFilter = 'ALL' | 'COMPLETED' | 'PENDING';
@@ -48,6 +48,7 @@ export function AttemptsPage() {
     }
 
     void loadAttempts();
+
     return () => {
       active = false;
     };
@@ -95,6 +96,20 @@ export function AttemptsPage() {
       });
   }, [activeFilter, activeSort, attempts, challengeIdFilter]);
 
+  const summary = useMemo(() => {
+    const pending = attempts.filter((attempt) => !attempt.processingComplete || attempt.processingMode === 'ASYNC_JOB_PENDING').length;
+    const best = attempts.reduce<AttemptSummary | null>(
+      (currentBest, attempt) => (!currentBest || attempt.score > currentBest.score ? attempt : currentBest),
+      null,
+    );
+
+    return {
+      total: attempts.length,
+      pending,
+      best,
+    };
+  }, [attempts]);
+
   const totalPages = Math.max(1, Math.ceil(filteredAttempts.length / ITEMS_PER_PAGE));
 
   useEffect(() => {
@@ -112,28 +127,12 @@ export function AttemptsPage() {
     return filteredAttempts.slice(startIndex, startIndex + ITEMS_PER_PAGE);
   }, [currentPage, filteredAttempts]);
 
-  const summary = useMemo(() => {
-    const completed = attempts.filter((attempt) => attempt.status === 'Completed').length;
-    const pending = attempts.filter((attempt) => !attempt.processingComplete || attempt.processingMode === 'ASYNC_JOB_PENDING').length;
-    const best = attempts.reduce<AttemptSummary | null>(
-      (currentBest, attempt) => (!currentBest || attempt.score > currentBest.score ? attempt : currentBest),
-      null,
-    );
-
-    return {
-      total: attempts.length,
-      completed,
-      pending,
-      best,
-    };
-  }, [attempts]);
-
   if (loading) {
     return (
       <section className="glass-page">
         <div className="glass-panel glass-panel--empty">
           <strong>기록 목록을 불러오는 중입니다.</strong>
-          <p>최근 시도와 결과 흐름을 정리하고 있습니다.</p>
+          <p>최근 시도와 점수 흐름을 정리하고 있습니다.</p>
         </div>
       </section>
     );
@@ -143,7 +142,7 @@ export function AttemptsPage() {
     return (
       <section className="glass-page">
         <div className="glass-panel glass-panel--empty">
-          <strong>기록 목록을 불러오지 못했습니다.</strong>
+          <strong>기록을 불러오지 못했습니다.</strong>
           <p>{error}</p>
         </div>
       </section>
@@ -154,22 +153,23 @@ export function AttemptsPage() {
     <div className="glass-page">
       <section className="glass-intro">
         <div>
-          <span className="glass-intro__eyebrow">Attempt Archive</span>
-          <h2>기록은 한 화면에서 빠르게 훑고 이동합니다</h2>
-          <p>불필요한 상태 카드 대신 전체 수, 처리 대기, 최고 점수만 남기고 나머지는 리스트와 페이징으로 정리했습니다.</p>
+          <span className="glass-intro__eyebrow">Attempts</span>
+          <h2>모든 시도를 한 화면에서 관리합니다</h2>
+          <p>필터와 정렬만 남겨서 필요한 기록만 빠르게 찾고, 결과 화면으로 바로 이어질 수 있게 정리했습니다.</p>
         </div>
+
         <div className="glass-intro__meta">
           <div>
             <span>전체</span>
             <strong>{String(summary.total).padStart(2, '0')}</strong>
           </div>
           <div>
-            <span>대기</span>
+            <span>처리 중</span>
             <strong>{String(summary.pending).padStart(2, '0')}</strong>
           </div>
           <div>
             <span>최고 점수</span>
-            <strong>{summary.best ? `${summary.best.score}` : '--'}</strong>
+            <strong>{summary.best ? `${summary.best.score}점` : '--'}</strong>
           </div>
         </div>
       </section>
@@ -180,7 +180,7 @@ export function AttemptsPage() {
             {[
               { key: 'ALL' as const, label: '전체' },
               { key: 'COMPLETED' as const, label: '완료' },
-              { key: 'PENDING' as const, label: '대기' },
+              { key: 'PENDING' as const, label: '처리 중' },
             ].map((option) => (
               <button
                 key={option.key}
@@ -227,12 +227,16 @@ export function AttemptsPage() {
               </select>
             </label>
           </div>
+
+          <p className="glass-toolbar__note">
+            {user ? `${user.displayName}님의 조건 일치 기록 ${filteredAttempts.length}개` : `조건에 맞는 기록 ${filteredAttempts.length}개`}
+          </p>
         </div>
 
         {pagedAttempts.length === 0 ? (
           <div className="glass-panel glass-panel--nested glass-panel--empty">
             <strong>조건에 맞는 기록이 없습니다.</strong>
-            <p>필터를 바꾸거나 챌린지를 다시 시도해 보세요.</p>
+            <p>필터를 바꾸거나 새로운 챌린지를 시작해 보세요.</p>
           </div>
         ) : (
           <div className="glass-list">
@@ -245,27 +249,25 @@ export function AttemptsPage() {
                       <strong>{attempt.challengeTitle}</strong>
                     </div>
                     <span className={`glass-badge${attempt.processingComplete ? ' is-accent' : ''}`}>
-                      {attempt.processingComplete ? 'Completed' : 'Pending'}
+                      {attempt.processingComplete ? '완료' : '처리 중'}
                     </span>
                   </div>
 
                   <div className="glass-inline-meta">
-                    <span>점수 {attempt.scoreAvailable ? `${attempt.score}점` : '대기 중'}</span>
+                    <span>{attempt.scoreAvailable ? `${attempt.score}점` : '점수 산출 중'}</span>
                     <span>{attempt.resultSource}</span>
                     <span>{attempt.weakestArea ?? '취약 영역 없음'}</span>
                   </div>
 
-                  <p className="glass-list-item__description">
-                    {attempt.resultHeadline || attempt.resultSummary}
-                  </p>
+                  <p className="glass-list-item__description">{attempt.resultHeadline || attempt.resultSummary}</p>
                 </div>
 
                 <div className="glass-list-item__actions">
                   <Link className="button-link button-link--secondary" to={`/challenges/${attempt.challengeId}`}>
-                    챌린지
+                    챌린지 보기
                   </Link>
                   <Link className="button-link" to={`/attempts/${attempt.id}/result`}>
-                    결과
+                    결과 보기
                   </Link>
                 </div>
               </article>
@@ -273,12 +275,7 @@ export function AttemptsPage() {
           </div>
         )}
 
-        <div className="glass-toolbar">
-          <p className="glass-toolbar__note">
-            {user ? `${user.displayName}님의 기록 ${filteredAttempts.length}개` : `${filteredAttempts.length}개 기록`}
-          </p>
-          <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} />
-        </div>
+        <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} />
       </section>
     </div>
   );

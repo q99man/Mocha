@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
-import { ChallengeVisual } from '../challenges/ChallengeVisual';
+
 import type { Challenge } from '../../shared/types/challenge';
+import { ChallengeVisual } from '../challenges/ChallengeVisual';
 
 type LandingShowcaseSectionProps = {
   challenges: Challenge[];
@@ -13,7 +14,7 @@ export function LandingShowcaseSection({ challenges }: LandingShowcaseSectionPro
   return (
     <section className="lp-section lp-section--showcase" id="showcase">
       <div className="lp-section__header">
-        <span className="lp-kicker">Showcase</span>
+        <span className="lp-kicker">Challenge</span>
       </div>
 
       <div className="lp-showcase">
@@ -42,8 +43,8 @@ export function LandingShowcaseSection({ challenges }: LandingShowcaseSectionPro
                     <strong className="lp-showcase__title lp-showcase__title--mini">{challenge.title}</strong>
                     <div className="lp-meta-row">
                       <span>{challenge.difficulty}</span>
-                      <span>{challenge.durationSec} sec</span>
-                      <span>{challenge.referenceMotionProfileReady ? 'ready' : 'processing'}</span>
+                      <span>{challenge.durationSec}초</span>
+                      <span>{challenge.referenceMotionProfileReady ? '준비 완료' : '처리 중'}</span>
                     </div>
                   </div>
                 </Link>
@@ -52,7 +53,7 @@ export function LandingShowcaseSection({ challenges }: LandingShowcaseSectionPro
           </div>
         ) : (
           <article className="lp-showcase__card lp-showcase__card--empty lp-panel-glass">
-            <strong>등록된 챌린지가 아직 없습니다.</strong>
+            <strong>Coming soon</strong>
           </article>
         )}
       </div>
