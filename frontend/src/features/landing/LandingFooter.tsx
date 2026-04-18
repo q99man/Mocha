@@ -16,7 +16,7 @@ export function LandingFooter({ isAuthenticated }: LandingFooterProps) {
           <div>
             <strong>탐색</strong>
             <Link to="/challenges">챌린지</Link>
-            <Link to="/attempts">기록 보기</Link>
+            <Link to={isAuthenticated ? '/mypage' : '/auth'}>마이페이지</Link>
           </div>
           <div>
             <strong>바로가기</strong>

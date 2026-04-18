@@ -84,13 +84,14 @@ public class BoardService {
         return new BoardOverviewResponse(totalCount, generalCount, reviewCount, topReviewChallenges);
     }
 
-    public BoardPostListResponse getMyPosts(int page, int size) {
+    public BoardPostListResponse getMyPosts(int page, int size, BoardPostSourceType sourceType) {
         Member currentMember = currentMemberService.requireCurrentMember();
         int safePage = Math.max(page, 1);
         int safeSize = Math.max(1, Math.min(size, 20));
 
         Page<BoardPost> result = boardPostRepository.findAllByMemberId(
                 currentMember.getId(),
+                sourceType,
                 PageRequest.of(safePage - 1, safeSize));
         Map<Long, Long> commentCountMap = loadCommentCountMap(result.getContent());
 

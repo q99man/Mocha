@@ -119,7 +119,7 @@ export function AdminChallengeAnalysisPage() {
           </div>
 
           <div className="inline-actions">
-            <Link className="button-link button-link--secondary" to={`/challenges/${challenge.id}`}>
+            <Link className="button-link button-link--secondary" to={`/challenges?challengeId=${challenge.id}`}>
               챌린지 보기
             </Link>
             <Link className="button-link" to="/admin/model-assets">

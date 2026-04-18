@@ -1,4 +1,4 @@
-import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from 'react';
+﻿import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import {
@@ -15,6 +15,13 @@ import {
   updateChallenge,
   updateChallengeActive,
 } from '../shared/api/challengeApi';
+import {
+  composeDifficulty,
+  formatDifficulty,
+  getDifficultyScoreOptions,
+  parseDifficulty,
+  type DifficultyLabel,
+} from '../features/challenges/difficulty';
 import { Pagination } from '../shared/components/Pagination';
 import type { ModelAsset } from '../shared/types/admin';
 import type { Challenge } from '../shared/types/challenge';
@@ -23,7 +30,7 @@ const initialChallengeForm = {
   title: '',
   description: '',
   category: '퍼포먼스',
-  difficulty: '보통',
+  difficulty: '보통 4',
   thumbnailUrl: '',
   guideVideoUrl: '',
   durationSec: '25',
@@ -51,6 +58,8 @@ export function AdminModelAssetsPage() {
 
   const [challengeModalOpen, setChallengeModalOpen] = useState(false);
   const [challengeForm, setChallengeForm] = useState(initialChallengeForm);
+  const [challengeDifficultyLabel, setChallengeDifficultyLabel] = useState<DifficultyLabel>('보통');
+  const [challengeDifficultyLevel, setChallengeDifficultyLevel] = useState('4');
   const [selectedReferenceVideo, setSelectedReferenceVideo] = useState<File | null>(null);
   const [challengeSubmitting, setChallengeSubmitting] = useState(false);
   const [challengeError, setChallengeError] = useState<string | null>(null);
@@ -226,12 +235,15 @@ export function AdminModelAssetsPage() {
   function openCreateChallengeModal() {
     setEditingChallengeId(null);
     setChallengeForm(initialChallengeForm);
+    setChallengeDifficultyLabel('보통');
+    setChallengeDifficultyLevel('4');
     setSelectedReferenceVideo(null);
     setChallengeError(null);
     setChallengeModalOpen(true);
   }
 
   function handleEditChallenge(challenge: Challenge) {
+    const parsedDifficulty = parseDifficulty(challenge.difficulty);
     setEditingChallengeId(challenge.id);
     setChallengeForm({
       title: challenge.title,
@@ -242,6 +254,8 @@ export function AdminModelAssetsPage() {
       guideVideoUrl: challenge.guideVideoUrl ?? '',
       durationSec: String(challenge.durationSec),
     });
+    setChallengeDifficultyLabel(parsedDifficulty.label);
+    setChallengeDifficultyLevel(String(parsedDifficulty.level));
     setSelectedReferenceVideo(null);
     setChallengeError(null);
     setChallengeModalOpen(true);
@@ -252,6 +266,8 @@ export function AdminModelAssetsPage() {
     setChallengeModalOpen(false);
     setEditingChallengeId(null);
     setChallengeForm(initialChallengeForm);
+    setChallengeDifficultyLabel('보통');
+    setChallengeDifficultyLevel('4');
     setSelectedReferenceVideo(null);
     setChallengeError(null);
   }
@@ -277,7 +293,7 @@ export function AdminModelAssetsPage() {
         title: challengeForm.title,
         description: challengeForm.description,
         category: challengeForm.category,
-        difficulty: challengeForm.difficulty,
+        difficulty: composeDifficulty(challengeDifficultyLabel, Number.parseInt(challengeDifficultyLevel, 10)),
         thumbnailUrl: challengeForm.thumbnailUrl,
         guideVideoUrl: challengeForm.guideVideoUrl,
         durationSec: Number(challengeForm.durationSec),
@@ -491,7 +507,7 @@ export function AdminModelAssetsPage() {
                       </div>
                     </div>
                     <p className="glass-list-item__description">{challenge.description}</p>
-                    <div className="glass-inline-meta"><span>{challenge.category}</span><span>{challenge.difficulty}</span><span>영상 {challenge.referenceVideoUploaded ? '등록됨' : '없음'}</span><span>분석 {formatReferenceStatus(challenge.referenceAnalysisStatus)}</span></div>
+                    <div className="glass-inline-meta"><span>{challenge.category}</span><span>{formatDifficulty(challenge.difficulty)}</span><span>영상 {challenge.referenceVideoUploaded ? '등록됨' : '없음'}</span><span>분석 {formatReferenceStatus(challenge.referenceAnalysisStatus)}</span></div>
                   </div>
                   <div className="glass-list-item__actions">
                     <Link className="button-link button-link--secondary" to={`/admin/challenges/${challenge.id}/analysis`}>분석 보기</Link>
@@ -525,9 +541,33 @@ export function AdminModelAssetsPage() {
                   <label className="glass-field"><span>설명</span><textarea value={challengeForm.description} rows={4} onChange={(event) => setChallengeForm((current) => ({ ...current, description: event.target.value }))} placeholder="레퍼런스 동작 설명" /></label>
                   <div className="glass-form__split">
                     <label className="glass-field"><span>카테고리</span><input type="text" value={challengeForm.category} onChange={(event) => setChallengeForm((current) => ({ ...current, category: event.target.value }))} /></label>
-                    <label className="glass-field"><span>난이도</span><input type="text" value={challengeForm.difficulty} onChange={(event) => setChallengeForm((current) => ({ ...current, difficulty: event.target.value }))} /></label>
+                    <label className="glass-field">
+                      <span>난이도</span>
+                      <select
+                        value={challengeDifficultyLabel}
+                        onChange={(event) => {
+                          const nextLabel = event.target.value as DifficultyLabel;
+                          setChallengeDifficultyLabel(nextLabel);
+                          setChallengeDifficultyLevel(String(getDifficultyScoreOptions(nextLabel)[0]));
+                        }}
+                      >
+                        <option value="쉬움">쉬움</option>
+                        <option value="보통">보통</option>
+                        <option value="어려움">어려움</option>
+                      </select>
+                    </label>
                   </div>
                   <div className="glass-form__split">
+                    <label className="glass-field">
+                      <span>난이도 숫자</span>
+                      <select value={challengeDifficultyLevel} onChange={(event) => setChallengeDifficultyLevel(event.target.value)}>
+                        {getDifficultyScoreOptions(challengeDifficultyLabel).map((level) => (
+                          <option key={level} value={String(level)}>
+                            {level}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
                     <label className="glass-field"><span>길이(초)</span><input type="number" min={5} max={600} value={challengeForm.durationSec} onChange={(event) => setChallengeForm((current) => ({ ...current, durationSec: event.target.value }))} /></label>
                     <label className="glass-field"><span>썸네일 URL</span><input type="text" value={challengeForm.thumbnailUrl} onChange={(event) => setChallengeForm((current) => ({ ...current, thumbnailUrl: event.target.value }))} placeholder="선택" /></label>
                   </div>

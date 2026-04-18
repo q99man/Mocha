@@ -1,14 +1,16 @@
-import { KeyboardEvent, useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { KeyboardEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 
+import '../features/challenges/challenge-play.css';
+import { CameraSetupModal } from '../features/challenges/CameraSetupModal';
 import { ChallengeVisual } from '../features/challenges/ChallengeVisual';
 import { getChallenges } from '../shared/api/challengeApi';
-import { Pagination } from '../shared/components/Pagination';
+import { resolveApiUrl } from '../shared/api/client';
 import type { Challenge } from '../shared/types/challenge';
 
 type ChallengeFilter = 'ALL' | 'READY' | 'REVIEWED';
 
-const ITEMS_PER_PAGE = 5;
+const AUDIO_FADE_MS = 400;
 
 export function ChallengesPage() {
   const navigate = useNavigate();
@@ -16,7 +18,18 @@ export function ChallengesPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeFilter, setActiveFilter] = useState<ChallengeFilter>('ALL');
-  const [currentPage, setCurrentPage] = useState(1);
+  const [selectedId, setSelectedId] = useState<number | null>(null);
+  const [modalChallengeId, setModalChallengeId] = useState<number | null>(null);
+
+  /* ── Audio refs ── */
+  const audioRef = useRef<HTMLVideoElement | null>(null);
+  const fadeTimerRef = useRef<number | null>(null);
+  const selectDebounceRef = useRef<number | null>(null);
+
+  const modalChallenge = useMemo(
+    () => (modalChallengeId != null ? challenges.find((c) => c.id === modalChallengeId) ?? null : null),
+    [modalChallengeId, challenges],
+  );
 
   useEffect(() => {
     let active = true;
@@ -29,6 +42,9 @@ export function ChallengesPage() {
         const response = await getChallenges();
         if (active) {
           setChallenges(response);
+          if (response.length > 0) {
+            setSelectedId(response[0].id);
+          }
         }
       } catch (loadError) {
         if (active) {
@@ -47,18 +63,30 @@ export function ChallengesPage() {
     };
   }, []);
 
+  /* ── Cleanup on unmount ── */
+  useEffect(() => {
+    return () => {
+      if (fadeTimerRef.current) window.clearInterval(fadeTimerRef.current);
+      if (selectDebounceRef.current) window.clearTimeout(selectDebounceRef.current);
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current.src = '';
+      }
+    };
+  }, []);
+
   const filterOptions = useMemo(
     () => [
-      { key: 'ALL' as const, label: '전체', count: challenges.length },
+      { key: 'ALL' as const, label: 'PLAYABLE', count: challenges.length },
       {
         key: 'READY' as const,
-        label: '준비 완료',
-        count: challenges.filter((challenge) => challenge.referenceMotionProfileReady).length,
+        label: '준비완료',
+        count: challenges.filter((c) => c.referenceMotionProfileReady).length,
       },
       {
         key: 'REVIEWED' as const,
-        label: '기록 있음',
-        count: challenges.filter((challenge) => Boolean(challenge.latestRetrySummary)).length,
+        label: '기록있음',
+        count: challenges.filter((c) => Boolean(c.latestRetrySummary)).length,
       },
     ],
     [challenges],
@@ -66,43 +94,108 @@ export function ChallengesPage() {
 
   const filteredChallenges = useMemo(() => {
     return challenges.filter((challenge) => {
-      if (activeFilter === 'READY') {
-        return challenge.referenceMotionProfileReady;
-      }
-      if (activeFilter === 'REVIEWED') {
-        return Boolean(challenge.latestRetrySummary);
-      }
+      if (activeFilter === 'READY') return challenge.referenceMotionProfileReady;
+      if (activeFilter === 'REVIEWED') return Boolean(challenge.latestRetrySummary);
       return true;
     });
   }, [activeFilter, challenges]);
 
-  const totalPages = Math.max(1, Math.ceil(filteredChallenges.length / ITEMS_PER_PAGE));
+  const selectedChallenge = useMemo(
+    () => challenges.find((c) => c.id === selectedId) ?? null,
+    [selectedId, challenges],
+  );
 
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [activeFilter]);
+  /* ── Audio fade helpers ── */
+  const fadeOutAudio = useCallback(() => {
+    const el = audioRef.current;
+    if (!el || el.paused) return Promise.resolve();
 
-  useEffect(() => {
-    if (currentPage > totalPages) {
-      setCurrentPage(totalPages);
+    return new Promise<void>((resolve) => {
+      if (fadeTimerRef.current) window.clearInterval(fadeTimerRef.current);
+
+      const step = el.volume / (AUDIO_FADE_MS / 30);
+      fadeTimerRef.current = window.setInterval(() => {
+        if (el.volume - step <= 0) {
+          el.volume = 0;
+          el.pause();
+          if (fadeTimerRef.current) window.clearInterval(fadeTimerRef.current);
+          fadeTimerRef.current = null;
+          resolve();
+        } else {
+          el.volume = Math.max(0, el.volume - step);
+        }
+      }, 30);
+    });
+  }, []);
+
+  const fadeInAudio = useCallback((src: string) => {
+    const el = audioRef.current;
+    if (!el) return;
+
+    el.src = src;
+    el.volume = 0;
+    el.currentTime = 0;
+
+    const playPromise = el.play();
+    if (playPromise) {
+      playPromise.catch(() => {
+        /* Autoplay blocked — user interaction required */
+      });
     }
-  }, [currentPage, totalPages]);
 
-  const pagedChallenges = useMemo(() => {
-    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
-    return filteredChallenges.slice(startIndex, startIndex + ITEMS_PER_PAGE);
-  }, [currentPage, filteredChallenges]);
+    if (fadeTimerRef.current) window.clearInterval(fadeTimerRef.current);
 
-  function moveToChallenge(challengeId: number) {
-    void navigate(`/challenges/${challengeId}`);
-  }
+    const targetVolume = 0.6;
+    const step = targetVolume / (AUDIO_FADE_MS / 30);
+    fadeTimerRef.current = window.setInterval(() => {
+      if (el.volume + step >= targetVolume) {
+        el.volume = targetVolume;
+        if (fadeTimerRef.current) window.clearInterval(fadeTimerRef.current);
+        fadeTimerRef.current = null;
+      } else {
+        el.volume = Math.min(targetVolume, el.volume + step);
+      }
+    }, 30);
+  }, []);
 
-  function handleCardKeyDown(event: KeyboardEvent<HTMLElement>, challengeId: number) {
+  /* ── Handle selection with debounce for fast scrolling ── */
+  const handleItemClick = useCallback(
+    (challengeId: number) => {
+      setSelectedId(challengeId);
+
+      /* Debounce audio switch for fast scrolling */
+      if (selectDebounceRef.current) window.clearTimeout(selectDebounceRef.current);
+
+      selectDebounceRef.current = window.setTimeout(() => {
+        const ch = challenges.find((c) => c.id === challengeId);
+        const videoUrl = ch?.guideVideoUrl ?? ch?.fallbackThumbnailVideoUrl ?? null;
+
+        if (videoUrl) {
+          void fadeOutAudio().then(() => fadeInAudio(resolveApiUrl(videoUrl)));
+        } else {
+          void fadeOutAudio();
+        }
+      }, 200);
+    },
+    [challenges, fadeOutAudio, fadeInAudio],
+  );
+
+  function handleItemKeyDown(event: KeyboardEvent<HTMLElement>, challengeId: number) {
     if (event.key === 'Enter' || event.key === ' ') {
       event.preventDefault();
-      moveToChallenge(challengeId);
+      handleItemClick(challengeId);
     }
   }
+
+  /* ── Auto-play first selected ── */
+  useEffect(() => {
+    if (selectedChallenge && audioRef.current) {
+      const videoUrl = selectedChallenge.guideVideoUrl ?? selectedChallenge.fallbackThumbnailVideoUrl ?? null;
+      if (videoUrl && audioRef.current.paused) {
+        /* Don't auto-play on first load — browsers block it. Wait for user click. */
+      }
+    }
+  }, [selectedChallenge]);
 
   if (loading) {
     return (
@@ -126,90 +219,175 @@ export function ChallengesPage() {
     );
   }
 
+  const previewVideoUrl =
+    selectedChallenge?.guideVideoUrl ?? selectedChallenge?.fallbackThumbnailVideoUrl ?? null;
+  const resolvedPreviewUrl = previewVideoUrl ? resolveApiUrl(previewVideoUrl) : null;
+
   return (
     <div className="glass-page">
-      <section className="glass-panel">
-        <div className="glass-toolbar">
-          <div className="glass-chip-group">
+      {/* Hidden audio element for music preview */}
+      <video
+        ref={audioRef}
+        style={{ display: 'none' }}
+        playsInline
+        preload="auto"
+      />
+
+      <div className="song-select">
+        {/* ═══ Left Pane: Video + Title + Actions ═══ */}
+        <div className="song-select__detail song-select__detail--video-fill">
+          {/* Full-screen video background */}
+          {selectedChallenge && resolvedPreviewUrl ? (
+            <video
+              key={selectedChallenge.id}
+              className="song-select__bg-video"
+              src={resolvedPreviewUrl}
+              autoPlay
+              muted
+              loop
+              playsInline
+              preload="auto"
+            />
+          ) : selectedChallenge ? (
+            <div className="song-select__bg-video-placeholder">
+              <ChallengeVisual
+                title={selectedChallenge.title}
+                thumbnailUrl={selectedChallenge.thumbnailUrl}
+                fallbackThumbnailVideoUrl={selectedChallenge.fallbackThumbnailVideoUrl}
+                className=""
+                placeholderClassName=""
+              />
+            </div>
+          ) : null}
+
+          {/* Gradient overlay for readability */}
+          <div className="song-select__detail-gradient" />
+
+          {/* Content overlay: Title + Duration + Button */}
+          {selectedChallenge && (
+            <div className="song-select__detail-overlay">
+              <div className="song-select__detail-content">
+                <h2 className="song-select__title song-select__title--overlay">
+                  {selectedChallenge.title}
+                </h2>
+                <p className="song-select__subtitle song-select__subtitle--overlay">
+                  {selectedChallenge.category} · {formatDuration(selectedChallenge.durationSec)}
+                </p>
+              </div>
+
+              <div className="song-select__actions">
+                <button
+                  type="button"
+                  className="song-select__action-btn"
+                  onClick={() => setModalChallengeId(selectedChallenge.id)}
+                >
+                  도전 시작
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* ═══ Right Pane: Song List ═══ */}
+        <div className="song-select__list-pane">
+          {/* Filter tabs */}
+          <div className="song-select__filter-bar">
             {filterOptions.map((option) => (
               <button
                 key={option.key}
-                className={`glass-chip${activeFilter === option.key ? ' is-active' : ''}`}
                 type="button"
+                className={`song-select__filter-tab${activeFilter === option.key ? ' song-select__filter-tab--active' : ''}`}
                 onClick={() => setActiveFilter(option.key)}
               >
-                {option.label} {option.count}
+                {option.label}
               </button>
             ))}
           </div>
-          <p className="glass-toolbar__note">현재 {filteredChallenges.length}개의 챌린지</p>
-        </div>
 
-        {pagedChallenges.length === 0 ? (
-          <div className="glass-panel glass-panel--nested glass-panel--empty">
-            <strong>조건에 맞는 챌린지가 없습니다.</strong>
-            <p>필터를 바꾸면 다른 챌린지를 확인할 수 있습니다.</p>
+          {/* Sort info */}
+          <div className="song-select__sort-row">
+            <span>≡ 정렬: 챌린지 제목 (A to Z)</span>
+            <span>총 {filteredChallenges.length}개</span>
           </div>
-        ) : (
-          <div className="glass-list">
-            {pagedChallenges.map((challenge) => (
-              <article
-                key={challenge.id}
-                className="glass-list-item glass-list-item--challenge glass-list-item--interactive"
-                role="button"
-                tabIndex={0}
-                onClick={() => moveToChallenge(challenge.id)}
-                onKeyDown={(event) => handleCardKeyDown(event, challenge.id)}
-              >
-                <div className="glass-list-item__visual">
-                  <ChallengeVisual
-                    title={challenge.title}
-                    thumbnailUrl={challenge.thumbnailUrl}
-                    fallbackThumbnailVideoUrl={challenge.fallbackThumbnailVideoUrl}
-                    className="glass-list-item__image"
-                    placeholderClassName="glass-list-item__image glass-list-item__image--placeholder"
-                  />
-                </div>
 
-                <div className="glass-list-item__content">
-                  <div className="glass-list-item__header">
-                    <div>
-                      <span className="glass-list-item__eyebrow">CH-{String(challenge.id).padStart(2, '0')}</span>
-                      <strong>{challenge.title}</strong>
-                    </div>
-                    <span className={`glass-badge${challenge.referenceMotionProfileReady ? ' is-accent' : ''}`}>
-                      {challenge.referenceMotionProfileReady ? '준비 완료' : '준비 중'}
+          {/* Song list */}
+          <div className="song-select__list">
+            {filteredChallenges.length === 0 ? (
+              <div className="song-select__empty">
+                <p>조건에 맞는 챌린지가 없습니다.</p>
+              </div>
+            ) : (
+              filteredChallenges.map((challenge) => (
+                <div
+                  key={challenge.id}
+                  className={`song-select__item${selectedId === challenge.id ? ' song-select__item--active' : ''}`}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => handleItemClick(challenge.id)}
+                  onKeyDown={(event) => handleItemKeyDown(event, challenge.id)}
+                  onDoubleClick={() => {
+                    setSelectedId(challenge.id);
+                    setModalChallengeId(challenge.id);
+                  }}
+                >
+                  {/* Thumbnail */}
+                  <div className="song-select__item-thumb">
+                    {challenge.thumbnailUrl ? (
+                      <img src={challenge.thumbnailUrl} alt={challenge.title} />
+                    ) : challenge.fallbackThumbnailVideoUrl ? (
+                      <video src={challenge.fallbackThumbnailVideoUrl} muted playsInline preload="metadata" />
+                    ) : (
+                      <div className="song-select__item-thumb-placeholder">
+                        CH-{String(challenge.id).padStart(2, '0')}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Info */}
+                  <div className="song-select__item-info">
+                    <span className="song-select__item-title">{challenge.title}</span>
+                    <span className="song-select__item-sub">
+                      {challenge.category} · {challenge.difficulty} · {challenge.durationSec}초
                     </span>
                   </div>
 
-                  <p className="glass-list-item__description">{challenge.description}</p>
-
-                  <div className="glass-inline-meta">
-                    <span>{challenge.category}</span>
-                    <span>{challenge.difficulty}</span>
-                    <span>{challenge.durationSec}초</span>
-                    <span>
-                      최근 점수 {challenge.latestRetrySummary ? `${challenge.latestRetrySummary.latestScore}점` : '없음'}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="glass-list-item__actions">
-                  <Link
-                    className="button-link"
-                    to={`/challenges/${challenge.id}/start`}
-                    onClick={(event) => event.stopPropagation()}
+                  {/* Badge */}
+                  <span
+                    className={`song-select__item-badge ${
+                      challenge.referenceMotionProfileReady
+                        ? 'song-select__item-badge--ready'
+                        : 'song-select__item-badge--pending'
+                    }`}
                   >
-                    바로 시작
-                  </Link>
+                    {challenge.referenceMotionProfileReady ? '준비됨' : '대기'}
+                  </span>
                 </div>
-              </article>
-            ))}
+              ))
+            )}
           </div>
-        )}
+        </div>
+      </div>
 
-        <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} />
-      </section>
+      {/* Camera Setup Modal */}
+      {modalChallenge && (
+        <CameraSetupModal
+          challengeTitle={modalChallenge.title}
+          onConfirm={() => {
+            void fadeOutAudio();
+            const targetId = modalChallengeId;
+            setModalChallengeId(null);
+            void navigate(`/challenges/${targetId}/start`);
+          }}
+          onClose={() => setModalChallengeId(null)}
+        />
+      )}
     </div>
   );
+}
+
+function formatDuration(durationSec: number) {
+  if (durationSec < 60) return `${durationSec}초`;
+  const minutes = Math.floor(durationSec / 60);
+  const seconds = durationSec % 60;
+  return seconds === 0 ? `${minutes}분` : `${minutes}분 ${seconds}초`;
 }

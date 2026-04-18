@@ -29,11 +29,11 @@ export function BoardCommentComposer({
   }
 
   return (
-    <form className="glass-form board-comment-editor" onSubmit={handleSubmit}>
+    <form className="board-comment-editor" onSubmit={handleSubmit}>
       <label className="glass-field">
         <span>댓글</span>
         <textarea
-          rows={4}
+          rows={3}
           maxLength={1200}
           value={value}
           placeholder={placeholder}
@@ -44,7 +44,7 @@ export function BoardCommentComposer({
       {success ? <p className="review-composer__message review-composer__message--success">{success}</p> : null}
       {error ? <p className="review-composer__message review-composer__message--error">{error}</p> : null}
 
-      <div className="inline-actions">
+      <div className="inline-actions board-actions-right">
         {onCancel ? (
           <button className="button-link button-link--secondary" type="button" onClick={onCancel} disabled={busy}>
             취소

@@ -68,6 +68,21 @@ body.body--modal-open {
   overflow: hidden;
 }
 
+body.body--play-fullscreen .app-header-glass,
+body.body--play-fullscreen .app-shell__ambient,
+body.body--play-fullscreen .stage-topbar {
+  display: none !important;
+}
+
+body.body--play-fullscreen .app-main-glass {
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+body.body--play-fullscreen .app-shell--glass {
+  padding: 0 !important;
+}
+
 body::before {
   content: "";
   position: fixed;

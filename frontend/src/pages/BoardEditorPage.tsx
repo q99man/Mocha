@@ -137,7 +137,7 @@ export function BoardEditorPage() {
         <div>
           <span className="glass-intro__eyebrow">{isEditMode ? 'Edit Post' : 'New Post'}</span>
           <h2>{isEditMode ? '게시글 수정' : '새 게시글 작성'}</h2>
-          <p>제목, 카테고리, 본문만 남긴 가장 기본적인 작성 흐름입니다. 챌린지 후기는 상세 페이지에서 자동으로 게시판에 노출됩니다.</p>
+          <p>제목, 카테고리, 본문만 입력하면 바로 게시할 수 있습니다. 챌린지 후기는 상세 페이지에서 자동으로 게시판에 연결됩니다.</p>
         </div>
       </section>
 
@@ -176,7 +176,7 @@ export function BoardEditorPage() {
               rows={14}
               maxLength={5000}
               value={form.content}
-              placeholder="사용자들이 바로 이해할 수 있게 내용을 작성해 주세요"
+              placeholder="다른 사용자가 쉽게 이해할 수 있도록 내용을 작성해 주세요."
               onChange={(event) => setForm((current) => ({ ...current, content: event.target.value }))}
             />
           </label>

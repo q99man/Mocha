@@ -433,10 +433,6 @@
   will-change: transform;
 }
 
-.lp-showcase__viewport:hover .lp-showcase__track--marquee {
-  animation-play-state: paused;
-}
-
 .lp-showcase__card {
   position: relative;
   display: block;
@@ -610,11 +606,6 @@
   animation: lp-review-marquee-right 18s linear infinite;
 }
 
-.lp-review-marquee:hover .lp-review-marquee__track--left,
-.lp-review-marquee:hover .lp-review-marquee__track--right {
-  animation-play-state: paused;
-}
-
 .lp-usecase-grid {
   display: contents;
 }
@@ -626,6 +617,8 @@
   width: min(100%, 420px);
   min-height: 220px;
   padding: 30px;
+  color: inherit;
+  text-decoration: none;
 }
 
 .lp-usecase-grid__card strong {
@@ -722,6 +715,7 @@
     transform 220ms ease,
     border-color 220ms ease,
     background 220ms ease;
+  text-decoration: none;
 }
 
 .lp-review-card__link:hover {

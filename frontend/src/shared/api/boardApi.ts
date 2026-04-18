@@ -40,6 +40,23 @@ export async function getMyBoardPosts(page = 1, size = 4): Promise<BoardPostList
   return fetchJson<BoardPostListResponse>(`/api/board/posts/me?page=${page}&size=${size}`);
 }
 
+export async function getMyBoardPostsBySource(
+  page = 1,
+  size = 4,
+  sourceType?: 'ALL' | BoardPostSourceType,
+): Promise<BoardPostListResponse> {
+  const searchParams = new URLSearchParams({
+    page: String(page),
+    size: String(size),
+  });
+
+  if (sourceType && sourceType !== 'ALL') {
+    searchParams.set('sourceType', sourceType);
+  }
+
+  return fetchJson<BoardPostListResponse>(`/api/board/posts/me?${searchParams.toString()}`);
+}
+
 export async function getBoardPost(postId: string | number): Promise<BoardPost> {
   return fetchJson<BoardPost>(`/api/board/posts/${postId}`);
 }

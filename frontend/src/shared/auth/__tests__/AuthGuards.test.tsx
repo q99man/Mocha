@@ -34,13 +34,13 @@ describe('auth guards', () => {
     });
 
     render(
-      <MemoryRouter initialEntries={['/attempts?challengeId=7']}>
+      <MemoryRouter initialEntries={['/mypage']}>
         <Routes>
           <Route
-            path="/attempts"
+            path="/mypage"
             element={(
               <RequireAuth>
-                <div>Protected attempts</div>
+                <div>Protected mypage</div>
               </RequireAuth>
             )}
           />

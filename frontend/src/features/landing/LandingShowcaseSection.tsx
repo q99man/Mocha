@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 
 import type { Challenge } from '../../shared/types/challenge';
+import { formatDifficulty } from '../challenges/difficulty';
 import { ChallengeVisual } from '../challenges/ChallengeVisual';
 
 type LandingShowcaseSectionProps = {
@@ -24,7 +25,7 @@ export function LandingShowcaseSection({ challenges }: LandingShowcaseSectionPro
               {trackChallenges.map((challenge, index) => (
                 <Link
                   className="lp-showcase__card lp-panel-glass"
-                  to={`/challenges/${challenge.id}`}
+                  to="/challenges"
                   key={`${challenge.id}-${index < challenges.length ? 'base' : 'clone'}`}
                   aria-hidden={hasLoop && index >= challenges.length}
                 >
@@ -42,7 +43,7 @@ export function LandingShowcaseSection({ challenges }: LandingShowcaseSectionPro
                     <span className="lp-showcase__badge">{challenge.category}</span>
                     <strong className="lp-showcase__title lp-showcase__title--mini">{challenge.title}</strong>
                     <div className="lp-meta-row">
-                      <span>{challenge.difficulty}</span>
+                      <span>{formatDifficulty(challenge.difficulty)}</span>
                       <span>{challenge.durationSec}초</span>
                       <span>{challenge.referenceMotionProfileReady ? '준비 완료' : '처리 중'}</span>
                     </div>

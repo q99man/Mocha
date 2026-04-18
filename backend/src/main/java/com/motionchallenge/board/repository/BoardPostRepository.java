@@ -53,14 +53,19 @@ public interface BoardPostRepository extends JpaRepository<BoardPost, Long> {
                     select post
                     from BoardPost post
                     where post.member.id = :memberId
+                      and (:sourceType is null or post.sourceType = :sourceType)
                     order by post.createdAt desc, post.id desc
                     """,
             countQuery = """
                     select count(post)
                     from BoardPost post
                     where post.member.id = :memberId
+                      and (:sourceType is null or post.sourceType = :sourceType)
                     """)
-    Page<BoardPost> findAllByMemberId(@Param("memberId") Long memberId, Pageable pageable);
+    Page<BoardPost> findAllByMemberId(
+            @Param("memberId") Long memberId,
+            @Param("sourceType") BoardPostSourceType sourceType,
+            Pageable pageable);
 
     @Query("""
             select post
