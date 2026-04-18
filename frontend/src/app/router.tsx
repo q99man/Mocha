@@ -11,7 +11,6 @@ import { AuthPage } from '../pages/AuthPage';
 import { BoardDetailPage } from '../pages/BoardDetailPage';
 import { BoardEditorPage } from '../pages/BoardEditorPage';
 import { BoardPage } from '../pages/BoardPage';
-import { ChallengeDetailPage } from '../pages/ChallengeDetailPage';
 import { ChallengeStartPage } from '../pages/ChallengeStartPage';
 import { ChallengesPage } from '../pages/ChallengesPage';
 import { HomePage } from '../pages/HomePage';
@@ -57,10 +56,6 @@ export const router = createBrowserRouter([
             <BoardEditorPage />
           </RequireAuth>
         ),
-      },
-      {
-        path: 'challenges/:id',
-        element: <ChallengeDetailPage />,
       },
       {
         path: 'challenges/:id/start',

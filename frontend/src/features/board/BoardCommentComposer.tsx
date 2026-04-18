@@ -46,12 +46,21 @@ export function BoardCommentComposer({
 
       <div className="inline-actions board-actions-right">
         {onCancel ? (
-          <button className="button-link button-link--secondary" type="button" onClick={onCancel} disabled={busy}>
+          <button
+            className="button-link button-link--secondary button-link--compact"
+            type="button"
+            onClick={onCancel}
+            disabled={busy}
+          >
             취소
           </button>
         ) : null}
-        <button className="button-link" type="submit" disabled={busy || value.trim().length === 0}>
-          {busy ? '저장 중...' : submitLabel}
+        <button
+          className="button-link button-link--compact"
+          type="submit"
+          disabled={busy || value.trim().length === 0}
+        >
+          {busy ? '처리 중...' : submitLabel}
         </button>
       </div>
     </form>

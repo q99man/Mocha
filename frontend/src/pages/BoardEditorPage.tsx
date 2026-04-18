@@ -43,7 +43,7 @@ export function BoardEditorPage() {
 
         if (response.sourceType === 'REVIEW_SYNC') {
           setReviewManagedPost(true);
-          setError('후기 게시글은 챌린지 상세 페이지에서 수정할 수 있습니다.');
+          setError('후기 게시글은 챌린지 후기 화면에서 관리할 수 있습니다.');
           return;
         }
 
@@ -93,9 +93,10 @@ export function BoardEditorPage() {
         pinned: isAdmin ? Boolean(form.pinned) : false,
       };
 
-      const response = isEditMode && id
-        ? await updateBoardPost(id, payload)
-        : await createBoardPost(payload);
+      const response =
+        isEditMode && id
+          ? await updateBoardPost(id, payload)
+          : await createBoardPost(payload);
 
       navigate(`/board/${response.id}`);
     } catch (saveError) {
@@ -106,10 +107,12 @@ export function BoardEditorPage() {
 
   if (loading) {
     return (
-      <section className="glass-page">
-        <div className="glass-panel glass-panel--empty">
-          <strong>게시글 편집 화면을 준비하는 중입니다.</strong>
-          <p>기존 내용을 불러오고 있습니다.</p>
+      <section className="glass-page board-page-compact">
+        <div className="board-compact-shell board-compact-shell--detail">
+          <div className="board-compact-empty">
+            <strong>게시글 편집 화면을 준비하는 중입니다.</strong>
+            <p>기존 내용을 불러오고 있습니다.</p>
+          </div>
         </div>
       </section>
     );
@@ -117,14 +120,16 @@ export function BoardEditorPage() {
 
   if (reviewManagedPost) {
     return (
-      <section className="glass-page">
-        <div className="glass-panel glass-panel--empty">
-          <strong>후기 게시글은 여기서 수정할 수 없습니다.</strong>
-          <p>{error}</p>
-          <div className="inline-actions">
-            <Link className="button-link button-link--secondary" to={id ? `/board/${id}` : '/board'}>
-              게시글로 돌아가기
-            </Link>
+      <section className="glass-page board-page-compact">
+        <div className="board-compact-shell board-compact-shell--detail">
+          <div className="board-compact-empty">
+            <strong>후기 게시글은 여기서 수정할 수 없습니다.</strong>
+            <p>{error}</p>
+            <div className="inline-actions">
+              <Link className="button-link button-link--secondary button-link--compact" to={id ? `/board/${id}` : '/board'}>
+                게시글로 돌아가기
+              </Link>
+            </div>
           </div>
         </div>
       </section>
@@ -132,23 +137,36 @@ export function BoardEditorPage() {
   }
 
   return (
-    <div className="glass-page">
-      <section className="glass-intro">
-        <div>
-          <span className="glass-intro__eyebrow">{isEditMode ? 'Edit Post' : 'New Post'}</span>
-          <h2>{isEditMode ? '게시글 수정' : '새 게시글 작성'}</h2>
-          <p>제목, 카테고리, 본문만 입력하면 바로 게시할 수 있습니다. 챌린지 후기는 상세 페이지에서 자동으로 게시판에 연결됩니다.</p>
-        </div>
-      </section>
+    <div className="glass-page board-page-compact">
+      <section className="board-compact-shell board-compact-shell--detail">
+        <div className="board-detail-compact__toolbar">
+          <div className="board-detail-compact__meta">
+            <span className="board-detail-chip">{isEditMode ? '게시글 수정' : '새 게시글'}</span>
+            <span className="board-detail-chip">간단하고 빠르게 작성</span>
+          </div>
 
-      <section className="glass-panel">
-        <form className="glass-form" onSubmit={handleSubmit}>
-          <div className="glass-form-grid">
+          <div className="inline-actions">
+            <Link className="button-link button-link--secondary button-link--compact" to={isEditMode && id ? `/board/${id}` : '/board'}>
+              취소
+            </Link>
+            <button className="button-link button-link--compact" type="submit" form="board-editor-form" disabled={saving}>
+              {saving ? '저장 중...' : isEditMode ? '수정 완료' : '등록'}
+            </button>
+          </div>
+        </div>
+
+        <form className="glass-form board-editor-compact" id="board-editor-form" onSubmit={handleSubmit}>
+          <div className="board-editor-compact__grid">
             <label className="glass-select">
-              <span>카테고리</span>
+              <span>분류</span>
               <select
                 value={form.category}
-                onChange={(event) => setForm((current) => ({ ...current, category: event.target.value as Exclude<BoardCategory, 'REVIEW'> }))}
+                onChange={(event) =>
+                  setForm((current) => ({
+                    ...current,
+                    category: event.target.value as Exclude<BoardCategory, 'REVIEW'>,
+                  }))
+                }
               >
                 {categoryOptions.map((option) => (
                   <option key={option.value} value={option.value}>
@@ -164,7 +182,7 @@ export function BoardEditorPage() {
                 type="text"
                 maxLength={120}
                 value={form.title}
-                placeholder="게시글 제목을 입력해 주세요"
+                placeholder="게시글 제목을 입력해 주세요."
                 onChange={(event) => setForm((current) => ({ ...current, title: event.target.value }))}
               />
             </label>
@@ -173,10 +191,10 @@ export function BoardEditorPage() {
           <label className="glass-field">
             <span>본문</span>
             <textarea
-              rows={14}
+              rows={12}
               maxLength={5000}
               value={form.content}
-              placeholder="다른 사용자가 쉽게 이해할 수 있도록 내용을 작성해 주세요."
+              placeholder="다른 사용자가 읽기 편하게 내용을 정리해 주세요."
               onChange={(event) => setForm((current) => ({ ...current, content: event.target.value }))}
             />
           </label>
@@ -193,15 +211,6 @@ export function BoardEditorPage() {
           ) : null}
 
           {error ? <p className="review-composer__message review-composer__message--error">{error}</p> : null}
-
-          <div className="inline-actions">
-            <Link className="button-link button-link--secondary" to={isEditMode && id ? `/board/${id}` : '/board'}>
-              취소
-            </Link>
-            <button className="button-link" type="submit" disabled={saving}>
-              {saving ? '저장 중...' : isEditMode ? '수정 완료' : '게시글 등록'}
-            </button>
-          </div>
         </form>
       </section>
     </div>

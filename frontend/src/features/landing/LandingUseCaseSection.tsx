@@ -86,7 +86,7 @@ function ReviewCard({ review, ariaHidden }: ReviewCardProps) {
         </div>
 
         <div className="lp-review-card__actions">
-          <Link className="lp-review-card__link" to={`/challenges/${review.challengeId}`}>
+          <Link className="lp-review-card__link" to={`/challenges?challengeId=${review.challengeId}&panel=reviews`}>
             챌린지 보기
           </Link>
           <Link className="lp-review-card__link lp-review-card__link--secondary" to={`/board?${challengeReviewQuery}`}>

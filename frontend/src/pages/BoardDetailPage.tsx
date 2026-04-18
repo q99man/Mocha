@@ -100,10 +100,10 @@ export function BoardDetailPage() {
     try {
       await createBoardComment(id, { content: commentValue.trim() });
       setCommentValue(INITIAL_COMMENT);
-      setCommentSuccess('댓글이 등록되었습니다.');
+      setCommentSuccess('댓글을 등록했습니다.');
       await refreshComments();
     } catch (submitError) {
-      setCommentError(submitError instanceof Error ? submitError.message : '댓글을 저장하지 못했습니다.');
+      setCommentError(submitError instanceof Error ? submitError.message : '댓글을 등록하지 못했습니다.');
     } finally {
       setCommentBusy(false);
     }
@@ -122,7 +122,7 @@ export function BoardDetailPage() {
       await updateBoardComment(editCommentId, { content: editCommentValue.trim() });
       setEditCommentId(null);
       setEditCommentValue('');
-      setCommentSuccess('댓글이 수정되었습니다.');
+      setCommentSuccess('댓글을 수정했습니다.');
       await refreshComments();
     } catch (updateError) {
       setCommentError(updateError instanceof Error ? updateError.message : '댓글을 수정하지 못했습니다.');
@@ -146,7 +146,7 @@ export function BoardDetailPage() {
         setEditCommentId(null);
         setEditCommentValue('');
       }
-      setCommentSuccess('댓글이 삭제되었습니다.');
+      setCommentSuccess('댓글을 삭제했습니다.');
       await refreshComments();
     } catch (deleteError) {
       setCommentError(deleteError instanceof Error ? deleteError.message : '댓글을 삭제하지 못했습니다.');
@@ -170,10 +170,12 @@ export function BoardDetailPage() {
 
   if (loading) {
     return (
-      <section className="glass-page">
-        <div className="glass-panel glass-panel--empty">
-          <strong>게시글을 불러오는 중입니다.</strong>
-          <p>본문과 댓글 흐름을 함께 정리하고 있습니다.</p>
+      <section className="glass-page board-page-compact">
+        <div className="board-compact-shell board-compact-shell--detail">
+          <div className="board-compact-empty">
+            <strong>게시글을 불러오는 중입니다.</strong>
+            <p>본문과 댓글을 정리하고 있습니다.</p>
+          </div>
         </div>
       </section>
     );
@@ -181,14 +183,16 @@ export function BoardDetailPage() {
 
   if (error || !post) {
     return (
-      <section className="glass-page">
-        <div className="glass-panel glass-panel--empty">
-          <strong>게시글을 불러오지 못했습니다.</strong>
-          <p>{error ?? '선택한 게시글을 찾을 수 없습니다.'}</p>
-          <div className="inline-actions">
-            <Link className="button-link button-link--secondary" to="/board">
-              목록으로
-            </Link>
+      <section className="glass-page board-page-compact">
+        <div className="board-compact-shell board-compact-shell--detail">
+          <div className="board-compact-empty">
+            <strong>게시글을 불러오지 못했습니다.</strong>
+            <p>{error ?? '선택한 게시글을 찾을 수 없습니다.'}</p>
+            <div className="inline-actions">
+              <Link className="button-link button-link--secondary button-link--compact" to="/board">
+                목록으로
+              </Link>
+            </div>
           </div>
         </div>
       </section>
@@ -199,90 +203,80 @@ export function BoardDetailPage() {
   const canManagePost = !isReviewSync && (post.mine || isAdmin);
 
   return (
-    <div className="glass-page">
-      <section className="glass-intro">
-        <div>
-          <span className="glass-intro__eyebrow">
-            {toCategoryLabel(post.category)}
-            {isReviewSync ? ' · 자동 후기' : ''}
-          </span>
-          <h2>{post.title}</h2>
-          <p>
-            {isReviewSync
-              ? '이 게시글은 챌린지 후기 원본과 자동으로 연결됩니다. 후기 수정과 삭제는 챌린지 상세 페이지에서 관리합니다.'
-              : '게시글 본문과 댓글 흐름을 한 화면에서 자연스럽게 확인할 수 있도록 단순한 구조로 정리했습니다.'}
-          </p>
-        </div>
-        <div className="glass-intro__meta">
-          <div>
-            <span>작성자</span>
-            <strong>{post.authorDisplayName}</strong>
-          </div>
-          <div>
-            <span>조회</span>
-            <strong>{String(post.viewCount).padStart(2, '0')}</strong>
-          </div>
-          <div>
-            <span>댓글</span>
-            <strong>{String(post.commentCount).padStart(2, '0')}</strong>
-          </div>
-        </div>
-      </section>
-
-      <section className="glass-panel">
-        <div className="glass-toolbar">
-          <div className="glass-inline-meta">
-            <span>{formatDateTime(post.createdAt)}</span>
-            <span>수정 {formatDateTime(post.updatedAt)}</span>
-            <span>{post.pinned ? '고정 게시글' : isReviewSync ? '후기 노출 게시글' : '일반 게시글'}</span>
+    <div className="glass-page board-page-compact">
+      <section className="board-compact-shell board-compact-shell--detail">
+        <div className="board-detail-compact__toolbar">
+          <div className="board-detail-compact__meta">
+            <span className={`board-compact-badge${post.pinned ? ' is-pinned' : ''}`}>
+              {toCategoryLabel(post.category)}
+            </span>
+            {isReviewSync ? <span className="board-detail-chip">자동 후기</span> : null}
+            <span className="board-detail-chip">작성 {formatDateTime(post.createdAt)}</span>
+            <span className="board-detail-chip">수정 {formatDateTime(post.updatedAt)}</span>
           </div>
 
           <div className="inline-actions">
-            <Link className="button-link button-link--secondary" to="/board">
-              목록으로
+            <Link className="button-link button-link--secondary button-link--compact" to="/board">
+              목록
             </Link>
             {isAuthenticated ? (
-              <Link className="button-link" to="/board/new">
-                새 글 작성
+              <Link className="button-link button-link--secondary button-link--compact" to="/board/new">
+                글쓰기
               </Link>
             ) : (
-              <Link className="button-link" to="/auth">
+              <Link className="button-link button-link--secondary button-link--compact" to="/auth">
                 로그인
               </Link>
             )}
+            {canManagePost ? (
+              <>
+                <Link
+                  className="button-link button-link--secondary button-link--compact"
+                  to={`/board/${post.id}/edit`}
+                >
+                  수정
+                </Link>
+                <button
+                  className="button-link button-link--compact"
+                  type="button"
+                  onClick={handleDeletePost}
+                  disabled={deleteBusy}
+                >
+                  {deleteBusy ? '삭제 중...' : '삭제'}
+                </button>
+              </>
+            ) : null}
+          </div>
+        </div>
+
+        <div className="board-detail-compact__header">
+          <h2>{post.title}</h2>
+          <div className="board-detail-compact__submeta">
+            <span>작성자 {post.authorDisplayName}</span>
+            <span>조회 {post.viewCount}</span>
+            <span>댓글 {post.commentCount}</span>
           </div>
         </div>
 
         {isReviewSync ? (
-          <div className="board-review-summary">
+          <div className="board-review-summary board-review-summary--compact">
             {post.reviewRating ? <ReviewStars value={post.reviewRating} /> : null}
             {post.challengeId && post.challengeTitle ? (
-              <Link className="board-review-summary__link" to={`/challenges/${post.challengeId}`}>
-                {post.challengeTitle} 상세로 이동
+              <Link className="board-review-summary__link" to={`/challenges?challengeId=${post.challengeId}&panel=reviews`}>
+                {post.challengeTitle} 후기 보기
               </Link>
             ) : null}
           </div>
         ) : null}
 
-        <article className="board-post-content">{post.content}</article>
-
-        {canManagePost ? (
-          <div className="inline-actions">
-            <Link className="button-link button-link--secondary" to={`/board/${post.id}/edit`}>
-              수정하기
-            </Link>
-            <button className="button-link" type="button" onClick={handleDeletePost} disabled={deleteBusy}>
-              {deleteBusy ? '삭제 중...' : '삭제하기'}
-            </button>
-          </div>
-        ) : null}
+        <article className="board-post-content board-post-content--compact">{post.content}</article>
       </section>
 
-      <section className="glass-panel">
-        <div className="glass-toolbar">
-          <div>
-            <h3 className="glass-section-title">댓글</h3>
-            <p className="glass-toolbar__note">후기 게시글에도 일반 게시글과 동일하게 댓글 대화를 이어갈 수 있습니다.</p>
+      <section className="board-compact-shell board-compact-shell--detail">
+        <div className="board-detail-compact__toolbar board-detail-compact__toolbar--comments">
+          <div className="board-detail-compact__section-title">
+            <strong>댓글</strong>
+            <span>{comments.length}개</span>
           </div>
         </div>
 
@@ -291,18 +285,18 @@ export function BoardDetailPage() {
             value={commentValue}
             busy={commentBusy}
             submitLabel="댓글 등록"
-            placeholder="게시글에 대한 의견을 남겨 보세요"
+            placeholder="댓글 내용을 입력해 주세요."
             error={editCommentId == null ? commentError : null}
             success={commentSuccess}
             onChange={setCommentValue}
             onSubmit={handleCreateComment}
           />
         ) : (
-          <div className="glass-panel glass-panel--nested glass-panel--empty">
+          <div className="board-compact-empty">
             <strong>로그인 후 댓글을 작성할 수 있습니다.</strong>
-            <p>게시판 참여 기능은 회원 사용자에게 열려 있습니다.</p>
+            <p>게시판 참여 기능은 로그인 사용자에게 열려 있습니다.</p>
             <div className="inline-actions">
-              <Link className="button-link" to="/auth">
+              <Link className="button-link button-link--compact" to="/auth">
                 로그인
               </Link>
             </div>
@@ -350,7 +344,6 @@ function formatDateTime(value: string) {
   }
 
   return parsed.toLocaleString('ko-KR', {
-    year: 'numeric',
     month: '2-digit',
     day: '2-digit',
     hour: '2-digit',

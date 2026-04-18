@@ -240,7 +240,7 @@ export function AttemptHistoryList({
                 <Link className="button-link" to={`/attempts/${attempt.id}/result`}>
                   결과 보기
                 </Link>
-                <Link className="button-link button-link--secondary" to={`/challenges/${attempt.challengeId}`}>
+                <Link className="button-link button-link--secondary" to={`/challenges?challengeId=${attempt.challengeId}`}>
                   챌린지 보기
                 </Link>
                 <Link className="button-link button-link--secondary" to={`/challenges/${attempt.challengeId}/start`}>

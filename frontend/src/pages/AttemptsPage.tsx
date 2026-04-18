@@ -263,7 +263,7 @@ export function AttemptsPage() {
                 </div>
 
                 <div className="glass-list-item__actions">
-                  <Link className="button-link button-link--secondary" to={`/challenges/${attempt.challengeId}`}>
+                  <Link className="button-link button-link--secondary" to={`/challenges?challengeId=${attempt.challengeId}`}>
                     챌린지 보기
                   </Link>
                   <Link className="button-link" to={`/attempts/${attempt.id}/result`}>

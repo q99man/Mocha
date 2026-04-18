@@ -121,6 +121,7 @@ export function AttemptResultPage() {
   }
 
   const pending = !attempt.processingComplete || attempt.processingMode === 'ASYNC_JOB_PENDING';
+  const isTestModeResult = attempt.resultSource === 'SAMPLE_SCORING_PREVIEW' && attempt.score === 0;
 
   return (
     <div className="glass-page">
@@ -146,6 +147,19 @@ export function AttemptResultPage() {
           </div>
         </div>
       </section>
+
+      {isTestModeResult ? (
+        <section className="glass-panel">
+          <div className="glass-toolbar">
+            <div>
+              <h3 className="glass-section-title">테스트 모드 결과</h3>
+              <p className="glass-toolbar__note">
+                카메라 없이 진행된 기록입니다. 현재는 비교 지표를 계산하지 않고 점수 0점으로 저장합니다.
+              </p>
+            </div>
+          </div>
+        </section>
+      ) : null}
 
       {pending ? (
         <section className="glass-panel">

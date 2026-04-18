@@ -117,9 +117,10 @@ export function BoardPage() {
 
   const summaryText = useMemo(() => {
     if (loading) return '게시글을 불러오는 중입니다.';
-    if (error) return '연결 상태를 확인한 뒤 다시 시도해 주세요.';
-    return `총 ${totalCount}개의 게시글`;
-  }, [error, loading, totalCount]);
+    if (error) return '목록을 다시 불러오지 못했습니다.';
+    if (submittedKeyword.trim()) return `검색 결과 ${totalCount}개`;
+    return `전체 ${totalCount}개`;
+  }, [error, loading, submittedKeyword, totalCount]);
 
   function handleSearchSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -133,90 +134,88 @@ export function BoardPage() {
   }
 
   return (
-    <div className="glass-page">
-      <section className="glass-panel board-classic-shell">
-        <div className="board-classic-topbar">
-          <div>
-            <h2 className="board-classic-title">게시판</h2>
-            <p className="board-classic-summary">{summaryText}</p>
+    <div className="glass-page board-page-compact">
+      <section className="board-compact-shell">
+        <div className="board-compact-toolbar">
+          <div className="board-compact-filter-tabs">
+            {CATEGORY_OPTIONS.map((option) => (
+              <button
+                key={option.value}
+                type="button"
+                className={`board-compact-tab${category === option.value ? ' is-active' : ''}`}
+                onClick={() => handleCategoryChange(option.value)}
+              >
+                {option.label}
+              </button>
+            ))}
           </div>
 
-          <div className="inline-actions">
-            <Link className="button-link" to={isAuthenticated ? '/board/new' : '/auth'}>
-              {isAuthenticated ? '글쓰기' : '로그인 후 글쓰기'}
-            </Link>
-          </div>
-        </div>
-
-        <form className="board-classic-filters" onSubmit={handleSearchSubmit}>
-          <label className="glass-select">
-            <span>카테고리</span>
-            <select value={category} onChange={(event) => handleCategoryChange(event.target.value as 'ALL' | BoardCategory)}>
-              {CATEGORY_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label className="glass-select board-classic-filters__search">
-            <span>검색</span>
+          <form className="board-compact-search" onSubmit={handleSearchSubmit}>
+            <span className="board-compact-summary">{summaryText}</span>
             <input
+              className="board-compact-search__input"
               type="text"
               value={keyword}
-              placeholder="제목 또는 내용을 검색해 보세요"
+              placeholder="제목 또는 내용 검색"
               onChange={(event) => setKeyword(event.target.value)}
             />
-          </label>
-
-          <div className="inline-actions">
-            <button className="button-link button-link--secondary" type="submit">
+            <button className="button-link button-link--secondary button-link--compact" type="submit">
               검색
             </button>
-          </div>
-        </form>
+            <Link
+              className="button-link button-link--compact"
+              to={isAuthenticated ? '/board/new' : '/auth'}
+            >
+              {isAuthenticated ? '글쓰기' : '로그인'}
+            </Link>
+          </form>
+        </div>
 
-        <div className="board-classic-table">
-          <div className="board-classic-table__head" role="presentation">
-            <span>분류</span>
-            <span>제목</span>
-            <span>작성자</span>
-            <span>작성일</span>
-            <span>조회</span>
-            <span>댓글</span>
+        <div className="board-compact-table">
+          <div className="board-compact-head" role="presentation">
+            <span className="board-compact-col board-compact-col--category">분류</span>
+            <span className="board-compact-col board-compact-col--title">제목</span>
+            <span className="board-compact-col board-compact-col--date">작성일</span>
+            <span className="board-compact-col board-compact-col--author">작성자</span>
+            <span className="board-compact-col board-compact-col--views">조회</span>
+            <span className="board-compact-col board-compact-col--comments">댓글</span>
           </div>
 
           {loading ? (
-            <div className="glass-panel glass-panel--nested glass-panel--empty">
+            <div className="board-compact-empty">
               <strong>게시글을 불러오는 중입니다.</strong>
             </div>
+          ) : error ? (
+            <div className="board-compact-empty">
+              <strong>게시글 목록을 불러오지 못했습니다.</strong>
+              <p>{error}</p>
+            </div>
           ) : posts.length === 0 ? (
-            <div className="glass-panel glass-panel--nested glass-panel--empty">
+            <div className="board-compact-empty">
               <strong>조건에 맞는 게시글이 없습니다.</strong>
-              <p>검색어를 바꾸거나 새 게시글을 작성해 보세요.</p>
+              <p>검색어나 분류를 바꿔서 다시 확인해 주세요.</p>
             </div>
           ) : (
-            <div className="board-classic-table__body">
+            <div className="board-compact-body">
               {posts.map((post) => (
-                <article className="board-classic-row" key={post.id}>
-                  <div className="board-classic-row__category">
-                    <span className={`board-classic-badge${post.pinned ? ' is-pinned' : ''}`}>
+                <article className="board-compact-row" key={post.id}>
+                  <div className="board-compact-row__category">
+                    <span className={`board-compact-badge${post.pinned ? ' is-pinned' : ''}`}>
                       {post.pinned ? '고정' : toCategoryLabel(post.category)}
                     </span>
                   </div>
 
-                  <div className="board-classic-row__title">
-                    <Link className="board-classic-row__title-link" to={`/board/${post.id}`}>
+                  <div className="board-compact-row__title">
+                    <Link className="board-compact-row__title-link" to={`/board/${post.id}`}>
                       {post.title}
                     </Link>
-                    {post.pinned ? <span className="board-classic-row__pin">공지 상단 고정</span> : null}
+                    {post.pinned ? <span className="board-compact-row__pin">상단 고정</span> : null}
                   </div>
 
-                  <div className="board-classic-row__author">{post.authorDisplayName}</div>
-                  <div className="board-classic-row__date">{formatDate(post.updatedAt)}</div>
-                  <div className="board-classic-row__metric board-classic-row__metric--views">{post.viewCount}</div>
-                  <div className="board-classic-row__metric board-classic-row__metric--comments">{post.commentCount}</div>
+                  <div className="board-compact-row__date">{formatDate(post.updatedAt)}</div>
+                  <div className="board-compact-row__author">{post.authorDisplayName}</div>
+                  <div className="board-compact-row__views">{post.viewCount}</div>
+                  <div className="board-compact-row__comments">{post.commentCount}</div>
                 </article>
               ))}
             </div>
@@ -265,7 +264,6 @@ function formatDate(value: string) {
   }
 
   return parsed.toLocaleDateString('ko-KR', {
-    year: '2-digit',
     month: '2-digit',
     day: '2-digit',
   });

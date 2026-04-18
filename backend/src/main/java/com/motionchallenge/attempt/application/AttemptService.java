@@ -38,7 +38,7 @@ public class AttemptService {
     private static final String FAILURE_CODE_ANALYSIS = "ANALYSIS_FAILED";
     private static final String FAILURE_CODE_SCORING = "SCORING_FAILED";
     private static final int PREPARED_SCORE = 0;
-    private static final int MIN_COMPLETED_SCORE = 1;
+    private static final int MIN_COMPLETED_SCORE = 0;
     private static final String DEFAULT_PREPARED_NOTE = "이 챌린지의 준비 상태가 저장되었습니다.";
     private static final String DEFAULT_COMPLETED_NOTE = "프로토타입 완료 결과가 저장되었습니다.";
     private static final String PROCESSING_NOTICE_AUTOSCORED =
