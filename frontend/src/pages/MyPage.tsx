@@ -14,7 +14,9 @@ import {
 import { getChallenges } from '../shared/api/challengeApi';
 import { getMyReviews, removeReview, updateReview } from '../shared/api/reviewApi';
 import { useAuth } from '../shared/auth/AuthProvider';
+import { CompactSegmentedControl } from '../shared/components/CompactSegmentedControl';
 import { Pagination } from '../shared/components/Pagination';
+import { CompactConfirmDialog } from '../shared/components/CompactConfirmDialog';
 import type { AttemptSummary } from '../shared/types/attempt';
 import type { BoardPost, BoardPostInput, BoardPostSummary } from '../shared/types/board';
 import type { Review, ReviewInput } from '../shared/types/review';
@@ -24,15 +26,26 @@ type MyPageTab = 'ATTEMPTS' | 'POSTS' | 'REVIEWS';
 const ATTEMPTS_PER_PAGE = 5;
 const REVIEWS_PER_PAGE = 4;
 const POSTS_PER_PAGE = 4;
+
 const INITIAL_POST_FORM: BoardPostInput = {
   category: 'FREE',
   title: '',
   content: '',
 };
+
 const INITIAL_REVIEW_FORM: ReviewInput = {
   rating: 5,
   content: '',
 };
+const POST_CATEGORY_OPTIONS: Array<{ value: BoardPostInput['category']; label: string }> = [
+  { value: 'FREE', label: '자유' },
+  { value: 'QNA', label: '질문' },
+];
+
+type MyPageConfirmState =
+  | { type: 'none' }
+  | { type: 'delete-post'; postId: number }
+  | { type: 'delete-review'; reviewId: number };
 
 export function MyPage() {
   const navigate = useNavigate();
@@ -50,6 +63,7 @@ export function MyPage() {
   const [postTotalCount, setPostTotalCount] = useState(0);
   const [challengeDifficultyById, setChallengeDifficultyById] = useState<Record<number, string>>({});
 
+  const [expandedAttemptId, setExpandedAttemptId] = useState<number | null>(null);
   const [expandedPostId, setExpandedPostId] = useState<number | null>(null);
   const [expandedReviewId, setExpandedReviewId] = useState<number | null>(null);
   const [postDetailsById, setPostDetailsById] = useState<Record<number, BoardPost>>({});
@@ -68,6 +82,7 @@ export function MyPage() {
   const [reviewBusy, setReviewBusy] = useState(false);
   const [reviewActionError, setReviewActionError] = useState<string | null>(null);
   const [reviewActionSuccess, setReviewActionSuccess] = useState<string | null>(null);
+  const [confirmState, setConfirmState] = useState<MyPageConfirmState>({ type: 'none' });
 
   async function fetchPostsPage(page: number) {
     setPostsLoading(true);
@@ -102,6 +117,7 @@ export function MyPage() {
           getMyReviews(),
           getChallenges(),
         ]);
+
         if (!active) {
           return;
         }
@@ -109,7 +125,9 @@ export function MyPage() {
         setAttempts(attemptResponse);
         setReviews(reviewResponse);
         setChallengeDifficultyById(
-          Object.fromEntries(challengeResponse.map((challenge) => [challenge.id, formatDifficulty(challenge.difficulty)])),
+          Object.fromEntries(
+            challengeResponse.map((challenge) => [challenge.id, formatDifficulty(challenge.difficulty)]),
+          ),
         );
       } catch (loadError) {
         if (active) {
@@ -194,9 +212,37 @@ export function MyPage() {
     return `내 후기 ${reviews.length}개`;
   }, [activeTab, attempts.length, postTotalCount, reviews.length]);
 
+  function resetInlineStates() {
+    setExpandedAttemptId(null);
+    setExpandedPostId(null);
+    setExpandedReviewId(null);
+    setCreatingPost(false);
+    setEditingPostId(null);
+    setEditingReviewId(null);
+    setPostActionError(null);
+    setPostActionSuccess(null);
+    setReviewActionError(null);
+    setReviewActionSuccess(null);
+    setConfirmState({ type: 'none' });
+  }
+
+  function handleAttemptRowToggle(attemptId: number) {
+    setExpandedAttemptId((current) => (current === attemptId ? null : attemptId));
+    setExpandedPostId(null);
+    setExpandedReviewId(null);
+    setCreatingPost(false);
+    setEditingPostId(null);
+    setEditingReviewId(null);
+    setPostActionError(null);
+    setPostActionSuccess(null);
+    setReviewActionError(null);
+    setReviewActionSuccess(null);
+  }
+
   async function handlePostRowToggle(postId: number) {
     setPostActionError(null);
     setPostActionSuccess(null);
+    setConfirmState({ type: 'none' });
 
     if (expandedPostId === postId) {
       setExpandedPostId(null);
@@ -204,6 +250,7 @@ export function MyPage() {
       return;
     }
 
+    setExpandedAttemptId(null);
     setExpandedPostId(postId);
     setExpandedReviewId(null);
     setCreatingPost(false);
@@ -230,6 +277,7 @@ export function MyPage() {
   function handleReviewRowToggle(reviewId: number) {
     setReviewActionError(null);
     setReviewActionSuccess(null);
+    setConfirmState({ type: 'none' });
 
     if (expandedReviewId === reviewId) {
       setExpandedReviewId(null);
@@ -237,6 +285,7 @@ export function MyPage() {
       return;
     }
 
+    setExpandedAttemptId(null);
     setExpandedReviewId(reviewId);
     setExpandedPostId(null);
     setCreatingPost(false);
@@ -245,12 +294,8 @@ export function MyPage() {
   }
 
   function handleStartCreatePost() {
+    resetInlineStates();
     setCreatingPost(true);
-    setExpandedPostId(null);
-    setExpandedReviewId(null);
-    setEditingPostId(null);
-    setPostActionError(null);
-    setPostActionSuccess(null);
     setPostForm(INITIAL_POST_FORM);
   }
 
@@ -260,15 +305,18 @@ export function MyPage() {
     setPostActionError(null);
     setPostActionSuccess(null);
     setPostForm(INITIAL_POST_FORM);
+    setConfirmState({ type: 'none' });
   }
 
   function handleStartPostEdit(post: BoardPost) {
     setCreatingPost(false);
+    setExpandedAttemptId(null);
     setEditingPostId(post.id);
     setExpandedPostId(post.id);
     setExpandedReviewId(null);
     setPostActionError(null);
     setPostActionSuccess(null);
+    setConfirmState({ type: 'none' });
     setPostForm({
       category: post.category === 'QNA' ? 'QNA' : 'FREE',
       title: post.title,
@@ -342,11 +390,16 @@ export function MyPage() {
     }
   }
 
-  async function handleDeletePost(postId: number) {
-    if (!window.confirm('이 게시글을 삭제하시겠습니까?')) {
+  function handleDeletePost(postId: number) {
+    setConfirmState({ type: 'delete-post', postId });
+  }
+
+  async function confirmDeletePost() {
+    if (confirmState.type !== 'delete-post') {
       return;
     }
 
+    const { postId } = confirmState;
     setPostBusy(true);
     setPostActionError(null);
     setPostActionSuccess(null);
@@ -371,16 +424,19 @@ export function MyPage() {
     } catch (deleteError) {
       setPostActionError(deleteError instanceof Error ? deleteError.message : '게시글을 삭제하지 못했습니다.');
     } finally {
+      setConfirmState({ type: 'none' });
       setPostBusy(false);
     }
   }
 
   function handleStartReviewEdit(review: Review) {
     setEditingReviewId(review.id);
+    setExpandedAttemptId(null);
     setExpandedReviewId(review.id);
     setExpandedPostId(null);
     setReviewActionError(null);
     setReviewActionSuccess(null);
+    setConfirmState({ type: 'none' });
     setReviewForm({
       rating: review.rating,
       content: review.content,
@@ -392,6 +448,7 @@ export function MyPage() {
     setReviewActionError(null);
     setReviewActionSuccess(null);
     setReviewForm(INITIAL_REVIEW_FORM);
+    setConfirmState({ type: 'none' });
   }
 
   async function handleUpdateReview(reviewId: number) {
@@ -415,11 +472,16 @@ export function MyPage() {
     }
   }
 
-  async function handleDeleteReview(reviewId: number) {
-    if (!window.confirm('이 후기를 삭제하시겠습니까?')) {
+  function handleDeleteReview(reviewId: number) {
+    setConfirmState({ type: 'delete-review', reviewId });
+  }
+
+  async function confirmDeleteReview() {
+    if (confirmState.type !== 'delete-review') {
       return;
     }
 
+    const { reviewId } = confirmState;
     setReviewBusy(true);
     setReviewActionError(null);
     setReviewActionSuccess(null);
@@ -433,14 +495,15 @@ export function MyPage() {
     } catch (deleteError) {
       setReviewActionError(deleteError instanceof Error ? deleteError.message : '후기를 삭제하지 못했습니다.');
     } finally {
+      setConfirmState({ type: 'none' });
       setReviewBusy(false);
     }
   }
 
   if (loading || (postsLoading && postPage === 1)) {
     return (
-      <div className="glass-page">
-        <section className="glass-panel board-classic-shell">
+      <div className="glass-page board-page-compact">
+        <section className="board-compact-shell board-compact-shell--detail mypage-compact-shell">
           <div className="glass-panel glass-panel--empty">
             <strong>마이페이지를 불러오는 중입니다.</strong>
             <p>내 기록, 게시글, 후기를 정리하고 있습니다.</p>
@@ -452,8 +515,8 @@ export function MyPage() {
 
   if (error) {
     return (
-      <div className="glass-page">
-        <section className="glass-panel board-classic-shell">
+      <div className="glass-page board-page-compact">
+        <section className="board-compact-shell board-compact-shell--detail mypage-compact-shell">
           <div className="glass-panel glass-panel--empty">
             <strong>마이페이지를 불러오지 못했습니다.</strong>
             <p>{error}</p>
@@ -464,16 +527,16 @@ export function MyPage() {
   }
 
   return (
-    <div className="glass-page">
-      <section className="glass-panel board-classic-shell">
-        <div className="board-classic-topbar">
+    <div className="glass-page board-page-compact">
+      <section className="board-compact-shell board-compact-shell--detail mypage-compact-shell">
+        <div className="board-detail-compact__toolbar mypage-compact-header">
           <div>
             <h2 className="board-classic-title">{user?.displayName ?? '회원'}님의 마이페이지</h2>
             <p className="board-classic-summary">{tabSummary}</p>
           </div>
         </div>
 
-        <div className="glass-chip-group" style={{ marginBottom: '16px' }}>
+        <div className="glass-chip-group mypage-compact-tabs">
           {tabOptions.map((tab) => (
             <button
               key={tab.key}
@@ -494,7 +557,7 @@ export function MyPage() {
                 <p>챌린지에 도전하면 이곳에 결과 기록이 쌓입니다.</p>
               </div>
             ) : (
-              <div className="board-classic-table mypage-compact-table">
+              <div className="mypage-compact-table">
                 <div className="mypage-compact-table__head mypage-compact-table__head--attempts" role="presentation">
                   <span>상태</span>
                   <span>챌린지</span>
@@ -504,25 +567,79 @@ export function MyPage() {
                 </div>
 
                 <div className="mypage-compact-table__body">
-                  {pagedAttempts.map((attempt) => (
-                    <article className="mypage-compact-row mypage-compact-row--attempts" key={attempt.id}>
-                      <div className="mypage-compact-row__status">
-                        <span className={`board-classic-badge${attempt.processingComplete ? ' is-pinned' : ''}`}>
-                          {attempt.processingComplete ? '완료' : '처리중'}
-                        </span>
-                      </div>
-                      <div className="mypage-compact-row__title">
-                        <Link className="board-classic-row__title-link" to={`/attempts/${attempt.id}/result`}>
-                          {attempt.challengeTitle}
-                        </Link>
-                      </div>
-                      <div className="mypage-compact-row__metric">
-                        {attempt.scoreAvailable ? `${attempt.score}점` : '-'}
-                      </div>
-                      <div className="mypage-compact-row__meta">{formatResultSource(attempt.resultSource)}</div>
-                      <div className="mypage-compact-row__date">{formatDate(attempt.attemptedAt)}</div>
-                    </article>
-                  ))}
+                  {pagedAttempts.map((attempt) => {
+                    const isExpanded = expandedAttemptId === attempt.id;
+
+                    return (
+                      <Fragment key={attempt.id}>
+                        <article
+                          className={`mypage-compact-row mypage-compact-row--attempts${isExpanded ? ' is-expanded' : ''}`}
+                          role="button"
+                          tabIndex={0}
+                          onClick={() => handleAttemptRowToggle(attempt.id)}
+                          onKeyDown={(event) => {
+                            if (event.key === 'Enter' || event.key === ' ') {
+                              event.preventDefault();
+                              handleAttemptRowToggle(attempt.id);
+                            }
+                          }}
+                        >
+                          <div className="mypage-compact-row__status">
+                            <span className={`board-classic-badge${attempt.processingComplete ? ' is-pinned' : ''}`}>
+                              {attempt.processingComplete ? '완료' : '처리중'}
+                            </span>
+                          </div>
+                          <div className="mypage-compact-row__title">
+                            <button className="mypage-inline-trigger" type="button">
+                              {attempt.challengeTitle}
+                            </button>
+                          </div>
+                          <div className="mypage-compact-row__metric">
+                            {attempt.scoreAvailable ? `${attempt.score}점` : '-'}
+                          </div>
+                          <div className="mypage-compact-row__meta">{formatResultSource(attempt.resultSource)}</div>
+                          <div className="mypage-compact-row__date">{formatDate(attempt.attemptedAt)}</div>
+                        </article>
+
+                        {isExpanded ? (
+                          <section className="mypage-inline-detail">
+                            <div className="mypage-inline-detail__header">
+                              <div>
+                                <strong>{attempt.challengeTitle}</strong>
+                                <p>
+                                  {attempt.processingComplete ? '완료된 기록' : '처리 중인 기록'} · 생성 {formatDate(attempt.attemptedAt)}
+                                </p>
+                              </div>
+                              <div className="inline-actions board-actions-right">
+                                <Link
+                                  className="button-link button-link--secondary button-link--compact"
+                                  to={`/challenges?challengeId=${attempt.challengeId}`}
+                                >
+                                  챌린지 보기
+                                </Link>
+                              </div>
+                            </div>
+
+                            <div className="mypage-inline-meta">
+                              <span>{attempt.scoreAvailable ? `점수 ${attempt.score}점` : '점수 산출 전'}</span>
+                              <span>{formatResultSource(attempt.resultSource)}</span>
+                              <span>{toAttemptAreaLabel(attempt.strongestArea, '강점 없음')}</span>
+                              <span>{toAttemptAreaLabel(attempt.weakestArea, '보완 영역 없음')}</span>
+                            </div>
+
+                            <article className="mypage-inline-content">
+                              {attempt.resultHeadline}
+                              {'\n'}
+                              {'\n'}
+                              {attempt.resultSummary}
+                              {attempt.coachingTeaser ? `\n\n코칭: ${attempt.coachingTeaser}` : ''}
+                              {attempt.processingNotice ? `\n\n안내: ${attempt.processingNotice}` : ''}
+                            </article>
+                          </section>
+                        ) : null}
+                      </Fragment>
+                    );
+                  })}
                 </div>
               </div>
             )}
@@ -536,7 +653,7 @@ export function MyPage() {
             <div className="mypage-inline-toolbar">
               <p className="mypage-inline-toolbar__note">게시글 제목을 누르면 아래에서 바로 상세보기와 수정이 열립니다.</p>
               <div className="inline-actions board-actions-right">
-                <button className="button-link" type="button" onClick={handleStartCreatePost}>
+                <button className="button-link button-link--compact" type="button" onClick={handleStartCreatePost}>
                   글쓰기
                 </button>
               </div>
@@ -546,12 +663,12 @@ export function MyPage() {
               <section className="mypage-inline-detail mypage-inline-detail--editor">
                 <div className="mypage-inline-detail__header">
                   <div>
-                    <strong>새 게시글 작성</strong>
-                    <p>게시판 스타일에 맞게 간결하게 작성하고 바로 등록할 수 있습니다.</p>
+                    <strong>내 게시글 작성</strong>
+                    <p>게시판 톤에 맞춰 간단하게 작성하고 바로 등록할 수 있습니다.</p>
                   </div>
                   <div className="inline-actions board-actions-right">
                     <button
-                      className="button-link button-link--secondary"
+                      className="button-link button-link--secondary button-link--compact"
                       type="button"
                       onClick={handleCancelPostEditor}
                       disabled={postBusy}
@@ -559,7 +676,7 @@ export function MyPage() {
                       닫기
                     </button>
                     <button
-                      className="button-link"
+                      className="button-link button-link--compact"
                       type="button"
                       onClick={() => void handleCreatePost()}
                       disabled={postBusy || !postForm.title.trim() || !postForm.content.trim()}
@@ -570,22 +687,18 @@ export function MyPage() {
                 </div>
 
                 <div className="mypage-inline-form">
-                  <label className="mypage-inline-field">
-                    <span>분류</span>
-                    <select
-                      value={postForm.category}
-                      disabled={postBusy}
-                      onChange={(event) =>
-                        setPostForm((current) => ({
-                          ...current,
-                          category: event.target.value as BoardPostInput['category'],
-                        }))
-                      }
-                    >
-                      <option value="FREE">자유</option>
-                      <option value="QNA">질문</option>
-                    </select>
-                  </label>
+                  <CompactSegmentedControl
+                    label="분류"
+                    value={postForm.category}
+                    options={POST_CATEGORY_OPTIONS}
+                    disabled={postBusy}
+                    onChange={(nextCategory) =>
+                      setPostForm((current) => ({
+                        ...current,
+                        category: nextCategory as BoardPostInput['category'],
+                      }))
+                    }
+                  />
 
                   <label className="mypage-inline-field">
                     <span>제목</span>
@@ -622,10 +735,10 @@ export function MyPage() {
             ) : posts.length === 0 ? (
               <div className="glass-panel glass-panel--nested glass-panel--empty">
                 <strong>아직 작성한 게시글이 없습니다.</strong>
-                <p>게시판에서 글을 작성하면 여기에서 바로 확인할 수 있습니다.</p>
+                <p>게시판에서 글을 작성하면 이곳에서 바로 확인할 수 있습니다.</p>
               </div>
             ) : (
-              <div className="board-classic-table mypage-compact-table">
+              <div className="mypage-compact-table">
                 <div className="mypage-compact-table__head mypage-compact-table__head--posts" role="presentation">
                   <span>분류</span>
                   <span>제목</span>
@@ -655,7 +768,7 @@ export function MyPage() {
                           }}
                         >
                           <div className="mypage-compact-row__status">
-                            <span className={`board-classic-badge${post.pinned ? ' is-pinned' : ''}`}>
+                            <span className={`board-compact-badge${post.pinned ? ' is-pinned' : ''}`}>
                               {toCategoryLabel(post.category)}
                             </span>
                           </div>
@@ -693,7 +806,7 @@ export function MyPage() {
                                     {!isEditing ? (
                                       <>
                                         <button
-                                          className="button-link button-link--secondary"
+                                          className="button-link button-link--secondary button-link--compact"
                                           type="button"
                                           onClick={(event) => {
                                             event.stopPropagation();
@@ -703,12 +816,12 @@ export function MyPage() {
                                           수정하기
                                         </button>
                                         <button
-                                          className="button-link"
+                                          className="button-link button-link--compact"
                                           type="button"
                                           disabled={postBusy}
                                           onClick={(event) => {
                                             event.stopPropagation();
-                                            void handleDeletePost(detail.id);
+                                            handleDeletePost(detail.id);
                                           }}
                                         >
                                           {postBusy ? '처리 중...' : '삭제하기'}
@@ -717,7 +830,7 @@ export function MyPage() {
                                     ) : (
                                       <>
                                         <button
-                                          className="button-link button-link--secondary"
+                                          className="button-link button-link--secondary button-link--compact"
                                           type="button"
                                           onClick={(event) => {
                                             event.stopPropagation();
@@ -728,7 +841,7 @@ export function MyPage() {
                                           취소
                                         </button>
                                         <button
-                                          className="button-link"
+                                          className="button-link button-link--compact"
                                           type="button"
                                           onClick={(event) => {
                                             event.stopPropagation();
@@ -754,22 +867,18 @@ export function MyPage() {
                                   </>
                                 ) : (
                                   <div className="mypage-inline-form">
-                                    <label className="mypage-inline-field">
-                                      <span>분류</span>
-                                      <select
-                                        value={postForm.category}
-                                        disabled={postBusy}
-                                        onChange={(event) =>
-                                          setPostForm((current) => ({
-                                            ...current,
-                                            category: event.target.value as BoardPostInput['category'],
-                                          }))
-                                        }
-                                      >
-                                        <option value="FREE">자유</option>
-                                        <option value="QNA">질문</option>
-                                      </select>
-                                    </label>
+                                    <CompactSegmentedControl
+                                      label="분류"
+                                      value={postForm.category}
+                                      options={POST_CATEGORY_OPTIONS}
+                                      disabled={postBusy}
+                                      onChange={(nextCategory) =>
+                                        setPostForm((current) => ({
+                                          ...current,
+                                          category: nextCategory as BoardPostInput['category'],
+                                        }))
+                                      }
+                                    />
 
                                     <label className="mypage-inline-field">
                                       <span>제목</span>
@@ -828,7 +937,7 @@ export function MyPage() {
                 <p>챌린지에 참여한 뒤 후기 버튼으로 바로 남길 수 있습니다.</p>
               </div>
             ) : (
-              <div className="board-classic-table mypage-compact-table">
+              <div className="mypage-compact-table">
                 <div className="mypage-compact-table__head mypage-compact-table__head--reviews" role="presentation">
                   <span>난이도</span>
                   <span>제목</span>
@@ -876,7 +985,7 @@ export function MyPage() {
                               </div>
                               <div className="inline-actions board-actions-right">
                                 <button
-                                  className="button-link button-link--secondary"
+                                  className="button-link button-link--secondary button-link--compact"
                                   type="button"
                                   onClick={(event) => {
                                     event.stopPropagation();
@@ -888,7 +997,7 @@ export function MyPage() {
                                 {!isEditing ? (
                                   <>
                                     <button
-                                      className="button-link button-link--secondary"
+                                      className="button-link button-link--secondary button-link--compact"
                                       type="button"
                                       onClick={(event) => {
                                         event.stopPropagation();
@@ -898,12 +1007,12 @@ export function MyPage() {
                                       수정하기
                                     </button>
                                     <button
-                                      className="button-link"
+                                      className="button-link button-link--compact"
                                       type="button"
                                       disabled={reviewBusy}
                                       onClick={(event) => {
                                         event.stopPropagation();
-                                        void handleDeleteReview(review.id);
+                                        handleDeleteReview(review.id);
                                       }}
                                     >
                                       {reviewBusy ? '처리 중...' : '삭제하기'}
@@ -912,7 +1021,7 @@ export function MyPage() {
                                 ) : (
                                   <>
                                     <button
-                                      className="button-link button-link--secondary"
+                                      className="button-link button-link--secondary button-link--compact"
                                       type="button"
                                       onClick={(event) => {
                                         event.stopPropagation();
@@ -923,7 +1032,7 @@ export function MyPage() {
                                       취소
                                     </button>
                                     <button
-                                      className="button-link"
+                                      className="button-link button-link--compact"
                                       type="button"
                                       onClick={(event) => {
                                         event.stopPropagation();
@@ -993,6 +1102,22 @@ export function MyPage() {
           </>
         ) : null}
       </section>
+
+      <CompactConfirmDialog
+        open={confirmState.type !== 'none'}
+        title={confirmState.type === 'delete-post' ? '게시글 삭제' : '후기 삭제'}
+        description={
+          confirmState.type === 'delete-post'
+            ? '선택한 게시글을 삭제하면 마이페이지와 게시판 목록에서 함께 정리됩니다.'
+            : '선택한 후기를 삭제하면 챌린지 후기 목록에서도 바로 사라집니다.'
+        }
+        confirmLabel="삭제"
+        cancelLabel="취소"
+        tone="danger"
+        busy={confirmState.type === 'delete-post' ? postBusy : reviewBusy}
+        onConfirm={confirmState.type === 'delete-post' ? confirmDeletePost : confirmDeleteReview}
+        onCancel={() => setConfirmState({ type: 'none' })}
+      />
     </div>
   );
 }
@@ -1020,6 +1145,23 @@ function formatResultSource(value: AttemptSummary['resultSource']) {
       return '테스트 모드';
     case 'PREPARED_FLOW':
       return '준비 상태';
+    default:
+      return value;
+  }
+}
+
+function toAttemptAreaLabel(value: AttemptSummary['strongestArea'] | AttemptSummary['weakestArea'], fallback: string) {
+  if (!value) {
+    return fallback;
+  }
+
+  switch (value) {
+    case 'pose shape':
+      return '포즈 형태';
+    case 'pose timing':
+      return '포즈 타이밍';
+    case 'detection quality':
+      return '감지 안정성';
     default:
       return value;
   }

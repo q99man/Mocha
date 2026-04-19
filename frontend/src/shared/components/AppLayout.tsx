@@ -19,7 +19,6 @@ export function AppLayout() {
   const navItems = [
     ...BASE_NAV_ITEMS,
     ...(isAuthenticated && !isAdmin ? [{ to: '/mypage', label: '마이페이지' }] : []),
-    ...(isAuthenticated ? [{ to: '/attempts', label: '기록' }] : []),
     ...(isAdmin ? [{ to: '/admin/model-assets', label: '관리' }] : []),
   ];
 

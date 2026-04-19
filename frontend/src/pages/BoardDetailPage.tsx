@@ -13,9 +13,14 @@ import {
   updateBoardComment,
 } from '../shared/api/boardApi';
 import { useAuth } from '../shared/auth/AuthProvider';
+import { CompactConfirmDialog } from '../shared/components/CompactConfirmDialog';
 import type { BoardComment, BoardPost } from '../shared/types/board';
 
 const INITIAL_COMMENT = '';
+type BoardDetailConfirmState =
+  | { type: 'none' }
+  | { type: 'delete-post' }
+  | { type: 'delete-comment'; commentId: number };
 
 export function BoardDetailPage() {
   const { id = '' } = useParams();
@@ -32,6 +37,7 @@ export function BoardDetailPage() {
   const [commentSuccess, setCommentSuccess] = useState<string | null>(null);
   const [editCommentId, setEditCommentId] = useState<number | null>(null);
   const [editCommentValue, setEditCommentValue] = useState('');
+  const [confirmState, setConfirmState] = useState<BoardDetailConfirmState>({ type: 'none' });
 
   useEffect(() => {
     let active = true;
@@ -72,12 +78,16 @@ export function BoardDetailPage() {
     setPost((current) => (current ? { ...current, commentCount: nextComments.length } : current));
   }
 
-  async function handleDeletePost() {
+  function handleDeletePost() {
     if (!post) {
       return;
     }
 
-    if (!window.confirm('이 게시글을 삭제하시겠습니까?')) {
+    setConfirmState({ type: 'delete-post' });
+  }
+
+  async function confirmDeletePost() {
+    if (!post) {
       return;
     }
 
@@ -88,6 +98,7 @@ export function BoardDetailPage() {
       navigate('/board');
     } catch (deleteError) {
       setError(deleteError instanceof Error ? deleteError.message : '게시글을 삭제하지 못했습니다.');
+      setConfirmState({ type: 'none' });
       setDeleteBusy(false);
     }
   }
@@ -131,11 +142,16 @@ export function BoardDetailPage() {
     }
   }
 
-  async function handleDeleteComment(commentId: number) {
-    if (!window.confirm('이 댓글을 삭제하시겠습니까?')) {
+  function handleDeleteComment(commentId: number) {
+    setConfirmState({ type: 'delete-comment', commentId });
+  }
+
+  async function confirmDeleteComment() {
+    if (confirmState.type !== 'delete-comment') {
       return;
     }
 
+    const { commentId } = confirmState;
     setCommentBusy(true);
     setCommentError(null);
     setCommentSuccess(null);
@@ -151,6 +167,7 @@ export function BoardDetailPage() {
     } catch (deleteError) {
       setCommentError(deleteError instanceof Error ? deleteError.message : '댓글을 삭제하지 못했습니다.');
     } finally {
+      setConfirmState({ type: 'none' });
       setCommentBusy(false);
     }
   }
@@ -317,6 +334,22 @@ export function BoardDetailPage() {
           onDelete={handleDeleteComment}
         />
       </section>
+
+      <CompactConfirmDialog
+        open={confirmState.type !== 'none'}
+        title={confirmState.type === 'delete-post' ? '게시글 삭제' : '댓글 삭제'}
+        description={
+          confirmState.type === 'delete-post'
+            ? '게시글을 삭제하면 본문과 연결된 정보가 함께 정리됩니다.'
+            : '댓글을 삭제하면 같은 내용으로 되돌릴 수 없습니다.'
+        }
+        confirmLabel="삭제"
+        cancelLabel="취소"
+        tone="danger"
+        busy={confirmState.type === 'delete-post' ? deleteBusy : commentBusy}
+        onConfirm={confirmState.type === 'delete-post' ? confirmDeletePost : confirmDeleteComment}
+        onCancel={() => setConfirmState({ type: 'none' })}
+      />
     </div>
   );
 }

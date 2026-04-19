@@ -3,6 +3,8 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 
 import { createBoardPost, getBoardPost, updateBoardPost } from '../shared/api/boardApi';
 import { useAuth } from '../shared/auth/AuthProvider';
+import { CompactSegmentedControl } from '../shared/components/CompactSegmentedControl';
+import { CompactToggle } from '../shared/components/CompactToggle';
 import type { BoardCategory, BoardPostInput } from '../shared/types/board';
 
 const INITIAL_FORM: BoardPostInput = {
@@ -157,24 +159,17 @@ export function BoardEditorPage() {
 
         <form className="glass-form board-editor-compact" id="board-editor-form" onSubmit={handleSubmit}>
           <div className="board-editor-compact__grid">
-            <label className="glass-select">
-              <span>분류</span>
-              <select
-                value={form.category}
-                onChange={(event) =>
-                  setForm((current) => ({
-                    ...current,
-                    category: event.target.value as Exclude<BoardCategory, 'REVIEW'>,
-                  }))
-                }
-              >
-                {categoryOptions.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <CompactSegmentedControl
+              label="분류"
+              value={form.category}
+              options={categoryOptions}
+              onChange={(nextCategory) =>
+                setForm((current) => ({
+                  ...current,
+                  category: nextCategory as Exclude<BoardCategory, 'REVIEW'>,
+                }))
+              }
+            />
 
             <label className="glass-field">
               <span>제목</span>
@@ -200,14 +195,11 @@ export function BoardEditorPage() {
           </label>
 
           {isAdmin ? (
-            <label className="glass-checkbox">
-              <input
-                type="checkbox"
-                checked={Boolean(form.pinned)}
-                onChange={(event) => setForm((current) => ({ ...current, pinned: event.target.checked }))}
-              />
-              <span>상단 고정으로 노출</span>
-            </label>
+            <CompactToggle
+              label="상단 고정으로 노출"
+              checked={Boolean(form.pinned)}
+              onChange={(checked) => setForm((current) => ({ ...current, pinned: checked }))}
+            />
           ) : null}
 
           {error ? <p className="review-composer__message review-composer__message--error">{error}</p> : null}

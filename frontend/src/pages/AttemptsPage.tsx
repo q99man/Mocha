@@ -3,6 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 
 import { getAttempts } from '../shared/api/attemptApi';
 import { useAuth } from '../shared/auth/AuthProvider';
+import { CompactSegmentedControl } from '../shared/components/CompactSegmentedControl';
 import { Pagination } from '../shared/components/Pagination';
 import type { AttemptSummary } from '../shared/types/attempt';
 
@@ -10,6 +11,11 @@ type AttemptFilter = 'ALL' | 'COMPLETED' | 'PENDING';
 type AttemptSort = 'RECENT' | 'SCORE_HIGH' | 'SCORE_LOW';
 
 const ITEMS_PER_PAGE = 8;
+const SORT_OPTIONS: Array<{ value: AttemptSort; label: string }> = [
+  { value: 'RECENT', label: '최신순' },
+  { value: 'SCORE_HIGH', label: '점수 높은 순' },
+  { value: 'SCORE_LOW', label: '점수 낮은 순' },
+];
 
 export function AttemptsPage() {
   const { user } = useAuth();
@@ -193,39 +199,36 @@ export function AttemptsPage() {
             ))}
           </div>
 
-          <div className="glass-toolbar__row">
-            <label className="glass-select">
-              <span>챌린지</span>
-              <select
-                value={challengeIdFilter ?? 'ALL'}
-                onChange={(event) => {
-                  const nextValue = event.target.value;
-                  const nextParams = new URLSearchParams(searchParams);
-                  if (nextValue === 'ALL') {
-                    nextParams.delete('challengeId');
-                  } else {
-                    nextParams.set('challengeId', nextValue);
-                  }
-                  setSearchParams(nextParams, { replace: true });
-                }}
-              >
-                <option value="ALL">전체</option>
-                {challengeOptions.map((option) => (
-                  <option key={option.id} value={option.id}>
-                    {option.title} ({option.count})
-                  </option>
-                ))}
-              </select>
-            </label>
+          <div className="glass-toolbar__row attempts-toolbar__controls">
+            <CompactSegmentedControl
+              label="챌린지"
+              value={challengeIdFilter ?? 'ALL'}
+              options={[
+                { value: 'ALL', label: '전체' },
+                ...challengeOptions.map((option) => ({
+                  value: option.id,
+                  label: `${option.title} (${option.count})`,
+                })),
+              ]}
+              onChange={(nextValue) => {
+                const nextParams = new URLSearchParams(searchParams);
+                if (nextValue === 'ALL') {
+                  nextParams.delete('challengeId');
+                } else {
+                  nextParams.set('challengeId', String(nextValue));
+                }
+                setSearchParams(nextParams, { replace: true });
+              }}
+              className="attempts-toolbar__field"
+            />
 
-            <label className="glass-select">
-              <span>정렬</span>
-              <select value={activeSort} onChange={(event) => setActiveSort(event.target.value as AttemptSort)}>
-                <option value="RECENT">최신순</option>
-                <option value="SCORE_HIGH">점수 높은 순</option>
-                <option value="SCORE_LOW">점수 낮은 순</option>
-              </select>
-            </label>
+            <CompactSegmentedControl
+              label="정렬"
+              value={activeSort}
+              options={SORT_OPTIONS}
+              onChange={setActiveSort}
+              className="attempts-toolbar__field"
+            />
           </div>
 
           <p className="glass-toolbar__note">

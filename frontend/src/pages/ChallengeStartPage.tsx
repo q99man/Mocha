@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 
 import '../features/challenges/challenge-play.css';
+import { formatDifficulty } from '../features/challenges/difficulty';
 import { createAttempt } from '../shared/api/attemptApi';
 import { getChallengeById } from '../shared/api/challengeApi';
 import { resolveApiUrl } from '../shared/api/client';
@@ -357,7 +358,7 @@ export function ChallengeStartPage() {
 
           <div className="play-result__meta-section">
             <h4 className="play-result__meta-title">난이도</h4>
-            <span className="play-result__meta-value">{challenge.difficulty}</span>
+            <span className="play-result__meta-value">{formatDifficulty(challenge.difficulty)}</span>
           </div>
 
           <div className="play-result__meta-section">
@@ -441,7 +442,7 @@ export function ChallengeStartPage() {
 
           <div className="play-stage__info">
             <span>{challenge.category}</span>
-            <strong>{challenge.difficulty}</strong>
+            <strong>{formatDifficulty(challenge.difficulty)}</strong>
             <span>{formatDurationLabel(challenge.durationSec)}</span>
             <span>최근 기록 {latestScoreLabel}</span>
           </div>
