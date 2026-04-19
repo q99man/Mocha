@@ -6,7 +6,6 @@ import { RequireAdmin } from '../shared/auth/RequireAdmin';
 import { AdminChallengeAnalysisPage } from '../pages/AdminChallengeAnalysisPage';
 import { AdminModelAssetsPage } from '../pages/AdminModelAssetsPage';
 import { AttemptResultPage } from '../pages/AttemptResultPage';
-import { AttemptsPage } from '../pages/AttemptsPage';
 import { AuthPage } from '../pages/AuthPage';
 import { BoardDetailPage } from '../pages/BoardDetailPage';
 import { BoardEditorPage } from '../pages/BoardEditorPage';
@@ -62,14 +61,6 @@ export const router = createBrowserRouter([
         element: (
           <RequireAuth>
             <ChallengeStartPage />
-          </RequireAuth>
-        ),
-      },
-      {
-        path: 'attempts',
-        element: (
-          <RequireAuth>
-            <AttemptsPage />
           </RequireAuth>
         ),
       },

@@ -161,7 +161,38 @@ export function MyPage() {
     };
   }, [postPage]);
 
-  const attemptTotalPages = Math.max(1, Math.ceil(attempts.length / ATTEMPTS_PER_PAGE));
+  const latestAttempts = useMemo(() => {
+    const latestAttemptByChallengeId = new Map<number, AttemptSummary>();
+
+    for (const attempt of attempts) {
+      const current = latestAttemptByChallengeId.get(attempt.challengeId);
+
+      if (!current) {
+        latestAttemptByChallengeId.set(attempt.challengeId, attempt);
+        continue;
+      }
+
+      const currentTime = new Date(current.attemptedAt).getTime();
+      const nextTime = new Date(attempt.attemptedAt).getTime();
+
+      if (nextTime > currentTime || (nextTime === currentTime && attempt.id > current.id)) {
+        latestAttemptByChallengeId.set(attempt.challengeId, attempt);
+      }
+    }
+
+    return Array.from(latestAttemptByChallengeId.values()).sort((left, right) => {
+      const rightTime = new Date(right.attemptedAt).getTime();
+      const leftTime = new Date(left.attemptedAt).getTime();
+
+      if (rightTime !== leftTime) {
+        return rightTime - leftTime;
+      }
+
+      return right.id - left.id;
+    });
+  }, [attempts]);
+
+  const attemptTotalPages = Math.max(1, Math.ceil(latestAttempts.length / ATTEMPTS_PER_PAGE));
   const reviewTotalPages = Math.max(1, Math.ceil(reviews.length / REVIEWS_PER_PAGE));
   const postTotalPages = Math.max(1, Math.ceil(postTotalCount / POSTS_PER_PAGE));
 
@@ -170,6 +201,12 @@ export function MyPage() {
       setAttemptPage(attemptTotalPages);
     }
   }, [attemptPage, attemptTotalPages]);
+
+  useEffect(() => {
+    if (expandedAttemptId != null && !latestAttempts.some((attempt) => attempt.id === expandedAttemptId)) {
+      setExpandedAttemptId(null);
+    }
+  }, [expandedAttemptId, latestAttempts]);
 
   useEffect(() => {
     if (reviewPage > reviewTotalPages) {
@@ -185,8 +222,8 @@ export function MyPage() {
 
   const pagedAttempts = useMemo(() => {
     const startIndex = (attemptPage - 1) * ATTEMPTS_PER_PAGE;
-    return attempts.slice(startIndex, startIndex + ATTEMPTS_PER_PAGE);
-  }, [attemptPage, attempts]);
+    return latestAttempts.slice(startIndex, startIndex + ATTEMPTS_PER_PAGE);
+  }, [attemptPage, latestAttempts]);
 
   const pagedReviews = useMemo(() => {
     const startIndex = (reviewPage - 1) * REVIEWS_PER_PAGE;
@@ -195,22 +232,22 @@ export function MyPage() {
 
   const tabOptions = useMemo(
     () => [
-      { key: 'ATTEMPTS' as const, label: '내 기록', count: attempts.length },
+      { key: 'ATTEMPTS' as const, label: '내 기록', count: latestAttempts.length },
       { key: 'POSTS' as const, label: '내 게시글', count: postTotalCount },
       { key: 'REVIEWS' as const, label: '내 후기', count: reviews.length },
     ],
-    [attempts.length, postTotalCount, reviews.length],
+    [latestAttempts.length, postTotalCount, reviews.length],
   );
 
   const tabSummary = useMemo(() => {
     if (activeTab === 'ATTEMPTS') {
-      return `내 기록 ${attempts.length}개`;
+      return `내 기록 ${latestAttempts.length}개`;
     }
     if (activeTab === 'POSTS') {
       return `내 게시글 ${postTotalCount}개`;
     }
     return `내 후기 ${reviews.length}개`;
-  }, [activeTab, attempts.length, postTotalCount, reviews.length]);
+  }, [activeTab, latestAttempts.length, postTotalCount, reviews.length]);
 
   function resetInlineStates() {
     setExpandedAttemptId(null);

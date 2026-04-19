@@ -74,4 +74,15 @@ public class AttemptVideo extends BaseTimeEntity {
     public long getSize() {
         return size;
     }
+
+    public void updateStoredVideo(
+            String originalFileName,
+            String storagePath,
+            String contentType,
+            long size) {
+        this.originalFileName = originalFileName;
+        this.storagePath = storagePath;
+        this.contentType = contentType;
+        this.size = size;
+    }
 }

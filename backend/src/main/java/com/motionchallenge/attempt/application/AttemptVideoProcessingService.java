@@ -1,7 +1,9 @@
 package com.motionchallenge.attempt.application;
 
 import com.motionchallenge.attempt.entity.Attempt;
+import com.motionchallenge.attempt.entity.AttemptProcessingJob;
 import com.motionchallenge.attempt.entity.AttemptVideo;
+import com.motionchallenge.attempt.repository.AttemptProcessingJobRepository;
 import com.motionchallenge.attempt.repository.AttemptRepository;
 import com.motionchallenge.attempt.repository.AttemptVideoRepository;
 import com.motionchallenge.challenge.entity.Challenge;
@@ -14,6 +16,7 @@ import com.motionchallenge.scoring.application.ScoringService;
 import com.motionchallenge.scoring.application.SimpleScoringPreviewService;
 import com.motionchallenge.scoring.application.SimpleScoringResult;
 import com.motionchallenge.video.service.StoredVideo;
+import com.motionchallenge.video.service.VideoStorageService;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -27,22 +30,28 @@ public class AttemptVideoProcessingService {
             "업로드한 영상이 레퍼런스와 비교 분석되어 채점되었습니다.";
 
     private final AttemptRepository attemptRepository;
+    private final AttemptProcessingJobRepository attemptProcessingJobRepository;
     private final AttemptVideoRepository attemptVideoRepository;
     private final MotionAnalysisService motionAnalysisService;
     private final ScoringService scoringService;
     private final SimpleScoringPreviewService simpleScoringPreviewService;
+    private final VideoStorageService videoStorageService;
 
     public AttemptVideoProcessingService(
             AttemptRepository attemptRepository,
+            AttemptProcessingJobRepository attemptProcessingJobRepository,
             AttemptVideoRepository attemptVideoRepository,
             MotionAnalysisService motionAnalysisService,
             ScoringService scoringService,
-            SimpleScoringPreviewService simpleScoringPreviewService) {
+            SimpleScoringPreviewService simpleScoringPreviewService,
+            VideoStorageService videoStorageService) {
         this.attemptRepository = attemptRepository;
+        this.attemptProcessingJobRepository = attemptProcessingJobRepository;
         this.attemptVideoRepository = attemptVideoRepository;
         this.motionAnalysisService = motionAnalysisService;
         this.scoringService = scoringService;
         this.simpleScoringPreviewService = simpleScoringPreviewService;
+        this.videoStorageService = videoStorageService;
     }
 
     public AttemptResultResponse processUploadedAttempt(
@@ -53,12 +62,30 @@ public class AttemptVideoProcessingService {
             String notes) {
         MotionAnalysisResult attemptAnalysis = motionAnalysisService.analyzeAttemptVideo(storedVideo);
         ScoringResult scoringResult = scoringService.calculateScore(referenceProfile, attemptAnalysis);
+        Attempt existingAttempt = attemptRepository.findTopByChallengeIdAndMemberIdOrderByCreatedAtDescIdDesc(challenge.getId(), member.getId())
+                .orElse(null);
+        PreviousAttemptSnapshot previousAttempt = PreviousAttemptSnapshot.from(existingAttempt);
 
-        Attempt attempt = attemptRepository.save(new Attempt(
-                challenge,
-                member,
+        Attempt attempt = existingAttempt != null
+                ? existingAttempt
+                : new Attempt(
+                        challenge,
+                        member,
+                        scoringResult.score(),
+                        AttemptStatus.COMPLETED,
+                        PROCESSING_MODE_SYNC_INLINE,
+                        true,
+                        PROCESSING_NOTICE_AUTOSCORED,
+                        notes,
+                        scoringResult.summary(),
+                        scoringResult.poseSimilarity(),
+                        scoringResult.timingSimilarity(),
+                        scoringResult.stabilitySimilarity(),
+                        scoringResult.strongestArea(),
+                        scoringResult.weakestArea());
+
+        attempt.updateAutoScoredResult(
                 scoringResult.score(),
-                AttemptStatus.COMPLETED,
                 PROCESSING_MODE_SYNC_INLINE,
                 true,
                 PROCESSING_NOTICE_AUTOSCORED,
@@ -68,20 +95,15 @@ public class AttemptVideoProcessingService {
                 scoringResult.timingSimilarity(),
                 scoringResult.stabilitySimilarity(),
                 scoringResult.strongestArea(),
-                scoringResult.weakestArea()));
+                scoringResult.weakestArea());
+        attempt = attemptRepository.save(attempt);
 
-        attemptVideoRepository.save(new AttemptVideo(
-                attempt,
-                storedVideo.originalFileName(),
-                storedVideo.storagePath(),
-                storedVideo.contentType(),
-                storedVideo.size()));
+        upsertAttemptVideo(attempt, storedVideo);
+        consolidateAttemptHistory(challenge.getId(), member.getId(), attempt.getId());
 
         SimpleScoringResult previewResult = simpleScoringPreviewService.buildResult(
                 attempt.getStatus(),
                 scoringResult.score());
-
-        Attempt previousAttempt = resolvePreviousScoredAttempt(challenge.getId(), member.getId(), attempt.getId());
 
         return new AttemptResultResponse(
                 attempt.getId(),
@@ -107,42 +129,73 @@ public class AttemptVideoProcessingService {
                 scoringResult.strongestArea(),
                 scoringResult.weakestArea(),
                 null,
-                previousAttempt != null ? previousAttempt.getId() : null,
-                previousAttempt != null ? previousAttempt.getScore() : null,
-                previousAttempt != null ? previousAttempt.getCreatedAt() : null,
-                previousAttempt != null ? scoringResult.score() - previousAttempt.getScore() : null,
-                computeDelta(scoringResult.poseSimilarity(), previousAttempt != null ? previousAttempt.getPoseSimilarity() : null),
-                computeDelta(scoringResult.timingSimilarity(), previousAttempt != null ? previousAttempt.getTimingSimilarity() : null),
-                computeDelta(scoringResult.stabilitySimilarity(), previousAttempt != null ? previousAttempt.getStabilitySimilarity() : null),
-                attempt.getCreatedAt());
+                previousAttempt != null ? previousAttempt.id() : null,
+                previousAttempt != null ? previousAttempt.score() : null,
+                previousAttempt != null ? previousAttempt.attemptedAt() : null,
+                previousAttempt != null ? scoringResult.score() - previousAttempt.score() : null,
+                computeDelta(scoringResult.poseSimilarity(), previousAttempt != null ? previousAttempt.poseSimilarity() : null),
+                computeDelta(scoringResult.timingSimilarity(), previousAttempt != null ? previousAttempt.timingSimilarity() : null),
+                computeDelta(scoringResult.stabilitySimilarity(), previousAttempt != null ? previousAttempt.stabilitySimilarity() : null),
+                attempt.getUpdatedAt());
     }
 
-    private Attempt resolvePreviousScoredAttempt(Long challengeId, Long memberId, Long currentAttemptId) {
-        List<Attempt> attempts = attemptRepository.findByChallengeIdAndMemberIdOrderByCreatedAtAscIdAsc(challengeId, memberId);
-        Set<Long> uploadedAttemptIds = findUploadedAttemptIds(attempts);
-        Attempt previousAttempt = null;
-        for (Attempt candidate : attempts) {
-            if (candidate.getId().equals(currentAttemptId)) {
-                break;
-            }
-            if (uploadedAttemptIds.contains(candidate.getId())) {
-                previousAttempt = candidate;
-            }
+    private void upsertAttemptVideo(Attempt attempt, StoredVideo storedVideo) {
+        AttemptVideo existingVideo = attemptVideoRepository.findByAttemptId(attempt.getId()).orElse(null);
+        String previousStoragePath = existingVideo != null ? existingVideo.getStoragePath() : null;
+
+        if (existingVideo != null) {
+            existingVideo.updateStoredVideo(
+                    storedVideo.originalFileName(),
+                    storedVideo.storagePath(),
+                    storedVideo.contentType(),
+                    storedVideo.size());
+        } else {
+            attemptVideoRepository.save(new AttemptVideo(
+                    attempt,
+                    storedVideo.originalFileName(),
+                    storedVideo.storagePath(),
+                    storedVideo.contentType(),
+                    storedVideo.size()));
         }
-        return previousAttempt;
+
+        if (previousStoragePath != null && !previousStoragePath.equals(storedVideo.storagePath())) {
+            videoStorageService.deleteStoredVideo(previousStoragePath);
+        }
     }
 
-    private Set<Long> findUploadedAttemptIds(List<Attempt> attempts) {
-        if (attempts.isEmpty()) {
-            return Set.of();
+    private void consolidateAttemptHistory(Long challengeId, Long memberId, Long keepAttemptId) {
+        List<Attempt> memberAttempts = attemptRepository.findByChallengeIdAndMemberIdOrderByCreatedAtAscIdAsc(challengeId, memberId);
+        if (memberAttempts.size() <= 1) {
+            return;
         }
 
-        Set<Long> attemptIds = new HashSet<>();
-        for (Attempt attempt : attempts) {
-            attemptIds.add(attempt.getId());
+        List<Attempt> duplicateAttempts = memberAttempts.stream()
+                .filter(attempt -> !attempt.getId().equals(keepAttemptId))
+                .toList();
+        if (duplicateAttempts.isEmpty()) {
+            return;
         }
 
-        return new HashSet<>(attemptVideoRepository.findAttemptIdsByAttemptIdIn(attemptIds));
+        Set<Long> duplicateAttemptIds = new HashSet<>();
+        for (Attempt duplicateAttempt : duplicateAttempts) {
+            duplicateAttemptIds.add(duplicateAttempt.getId());
+        }
+
+        for (AttemptVideo duplicateVideo : attemptVideoRepository.findByAttemptIdIn(duplicateAttemptIds)) {
+            String storagePath = duplicateVideo.getStoragePath();
+            attemptVideoRepository.delete(duplicateVideo);
+            if (storagePath != null && !storagePath.isBlank()) {
+                videoStorageService.deleteStoredVideo(storagePath);
+            }
+        }
+
+        List<AttemptProcessingJob> duplicateJobs = attemptProcessingJobRepository
+                .findByResultAttemptIdInOrderByResultAttemptIdAscUpdatedAtDescIdDesc(duplicateAttemptIds);
+        if (!duplicateJobs.isEmpty()) {
+            attemptProcessingJobRepository.deleteAllInBatch(duplicateJobs);
+        }
+
+        attemptRepository.deleteAllInBatch(duplicateAttempts);
     }
 
     private Integer computeDelta(Integer currentValue, Integer previousValue) {
@@ -150,6 +203,29 @@ public class AttemptVideoProcessingService {
             return null;
         }
         return currentValue - previousValue;
+    }
+
+    private record PreviousAttemptSnapshot(
+            Long id,
+            Integer score,
+            java.time.LocalDateTime attemptedAt,
+            Integer poseSimilarity,
+            Integer timingSimilarity,
+            Integer stabilitySimilarity) {
+
+        private static PreviousAttemptSnapshot from(Attempt attempt) {
+            if (attempt == null) {
+                return null;
+            }
+
+            return new PreviousAttemptSnapshot(
+                    attempt.getId(),
+                    attempt.getScore(),
+                    attempt.getUpdatedAt(),
+                    attempt.getPoseSimilarity(),
+                    attempt.getTimingSimilarity(),
+                    attempt.getStabilitySimilarity());
+        }
     }
 }
 

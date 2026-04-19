@@ -148,16 +148,21 @@ public class AttemptService {
     public AttemptSummaryResponse createPreparedAttempt(Long challengeId, String notes) {
         Member member = currentMemberService.requireCurrentMember();
         Challenge challenge = findActiveChallenge(challengeId);
+        Attempt attempt = attemptRepository.findTopByChallengeIdAndMemberIdOrderByCreatedAtDescIdDesc(challengeId, member.getId())
+                .orElseGet(() -> new Attempt(
+                        challenge,
+                        member,
+                        PREPARED_SCORE,
+                        AttemptStatus.PREPARED,
+                        null,
+                        false,
+                        PROCESSING_NOTICE_PREPARED,
+                        normalizePreparedNotes(notes)));
 
-        Attempt attempt = attemptRepository.save(new Attempt(
-                challenge,
-                member,
-                PREPARED_SCORE,
-                AttemptStatus.PREPARED,
-                null,
-                false,
-                PROCESSING_NOTICE_PREPARED,
-                normalizePreparedNotes(notes)));
+        attempt.updatePreparedState(normalizePreparedNotes(notes), PROCESSING_NOTICE_PREPARED);
+        attempt = attemptRepository.save(attempt);
+        removeAttemptVideoIfPresent(attempt);
+        consolidateAttemptHistory(challengeId, member.getId(), attempt.getId());
 
         return toResponse(attempt, null, false, null);
     }
@@ -167,16 +172,21 @@ public class AttemptService {
         Member member = currentMemberService.requireCurrentMember();
         Challenge challenge = findActiveChallenge(command.challengeId());
         int normalizedScore = normalizeCompletedScore(command.score());
+        Attempt attempt = attemptRepository.findTopByChallengeIdAndMemberIdOrderByCreatedAtDescIdDesc(challenge.getId(), member.getId())
+                .orElseGet(() -> new Attempt(
+                        challenge,
+                        member,
+                        normalizedScore,
+                        AttemptStatus.COMPLETED,
+                        null,
+                        true,
+                        PROCESSING_NOTICE_SAMPLE,
+                        normalizeCompletedNotes(command.notes())));
 
-        Attempt attempt = attemptRepository.save(new Attempt(
-                challenge,
-                member,
-                normalizedScore,
-                AttemptStatus.COMPLETED,
-                null,
-                true,
-                PROCESSING_NOTICE_SAMPLE,
-                normalizeCompletedNotes(command.notes())));
+        attempt.updateCompletedState(normalizedScore, normalizeCompletedNotes(command.notes()), PROCESSING_NOTICE_SAMPLE);
+        attempt = attemptRepository.save(attempt);
+        removeAttemptVideoIfPresent(attempt);
+        consolidateAttemptHistory(challenge.getId(), member.getId(), attempt.getId());
 
         return toResponse(attempt, null, false, null);
     }
@@ -300,6 +310,9 @@ public class AttemptService {
         String processingMode = resolvePersistedProcessingMode(attempt, resultSource);
         boolean processingComplete = resolvePersistedProcessingComplete(attempt, resultSource);
         String processingNotice = resolvePersistedProcessingNotice(attempt, resultSource);
+        AttemptProcessingJob responseProcessingJob = AttemptResultSource.VIDEO_UPLOAD_AUTOSCORED.equals(resultSource)
+                ? latestProcessingJob
+                : null;
 
         return new AttemptSummaryResponse(
                 attempt.getId(),
@@ -317,14 +330,14 @@ public class AttemptService {
                 processingMode,
                 processingComplete,
                 processingNotice,
-                latestProcessingJob != null ? latestProcessingJob.getTrackingId() : null,
-                latestProcessingJob != null ? latestProcessingJob.getStatus().name() : null,
-                latestProcessingJob != null ? resolveCompletionStrategy(latestProcessingJob) : null,
-                latestProcessingJob != null ? resolveElapsedSeconds(latestProcessingJob) : null,
-                latestProcessingJob != null && resolveAutoRetryEnabled(latestProcessingJob),
-                latestProcessingJob != null ? resolveRemainingAutoRetryCount(latestProcessingJob) : 0,
-                latestProcessingJob != null && resolveAutoRetryExhausted(latestProcessingJob),
-                latestProcessingJob != null ? latestProcessingJob.getOriginalFileName() : null,
+                responseProcessingJob != null ? responseProcessingJob.getTrackingId() : null,
+                responseProcessingJob != null ? responseProcessingJob.getStatus().name() : null,
+                responseProcessingJob != null ? resolveCompletionStrategy(responseProcessingJob) : null,
+                responseProcessingJob != null ? resolveElapsedSeconds(responseProcessingJob) : null,
+                responseProcessingJob != null && resolveAutoRetryEnabled(responseProcessingJob),
+                responseProcessingJob != null ? resolveRemainingAutoRetryCount(responseProcessingJob) : 0,
+                responseProcessingJob != null && resolveAutoRetryExhausted(responseProcessingJob),
+                responseProcessingJob != null ? responseProcessingJob.getOriginalFileName() : null,
                 attempt.getPoseSimilarity(),
                 attempt.getTimingSimilarity(),
                 attempt.getStabilitySimilarity(),
@@ -340,7 +353,52 @@ public class AttemptService {
                 comparison != null ? comparison.poseDeltaFromPrevious() : null,
                 comparison != null ? comparison.timingDeltaFromPrevious() : null,
                 comparison != null ? comparison.stabilityDeltaFromPrevious() : null,
-                attempt.getCreatedAt());
+                attempt.getUpdatedAt());
+    }
+
+    private void removeAttemptVideoIfPresent(Attempt attempt) {
+        attemptVideoRepository.findByAttemptId(attempt.getId()).ifPresent(attemptVideo -> {
+            String storagePath = attemptVideo.getStoragePath();
+            attemptVideoRepository.delete(attemptVideo);
+            if (storagePath != null && !storagePath.isBlank()) {
+                videoStorageService.deleteStoredVideo(storagePath);
+            }
+        });
+    }
+
+    private void consolidateAttemptHistory(Long challengeId, Long memberId, Long keepAttemptId) {
+        List<Attempt> memberAttempts = attemptRepository.findByChallengeIdAndMemberIdOrderByCreatedAtAscIdAsc(challengeId, memberId);
+        if (memberAttempts.size() <= 1) {
+            return;
+        }
+
+        List<Attempt> duplicateAttempts = memberAttempts.stream()
+                .filter(attempt -> !attempt.getId().equals(keepAttemptId))
+                .toList();
+        if (duplicateAttempts.isEmpty()) {
+            return;
+        }
+
+        Set<Long> duplicateAttemptIds = new HashSet<>();
+        for (Attempt duplicateAttempt : duplicateAttempts) {
+            duplicateAttemptIds.add(duplicateAttempt.getId());
+        }
+
+        for (var duplicateVideo : attemptVideoRepository.findByAttemptIdIn(duplicateAttemptIds)) {
+            String storagePath = duplicateVideo.getStoragePath();
+            attemptVideoRepository.delete(duplicateVideo);
+            if (storagePath != null && !storagePath.isBlank()) {
+                videoStorageService.deleteStoredVideo(storagePath);
+            }
+        }
+
+        List<AttemptProcessingJob> duplicateJobs = attemptProcessingJobRepository
+                .findByResultAttemptIdInOrderByResultAttemptIdAscUpdatedAtDescIdDesc(duplicateAttemptIds);
+        if (!duplicateJobs.isEmpty()) {
+            attemptProcessingJobRepository.deleteAllInBatch(duplicateJobs);
+        }
+
+        attemptRepository.deleteAllInBatch(duplicateAttempts);
     }
 
     private Map<Long, AttemptComparisonSnapshot> buildComparisonByAttemptId(
@@ -351,7 +409,7 @@ public class AttemptService {
 
         attempts.stream()
                 .sorted((left, right) -> {
-                    int createdAtComparison = left.getCreatedAt().compareTo(right.getCreatedAt());
+                    int createdAtComparison = left.getUpdatedAt().compareTo(right.getUpdatedAt());
                     if (createdAtComparison != 0) {
                         return createdAtComparison;
                     }
@@ -409,7 +467,7 @@ public class AttemptService {
             return new AttemptComparisonSnapshot(
                     previousAttempt.getId(),
                     previousAttempt.getScore(),
-                    previousAttempt.getCreatedAt(),
+                    previousAttempt.getUpdatedAt(),
                     currentAttempt.getScore() - previousAttempt.getScore(),
                     computeDelta(currentAttempt.getPoseSimilarity(), previousAttempt.getPoseSimilarity()),
                     computeDelta(currentAttempt.getTimingSimilarity(), previousAttempt.getTimingSimilarity()),

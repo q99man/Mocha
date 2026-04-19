@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 
+import '../features/challenges/challenge-play.css';
 import { getAttemptById, getAttemptVideoProcessingProgressByTrackingId } from '../shared/api/attemptApi';
+import { useAnimatedNumber } from '../shared/hooks/useAnimatedNumber';
 import type { AttemptSummary, AttemptVideoProcessingJobProgress } from '../shared/types/attempt';
 
 export function AttemptResultPage() {
@@ -49,18 +51,6 @@ export function AttemptResultPage() {
     };
   }, [id]);
 
-  const scoreCards = useMemo(() => {
-    if (!attempt) {
-      return [];
-    }
-
-    return [
-      { label: '포즈', value: attempt.poseSimilarity != null ? `${attempt.poseSimilarity}` : '--' },
-      { label: '타이밍', value: attempt.timingSimilarity != null ? `${attempt.timingSimilarity}` : '--' },
-      { label: '안정성', value: attempt.stabilitySimilarity != null ? `${attempt.stabilitySimilarity}` : '--' },
-    ];
-  }, [attempt]);
-
   async function handleRefreshProgress() {
     if (!attempt?.pendingTrackingId) {
       return;
@@ -93,12 +83,44 @@ export function AttemptResultPage() {
     setProgressMessage(buildProgressMessage(progress));
   }
 
+  const pending = !attempt?.processingComplete || attempt?.processingMode === 'ASYNC_JOB_PENDING';
+  const flowModeLabel = attempt ? formatResultSource(attempt.resultSource) : '';
+  const scoreDelta = attempt?.scoreDeltaFromPrevious ?? null;
+  const isNewRecord = scoreDelta != null && scoreDelta > 0;
+  const animatedScore = useAnimatedNumber(attempt?.score ?? 0, { duration: 1650 });
+  const animatedRate = useAnimatedNumber(Math.max(0, attempt?.score ?? 0), { duration: 1900, decimals: 2 });
+  const resultRate = attempt ? `${animatedRate.toFixed(2)}%` : '0.00%';
+  const displayedScore = attempt?.scoreAvailable ? animatedScore : '--';
+  const headline = useMemo(() => {
+    if (!attempt) {
+      return '';
+    }
+
+    if (pending) {
+      return '결과를 정리하고 있습니다.';
+    }
+
+    return attempt.resultHeadline || '결과 분석';
+  }, [attempt, pending]);
+
+  const summary = useMemo(() => {
+    if (!attempt) {
+      return '';
+    }
+
+    if (pending) {
+      return attempt.processingNotice ?? '최종 분석이 진행 중입니다. 잠시 후 새로고침으로 최신 상태를 확인해 주세요.';
+    }
+
+    return attempt.resultSummary;
+  }, [attempt, pending]);
+
   if (loading) {
     return (
       <section className="glass-page">
         <div className="glass-panel glass-panel--empty">
-          <strong>결과 데이터를 불러오는 중입니다.</strong>
-          <p>점수와 비교 정보를 정리하고 있습니다.</p>
+          <strong>결과를 불러오는 중입니다.</strong>
+          <p>점수와 분석 내용을 정리하고 있습니다.</p>
         </div>
       </section>
     );
@@ -108,11 +130,11 @@ export function AttemptResultPage() {
     return (
       <section className="glass-page">
         <div className="glass-panel glass-panel--empty">
-          <strong>결과를 열지 못했습니다.</strong>
+          <strong>결과를 찾지 못했습니다.</strong>
           <p>{error ?? '요청한 결과를 찾을 수 없습니다.'}</p>
           <div className="inline-actions">
-            <Link className="button-link" to="/attempts">
-              기록 목록으로
+            <Link className="button-link button-link--compact" to="/mypage">
+              마이페이지로
             </Link>
           </div>
         </div>
@@ -120,129 +142,170 @@ export function AttemptResultPage() {
     );
   }
 
-  const pending = !attempt.processingComplete || attempt.processingMode === 'ASYNC_JOB_PENDING';
-  const isTestModeResult = attempt.resultSource === 'SAMPLE_SCORING_PREVIEW' && attempt.score === 0;
-
   return (
-    <div className="glass-page">
-      <section className="glass-intro">
-        <div>
-          <span className="glass-intro__eyebrow">시도 결과</span>
-          <h2>{attempt.challengeTitle}</h2>
-          <p>{attempt.resultHeadline || attempt.resultSummary}</p>
+    <div className="play-result">
+      <div className="play-result__left">
+        <div className="play-result__mode-label">
+          <span>{flowModeLabel}</span>
         </div>
 
-        <div className="glass-intro__meta">
-          <div>
-            <span>점수</span>
-            <strong>{attempt.scoreAvailable ? `${attempt.score}` : '--'}</strong>
+        <h3 className="play-result__judgement-title">결과 분석</h3>
+
+        <div className="play-result__judgement-table">
+          <span className="play-result__judgement-label play-result__judgement-label--accent">진행 방식</span>
+          <span className="play-result__judgement-value">{flowModeLabel}</span>
+
+          <span className="play-result__judgement-label play-result__judgement-label--accent">강점</span>
+          <span className="play-result__judgement-value">{formatAreaLabel(attempt.strongestArea)}</span>
+
+          <span className="play-result__judgement-label play-result__judgement-label--accent">보완</span>
+          <span className="play-result__judgement-value">{formatAreaLabel(attempt.weakestArea)}</span>
+
+          <span className="play-result__judgement-label">상태</span>
+          <span className="play-result__judgement-value">{pending ? '처리 중' : '완료'}</span>
+
+          <span className="play-result__judgement-label">이전 대비</span>
+          <span className="play-result__judgement-value">{formatDelta(scoreDelta)}</span>
+        </div>
+
+        <div className="play-result__summary-card">
+          <strong>{headline}</strong>
+          <p>{summary}</p>
+          <span>기록 번호 {String(attempt.id).padStart(3, '0')}</span>
+          {progressMessage ? <p>{progressMessage}</p> : null}
+          {attempt.coachingTeaser && !pending ? <p>코칭: {attempt.coachingTeaser}</p> : null}
+        </div>
+
+        <div className="play-result__meta-section">
+          <h4 className="play-result__meta-title">챌린지</h4>
+          <span className="play-result__meta-value">{attempt.challengeTitle}</span>
+        </div>
+
+        <div className="play-result__meta-section">
+          <h4 className="play-result__meta-title">도전 시각</h4>
+          <span className="play-result__meta-value">{formatDate(attempt.attemptedAt)}</span>
+        </div>
+
+        <div className="play-result__meta-section">
+          <h4 className="play-result__meta-title">처리 방식</h4>
+          <span className="play-result__meta-value">
+            {attempt.processingMode ? formatProcessingMode(attempt.processingMode) : '즉시 처리'}
+          </span>
+        </div>
+      </div>
+
+      <div className="play-result__right">
+        <div className="play-result__stat-ring">
+          <div className="play-result__stat-item">
+            <span>진행</span>
+            <strong>{flowModeLabel}</strong>
           </div>
-          <div>
+          <div className="play-result__stat-item">
             <span>상태</span>
-            <strong>{pending ? '처리 중' : '완료'}</strong>
-          </div>
-          <div>
-            <span>이전 대비</span>
-            <strong>{formatDelta(attempt.scoreDeltaFromPrevious)}</strong>
+            <strong>{pending ? '대기' : '완료'}</strong>
           </div>
         </div>
-      </section>
 
-      {isTestModeResult ? (
-        <section className="glass-panel">
-          <div className="glass-toolbar">
-            <div>
-              <h3 className="glass-section-title">테스트 모드 결과</h3>
-              <p className="glass-toolbar__note">
-                카메라 없이 진행된 기록입니다. 현재는 비교 지표를 계산하지 않고 점수 0점으로 저장합니다.
-              </p>
-            </div>
-          </div>
-        </section>
-      ) : null}
+        <div className="play-result__score-circle">
+          <span className="play-result__rate">{resultRate}</span>
+          <span className="play-result__rate-delta">
+            {pending
+              ? '결과 분석 연결 중'
+              : attempt.resultSource === 'SAMPLE_SCORING_PREVIEW'
+                ? '테스트 모드 결과'
+                : '상세 결과 연결 완료'}
+          </span>
+        </div>
 
-      {pending ? (
-        <section className="glass-panel">
-          <div className="glass-toolbar">
-            <div>
-              <h3 className="glass-section-title">처리 상태</h3>
-              <p className="glass-toolbar__note">
-                {attempt.processingNotice ?? '최종 분석이 진행 중입니다. 새로고침으로 최신 상태를 확인할 수 있습니다.'}
-              </p>
-            </div>
+        <div className="play-result__score-block">
+          <span className="play-result__score-label">점수</span>
+          <span className="play-result__score-number">{displayedScore}</span>
+          {scoreDelta != null ? (
+            <span className="play-result__score-delta">
+              {scoreDelta >= 0 ? '+' : '-'} {Math.abs(scoreDelta)}
+            </span>
+          ) : null}
+        </div>
 
+        {isNewRecord ? <span className="play-result__new-record">최고 기록</span> : null}
+
+        <div className="play-result__actions">
+          {pending ? (
             <button
-              className="button-link button-link--secondary"
               type="button"
-              disabled={progressLoading}
+              className="play-result__action-btn"
               onClick={() => void handleRefreshProgress()}
+              disabled={progressLoading}
             >
-              {progressLoading ? '확인 중...' : '상태 새로고침'}
+              {progressLoading ? '확인 중...' : '새로고침'}
             </button>
-          </div>
-
-          {progressMessage ? <p className="review-composer__message review-composer__message--success">{progressMessage}</p> : null}
-        </section>
-      ) : null}
-
-      <section className="glass-panel">
-        <div className="glass-summary-grid">
-          {scoreCards.map((card) => (
-            <article className="glass-summary-card" key={card.label}>
-              <span>{card.label}</span>
-              <strong>{card.value}</strong>
-              <p>{card.label} 유사도 지표</p>
-            </article>
-          ))}
+          ) : (
+            <Link className="play-result__action-btn" to={`/challenges/${attempt.challengeId}/start`}>
+              재시도
+            </Link>
+          )}
+          <Link className="play-result__action-btn play-result__action-btn--secondary" to={`/challenges?challengeId=${attempt.challengeId}`}>
+            목록으로
+          </Link>
         </div>
-      </section>
-
-      <section className="glass-panel">
-        <div className="glass-list">
-          <article className="glass-list-item">
-            <div className="glass-list-item__content">
-              <div className="glass-list-item__header">
-                <div>
-                  <span className="glass-list-item__eyebrow">결과 요약</span>
-                  <strong>{attempt.resultSummary}</strong>
-                </div>
-              </div>
-
-              <div className="glass-inline-meta">
-                <span>강점 {formatAreaLabel(attempt.strongestArea)}</span>
-                <span>보완 {formatAreaLabel(attempt.weakestArea)}</span>
-                <span>{formatDate(attempt.attemptedAt)}</span>
-              </div>
-            </div>
-          </article>
-
-          <article className="glass-list-item">
-            <div className="glass-list-item__content">
-              <div className="glass-list-item__header">
-                <div>
-                  <span className="glass-list-item__eyebrow">다음 단계</span>
-                  <strong>결과 확인 후 바로 다음 동작으로 이어갑니다</strong>
-                </div>
-              </div>
-
-              <p className="glass-list-item__description">
-                같은 챌린지의 기록을 비교하거나, 바로 다시 시도해서 변화량을 확인할 수 있습니다.
-              </p>
-            </div>
-
-            <div className="glass-list-item__actions">
-              <Link className="button-link button-link--secondary" to={`/attempts?challengeId=${attempt.challengeId}`}>
-                기록 비교
-              </Link>
-              <Link className="button-link" to={`/challenges/${attempt.challengeId}/start`}>
-                다시 시도
-              </Link>
-            </div>
-          </article>
-        </div>
-      </section>
+      </div>
     </div>
   );
+}
+
+function buildProgressMessage(progress: AttemptVideoProcessingJobProgress) {
+  if (progress.status === 'COMPLETED') {
+    return '처리가 완료되어 최신 결과를 다시 불러왔습니다.';
+  }
+  if (progress.status === 'FAILED') {
+    return '처리 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.';
+  }
+  if (progress.status === 'PROCESSING') {
+    return '분석이 계속 진행 중입니다.';
+  }
+  return '업로드가 대기열에서 처리 순서를 기다리는 중입니다.';
+}
+
+function formatAreaLabel(value: string | null) {
+  if (!value) {
+    return '없음';
+  }
+
+  if (value === 'pose shape') {
+    return '포즈 형태';
+  }
+  if (value === 'pose timing') {
+    return '포즈 타이밍';
+  }
+  if (value === 'detection quality') {
+    return '감지 안정성';
+  }
+
+  return value;
+}
+
+function formatResultSource(value: AttemptSummary['resultSource']) {
+  switch (value) {
+    case 'VIDEO_UPLOAD_AUTOSCORED':
+      return '영상 채점';
+    case 'SAMPLE_SCORING_PREVIEW':
+      return '테스트 모드';
+    case 'PREPARED_FLOW':
+      return '준비 흐름';
+    default:
+      return value;
+  }
+}
+
+function formatProcessingMode(value: NonNullable<AttemptSummary['processingMode']>) {
+  switch (value) {
+    case 'SYNC_INLINE':
+      return '즉시 처리';
+    case 'ASYNC_JOB_PENDING':
+      return '비동기 처리';
+    default:
+      return value;
+  }
 }
 
 function formatDate(value: string | null) {
@@ -273,35 +336,4 @@ function formatDelta(delta: number | null) {
   }
 
   return `${delta > 0 ? '+' : ''}${delta}`;
-}
-
-function buildProgressMessage(progress: AttemptVideoProcessingJobProgress) {
-  if (progress.status === 'COMPLETED') {
-    return '처리가 완료되어 최신 결과를 다시 불러왔습니다.';
-  }
-  if (progress.status === 'FAILED') {
-    return '처리 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.';
-  }
-  if (progress.status === 'PROCESSING') {
-    return '분석이 계속 진행 중입니다.';
-  }
-  return '업로드가 대기열에서 처리 순서를 기다리는 중입니다.';
-}
-
-function formatAreaLabel(value: string | null) {
-  if (!value) {
-    return '없음';
-  }
-
-  if (value === 'pose shape') {
-    return '포즈 형태';
-  }
-  if (value === 'pose timing') {
-    return '타이밍';
-  }
-  if (value === 'detection quality') {
-    return '인식 안정성';
-  }
-
-  return value;
 }

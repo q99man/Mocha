@@ -291,7 +291,6 @@ export function ChallengeReferencePosePreview({
     <article className="glass-panel reference-pose-preview">
       <div className="glass-toolbar">
         <div>
-          <span className="glass-intro__eyebrow">Pose Overlay</span>
           <h3 className="glass-section-title">{TEXT.title}</h3>
           <p className="glass-toolbar__note">{`${challengeTitle} ${TEXT.descriptionSuffix}`}</p>
         </div>

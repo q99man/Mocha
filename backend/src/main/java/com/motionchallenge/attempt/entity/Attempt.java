@@ -174,4 +174,60 @@ public class Attempt extends BaseTimeEntity {
     public String getWeakestArea() {
         return weakestArea;
     }
+
+    public void updatePreparedState(String notes, String processingNotice) {
+        this.score = 0;
+        this.status = "Prepared";
+        this.processingMode = null;
+        this.processingComplete = false;
+        this.processingNotice = processingNotice;
+        this.notes = notes;
+        this.resultSummary = null;
+        this.poseSimilarity = null;
+        this.timingSimilarity = null;
+        this.stabilitySimilarity = null;
+        this.strongestArea = null;
+        this.weakestArea = null;
+    }
+
+    public void updateCompletedState(int score, String notes, String processingNotice) {
+        this.score = score;
+        this.status = "Completed";
+        this.processingMode = null;
+        this.processingComplete = true;
+        this.processingNotice = processingNotice;
+        this.notes = notes;
+        this.resultSummary = null;
+        this.poseSimilarity = null;
+        this.timingSimilarity = null;
+        this.stabilitySimilarity = null;
+        this.strongestArea = null;
+        this.weakestArea = null;
+    }
+
+    public void updateAutoScoredResult(
+            int score,
+            String processingMode,
+            boolean processingComplete,
+            String processingNotice,
+            String notes,
+            String resultSummary,
+            Integer poseSimilarity,
+            Integer timingSimilarity,
+            Integer stabilitySimilarity,
+            String strongestArea,
+            String weakestArea) {
+        this.score = score;
+        this.status = "Completed";
+        this.processingMode = processingMode;
+        this.processingComplete = processingComplete;
+        this.processingNotice = processingNotice;
+        this.notes = notes;
+        this.resultSummary = resultSummary;
+        this.poseSimilarity = poseSimilarity;
+        this.timingSimilarity = timingSimilarity;
+        this.stabilitySimilarity = stabilitySimilarity;
+        this.strongestArea = strongestArea;
+        this.weakestArea = weakestArea;
+    }
 }

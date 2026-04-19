@@ -3,9 +3,15 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 
 import '../features/challenges/challenge-play.css';
 import { formatDifficulty } from '../features/challenges/difficulty';
+import {
+  buildPlayJudgementCue,
+  buildPlayJudgementTimeline,
+  buildPreviewJudgementEvaluation,
+} from '../features/challenges/playJudgement';
 import { createAttempt } from '../shared/api/attemptApi';
 import { getChallengeById } from '../shared/api/challengeApi';
 import { resolveApiUrl } from '../shared/api/client';
+import { useAnimatedNumber } from '../shared/hooks/useAnimatedNumber';
 import type { AttemptSummary } from '../shared/types/attempt';
 import type { Challenge } from '../shared/types/challenge';
 
@@ -29,12 +35,14 @@ export function ChallengeStartPage() {
   const [savingResult, setSavingResult] = useState(false);
   const [resultAttempt, setResultAttempt] = useState<AttemptSummary | null>(null);
   const [resultError, setResultError] = useState<string | null>(null);
+  const [judgementCue, setJudgementCue] = useState<ReturnType<typeof buildPlayJudgementCue> | null>(null);
 
   const cameraVideoRef = useRef<HTMLVideoElement | null>(null);
   const cameraStreamRef = useRef<MediaStream | null>(null);
   const refVideoRef = useRef<HTMLVideoElement | null>(null);
   const progressIntervalRef = useRef<number | null>(null);
   const transitionTimeoutRef = useRef<number | null>(null);
+  const judgementTimeoutRef = useRef<number | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -117,6 +125,9 @@ export function ChallengeStartPage() {
       if (transitionTimeoutRef.current) {
         window.clearTimeout(transitionTimeoutRef.current);
       }
+      if (judgementTimeoutRef.current) {
+        window.clearTimeout(judgementTimeoutRef.current);
+      }
     };
   }, [stopCamera]);
 
@@ -140,6 +151,7 @@ export function ChallengeStartPage() {
 
     setSavingResult(true);
     setResultError(null);
+    let redirected = false;
 
     try {
       const attempt = await createAttempt({
@@ -153,20 +165,28 @@ export function ChallengeStartPage() {
       });
 
       setResultAttempt(attempt);
+      await new Promise((resolve) => window.setTimeout(resolve, 900));
+      redirected = true;
+      void navigate(`/attempts/${attempt.id}/result`, { replace: true });
     } catch (saveError) {
       setResultError(saveError instanceof Error ? saveError.message : '결과를 저장하지 못했습니다.');
     } finally {
-      await new Promise((resolve) => window.setTimeout(resolve, 1200));
       setSavingResult(false);
-      setPlayState('result');
+      if (!redirected) {
+        setPlayState('result');
+      }
     }
-  }, [challenge, flowMode]);
+  }, [challenge, flowMode, navigate]);
 
   const handlePlayComplete = useCallback(() => {
     if (refVideoRef.current) {
       refVideoRef.current.pause();
       refVideoRef.current.currentTime = 0;
     }
+    if (judgementTimeoutRef.current) {
+      window.clearTimeout(judgementTimeoutRef.current);
+    }
+    setJudgementCue(null);
 
     setPlayState('clear');
 
@@ -183,6 +203,7 @@ export function ChallengeStartPage() {
     setProgress(0);
     setResultAttempt(null);
     setResultError(null);
+    setJudgementCue(null);
 
     let count = 3;
     const countdownInterval = window.setInterval(() => {
@@ -200,11 +221,34 @@ export function ChallengeStartPage() {
       }
 
       const durationSec = challenge?.durationSec ?? 30;
+      const judgementTimeline = buildPlayJudgementTimeline(durationSec, flowMode);
       const startTime = Date.now();
+      let nextJudgementIndex = 0;
+      let combo = 0;
       progressIntervalRef.current = window.setInterval(() => {
         const elapsed = (Date.now() - startTime) / 1000;
         const percent = Math.min(100, (elapsed / durationSec) * 100);
         setProgress(percent);
+
+        const elapsedMs = elapsed * 1000;
+        while (
+          nextJudgementIndex < judgementTimeline.length &&
+          elapsedMs >= judgementTimeline[nextJudgementIndex].triggerMs
+        ) {
+          combo += 1;
+          const planItem = judgementTimeline[nextJudgementIndex];
+          const previewEvaluation = buildPreviewJudgementEvaluation(planItem, flowMode);
+          const nextCue = buildPlayJudgementCue(planItem, combo, previewEvaluation);
+          setJudgementCue(nextCue);
+
+          if (judgementTimeoutRef.current) {
+            window.clearTimeout(judgementTimeoutRef.current);
+          }
+          judgementTimeoutRef.current = window.setTimeout(() => {
+            setJudgementCue((current) => (current?.id === nextCue.id ? null : current));
+          }, nextCue.windowMs);
+          nextJudgementIndex += 1;
+        }
 
         if (percent >= 100) {
           if (progressIntervalRef.current) {
@@ -214,7 +258,7 @@ export function ChallengeStartPage() {
         }
       }, 100);
     }, 1000);
-  }, [challenge?.durationSec, handlePlayComplete]);
+  }, [challenge?.durationSec, flowMode, handlePlayComplete]);
 
   function handleExit() {
     stopCamera();
@@ -224,6 +268,10 @@ export function ChallengeStartPage() {
     if (transitionTimeoutRef.current) {
       window.clearTimeout(transitionTimeoutRef.current);
     }
+    if (judgementTimeoutRef.current) {
+      window.clearTimeout(judgementTimeoutRef.current);
+    }
+    setJudgementCue(null);
     void navigate(`/challenges?challengeId=${id}`);
   }
 
@@ -234,6 +282,9 @@ export function ChallengeStartPage() {
     if (transitionTimeoutRef.current) {
       window.clearTimeout(transitionTimeoutRef.current);
     }
+    if (judgementTimeoutRef.current) {
+      window.clearTimeout(judgementTimeoutRef.current);
+    }
 
     setPlayState('idle');
     setCountdownNumber(3);
@@ -241,6 +292,7 @@ export function ChallengeStartPage() {
     setSavingResult(false);
     setResultAttempt(null);
     setResultError(null);
+    setJudgementCue(null);
 
     if (flowMode === 'camera') {
       void requestCamera();
@@ -259,9 +311,10 @@ export function ChallengeStartPage() {
   const rawVideoUrl = challenge?.guideVideoUrl ?? challenge?.fallbackThumbnailVideoUrl ?? null;
   const referenceVideoUrl = rawVideoUrl ? resolveApiUrl(rawVideoUrl) : null;
   const challengeReady = challenge?.referenceVideoUploaded && challenge.referenceMotionProfileReady;
-
   const resultScore = resultAttempt?.score ?? 0;
-  const resultRate = `${resultScore.toFixed(2)}%`;
+  const animatedResultScore = useAnimatedNumber(resultScore, { duration: 1600 });
+  const animatedResultRate = useAnimatedNumber(resultScore, { duration: 1850, decimals: 2 });
+  const resultRate = `${animatedResultRate.toFixed(2)}%`;
   const resultHeadline = flowMode === 'test' ? '테스트 모드 결과가 준비되었습니다.' : '플레이 결과가 준비되었습니다.';
   const resultSummary =
     resultError ??
@@ -388,7 +441,7 @@ export function ChallengeStartPage() {
 
           <div className="play-result__score-block">
             <span className="play-result__score-label">점수</span>
-            <span className="play-result__score-number">{resultScore}</span>
+            <span className="play-result__score-number">{animatedResultScore}</span>
             {scoreDelta != null ? (
               <span className="play-result__score-delta">
                 {scoreDelta >= 0 ? '+' : '-'} {Math.abs(scoreDelta)}
@@ -489,6 +542,35 @@ export function ChallengeStartPage() {
           </div>
         </div>
 
+        <div className="play-stage__beat-lane" aria-hidden="true">
+          {Array.from({ length: 6 }, (_, laneIndex) => (
+            <span
+              key={laneIndex}
+              className={`play-stage__beat-lane-slot${
+                judgementCue?.lane === laneIndex ? ' is-active' : ''
+              }${judgementCue?.lane === laneIndex ? ` is-${judgementCue.tone}` : ''}${
+                judgementCue?.lane === laneIndex && judgementCue.accent ? ' is-accent' : ''
+              }`}
+            />
+          ))}
+        </div>
+
+        {playState === 'playing' && judgementCue ? (
+          <>
+            <div className={`play-stage__judgement-flash play-stage__judgement-flash--${judgementCue.tone}`} />
+            <div className={`play-stage__judgement play-stage__judgement--${judgementCue.tone}`} key={judgementCue.id}>
+              <span className="play-stage__judgement-second">{String(judgementCue.second + 1).padStart(2, '0')} SEC</span>
+              <strong>{judgementCue.label}</strong>
+              <span className="play-stage__judgement-guide">{judgementCue.guide}</span>
+              <span className="play-stage__judgement-meta">
+                {judgementCue.source === 'timeline-preview' ? 'TIMELINE PREVIEW' : 'MOTION ANALYSIS'} ·{' '}
+                {formatOffsetMs(judgementCue.offsetMs)}
+              </span>
+              <span className="play-stage__judgement-combo">{judgementCue.combo} COMBO</span>
+            </div>
+          </>
+        ) : null}
+
         {playState === 'idle' ? (
           <div className="play-stage__overlay">
             <button type="button" className="play-stage__start-btn" onClick={startGame}>
@@ -569,4 +651,12 @@ function formatAreaLabel(value: AttemptSummary['strongestArea'] | undefined) {
   }
 
   return value;
+}
+
+function formatOffsetMs(offsetMs: number) {
+  if (offsetMs === 0) {
+    return 'ON TIME';
+  }
+
+  return `${offsetMs > 0 ? '+' : ''}${offsetMs}ms`;
 }

@@ -100,13 +100,24 @@ export function AdminModelAssetsPage() {
     void loadAdminData();
   }, []);
 
-  const readyChallenges = useMemo(
-    () => challenges.filter((challenge) => challenge.referenceVideoUploaded && challenge.referenceMotionProfileReady),
+  const activeChallenges = useMemo(() => challenges.filter((challenge) => challenge.isActive), [challenges]);
+  const pendingAnalysisChallenges = useMemo(
+    () =>
+      challenges.filter(
+        (challenge) =>
+          challenge.referenceVideoUploaded &&
+          !challenge.referenceMotionProfileReady &&
+          challenge.referenceAnalysisStatus !== 'ANALYZING',
+      ),
     [challenges],
   );
-
-  const activeChallenges = useMemo(() => challenges.filter((challenge) => challenge.isActive), [challenges]);
-
+  const evaluationReadyChallenges = useMemo(
+    () =>
+      challenges.filter(
+        (challenge) => challenge.isActive && challenge.referenceVideoUploaded && challenge.referenceMotionProfileReady,
+      ),
+    [challenges],
+  );
   const categoryOptions = useMemo(() => {
     const categories = new Set<string>();
     challenges.forEach((challenge) => {
@@ -205,12 +216,6 @@ export function AdminModelAssetsPage() {
     }
   }
 
-  function handleModelFileChange(event: ChangeEvent<HTMLInputElement>) {
-    setSelectedModelFile(event.target.files?.[0] ?? null);
-    setUploadError(null);
-    setUploadSuccess(null);
-  }
-
   async function handleModelSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!selectedModelFile) {
@@ -302,11 +307,6 @@ export function AdminModelAssetsPage() {
     setChallengeForm(initialChallengeForm);
     setChallengeDifficultyLevel('4');
     setSelectedReferenceVideo(null);
-    setChallengeError(null);
-  }
-
-  function handleReferenceVideoChange(event: ChangeEvent<HTMLInputElement>) {
-    setSelectedReferenceVideo(event.target.files?.[0] ?? null);
     setChallengeError(null);
   }
 
@@ -410,7 +410,7 @@ export function AdminModelAssetsPage() {
   const modelSummary = activeAsset
     ? `현재 활성 모델 ${activeAsset.originalFileName}`
     : '현재 활성 모델이 없습니다.';
-  const challengeSummary = `활성 ${activeChallenges.length}개 · 분석 준비 ${readyChallenges.length}개`;
+  const challengeSummary = `활성 ${activeChallenges.length}개 · 평가 준비 ${evaluationReadyChallenges.length}개 · 분석 대기 ${pendingAnalysisChallenges.length}개`;
   const confirmBusy =
     (confirmDialog.kind === 'DELETE_ASSET' && deletingAssetId === confirmDialog.asset.id) ||
     (confirmDialog.kind === 'DELETE_CHALLENGE' && deletingId === confirmDialog.challenge.id);
@@ -471,7 +471,7 @@ export function AdminModelAssetsPage() {
           <div className="glass-chip-group mypage-compact-tabs admin-hub-compact__chips">
             <span className="glass-chip is-active">활성 모델 {activeAsset ? 1 : 0}</span>
             <span className="glass-chip">활성 챌린지 {activeChallenges.length}</span>
-            <span className="glass-chip">분석 준비 {readyChallenges.length}</span>
+            <span className="glass-chip">평가 준비 {evaluationReadyChallenges.length}</span>
             {createdChallengeId ? <span className="glass-chip">최근 생성 #{createdChallengeId}</span> : null}
           </div>
 
@@ -773,7 +773,7 @@ export function AdminModelAssetsPage() {
                               {challenge.isActive ? '활성' : '비활성'}
                             </span>
                             <span className={`board-classic-badge${challenge.referenceMotionProfileReady ? ' is-pinned' : ''}`}>
-                              {challenge.referenceMotionProfileReady ? '준비 완료' : '대기'}
+                              {getChallengeReadyLabel(challenge)}
                             </span>
                           </div>
                           <div className="admin-hub-compact-row__title">
@@ -834,6 +834,7 @@ export function AdminModelAssetsPage() {
                                   className="button-link admin-hub-compact__action-btn"
                                   type="button"
                                   disabled={
+                                    !activeAsset ||
                                     !challenge.referenceVideoUploaded ||
                                     !challenge.isActive ||
                                     analyzingId === challenge.id ||
@@ -861,6 +862,7 @@ export function AdminModelAssetsPage() {
                               <span>길이 {challenge.durationSec}초</span>
                               <span>레퍼런스 영상 {challenge.referenceVideoUploaded ? '등록됨' : '없음'}</span>
                               <span>분석 {formatReferenceStatus(challenge.referenceAnalysisStatus)}</span>
+                              <span>평가 {challenge.referenceMotionProfileReady && challenge.isActive ? '가능' : '준비 중'}</span>
                               <span>가이드 영상 {challenge.guideVideoUrl ? '연결됨' : '없음'}</span>
                             </div>
 
@@ -1140,7 +1142,17 @@ function buildActiveDescription(asset: ModelAsset) {
   return `${asset.versionLabel ?? '버전 라벨 없음'} / ${formatFileSize(asset.size)} / ${new Date(asset.updatedAt).toLocaleString('ko-KR')}`;
 }
 
+function getChallengeReadyLabel(challenge: Challenge) {
+  if (challenge.referenceMotionProfileReady && challenge.isActive) return '평가 준비';
+  if (challenge.referenceMotionProfileReady) return '활성 대기';
+  if (challenge.referenceVideoUploaded) return '분석 필요';
+  return '영상 필요';
+}
+
 function formatReferenceStatus(status: string) {
+  if (status === 'NOT_ANALYZED') return '미분석';
+  if (status === 'ANALYZING') return '분석 중';
+  if (status === 'COMPLETED') return '분석 완료';
   if (status === 'PENDING') return '대기';
   if (status === 'PROCESSING') return '처리 중';
   if (status === 'READY') return '준비 완료';
