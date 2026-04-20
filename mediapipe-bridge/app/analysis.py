@@ -41,6 +41,19 @@ MOTION_KEYPOINTS = (
     "right_ankle",
 )
 
+FOCUS_POINT_TARGETS = {
+    "leftWrist": "left_wrist",
+    "rightWrist": "right_wrist",
+    "leftAnkle": "left_ankle",
+    "rightAnkle": "right_ankle",
+}
+
+SEGMENT_PHASE_NAMES = {
+    3: ("opening", "impact", "finish"),
+    4: ("opening", "build", "impact", "finish"),
+    5: ("opening", "build", "impact", "release", "finish"),
+}
+
 
 def analyze_payload(payload: AnalyzeRequest) -> AnalyzeResponse:
     return analyze_with_mediapipe(payload)
@@ -224,10 +237,12 @@ def summarize_landmarks(
     upper_symmetry: list[float] = []
     lower_symmetry: list[float] = []
     joint_angle_series: dict[str, list[float]] = {name: [] for name in JOINT_SPECS}
+    focus_samples: list[dict[str, Any]] = []
 
     previous_points: dict[str, dict[str, float]] | None = None
     previous_center: tuple[float, float] | None = None
     previous_scale: float | None = None
+    previous_joint_values: dict[str, float] | None = None
 
     for frame in sampled_landmarks:
         points = {point["name"]: point for point in frame.get("points", [])}
@@ -246,8 +261,10 @@ def summarize_landmarks(
         center = compute_body_center(points)
         center_line_offsets.append(clamp(abs(center[0] - 0.5) / 0.5, 0.0, 2.0))
 
+        frame_motion_energy = 0.0
         if previous_points is not None:
-            motion_energies.append(compute_motion_energy(previous_points, points, average(previous_scale, torso_scale)))
+            frame_motion_energy = compute_motion_energy(previous_points, points, average(previous_scale, torso_scale))
+            motion_energies.append(frame_motion_energy)
         if previous_center is not None:
             center_drifts.append(
                 clamp(
@@ -284,9 +301,25 @@ def summarize_landmarks(
         if lower_symmetry_value is not None:
             lower_symmetry.append(lower_symmetry_value)
 
+        focus_target_scores: dict[str, float] = {}
+        if previous_joint_values is not None:
+            focus_target_scores.update(
+                compute_joint_activity_scores(previous_joint_values, current_joint_values)
+            )
+        if previous_points is not None:
+            focus_target_scores.update(compute_focus_point_activity(previous_points, points, torso_scale))
+        focus_samples.append(
+            {
+                "motionEnergy": round(frame_motion_energy, 6),
+                "visibility": round(safe_mean(frame_visibilities), 6),
+                "targets": focus_target_scores,
+            }
+        )
+
         previous_points = points
         previous_center = center
         previous_scale = torso_scale
+        previous_joint_values = current_joint_values
 
     joint_metrics: dict[str, dict[str, float]] = {}
     joint_ranges: list[float] = []
@@ -331,12 +364,14 @@ def summarize_landmarks(
         "jointStabilityMean": round(clamp(safe_mean(joint_stabilities), 0.0, 1.0), 6),
         "joints": joint_metrics,
     }
+    focus_profile = build_focus_profile(sampled_landmarks, focus_samples)
 
     return {
         "quality": quality,
         "rhythm": rhythm,
         "symmetry": symmetry,
         "kinematics": kinematics,
+        "focusProfile": focus_profile,
     }
 
 
@@ -360,6 +395,193 @@ def compute_motion_energy(
         displacements.append(clamp(displacement / max(torso_scale, 0.05), 0.0, 3.0))
 
     return safe_mean(displacements)
+
+
+def compute_joint_activity_scores(
+    previous_joint_values: dict[str, float],
+    current_joint_values: dict[str, float],
+) -> dict[str, float]:
+    activity_scores: dict[str, float] = {}
+    for joint_name, current_value in current_joint_values.items():
+        previous_value = previous_joint_values.get(joint_name)
+        if previous_value is None:
+            continue
+        activity_scores[joint_name] = clamp(abs(current_value - previous_value) * 1.8, 0.0, 1.0)
+    return activity_scores
+
+
+def compute_focus_point_activity(
+    previous_points: dict[str, dict[str, float]],
+    current_points: dict[str, dict[str, float]],
+    torso_scale: float,
+) -> dict[str, float]:
+    activity_scores: dict[str, float] = {}
+    safe_scale = max(torso_scale, 0.05)
+    for target_name, point_name in FOCUS_POINT_TARGETS.items():
+        previous_point = previous_points.get(point_name)
+        current_point = current_points.get(point_name)
+        if previous_point is None or current_point is None:
+            continue
+        displacement = distance_points(previous_point, current_point) / safe_scale
+        activity_scores[target_name] = clamp(displacement * 1.6, 0.0, 1.0)
+    return activity_scores
+
+
+def build_focus_profile(
+    sampled_landmarks: list[dict[str, Any]],
+    focus_samples: list[dict[str, Any]],
+) -> dict[str, Any]:
+    if not sampled_landmarks or not focus_samples:
+        return {
+            "version": "v1",
+            "primaryJoints": default_focus_targets(),
+            "segments": [],
+        }
+
+    aggregate_target_scores = average_focus_target_scores(focus_samples)
+    primary_joints = build_weighted_focus_targets(aggregate_target_scores, limit=4)
+    segment_count = resolve_focus_segment_count(len(sampled_landmarks))
+    phase_names = SEGMENT_PHASE_NAMES.get(segment_count, SEGMENT_PHASE_NAMES[5])
+
+    motion_peak = max_or_zero([float(sample.get("motionEnergy", 0.0)) for sample in focus_samples])
+    score_peak = max(aggregate_target_scores.values(), default=0.0)
+
+    segments: list[dict[str, Any]] = []
+    for segment_index in range(segment_count):
+        start_index = int(math.floor(segment_index * len(focus_samples) / segment_count))
+        end_index = int(math.floor((segment_index + 1) * len(focus_samples) / segment_count))
+        end_index = max(start_index + 1, end_index)
+        segment_samples = focus_samples[start_index:end_index]
+        if not segment_samples:
+            continue
+
+        segment_target_scores = average_focus_target_scores(segment_samples)
+        weighted_targets = build_weighted_focus_targets(
+            segment_target_scores,
+            limit=4,
+            fallback=primary_joints,
+        )
+        dominant_region = resolve_focus_region([target["name"] for target in weighted_targets])
+        segment_motion_mean = safe_mean([float(sample.get("motionEnergy", 0.0)) for sample in segment_samples])
+        segment_visibility_mean = safe_mean([float(sample.get("visibility", 0.0)) for sample in segment_samples])
+        target_weight_mean = safe_mean([float(target["weight"]) for target in weighted_targets])
+        segment_score_mean = safe_mean(list(segment_target_scores.values()))
+        pose_weight = clamp(
+            0.35
+            + normalized_ratio(target_weight_mean, 1.0) * 0.45
+            + normalized_ratio(segment_score_mean, score_peak) * 0.20,
+            0.35,
+            1.0,
+        )
+        timing_weight = clamp(
+            0.30
+            + normalized_ratio(segment_motion_mean, motion_peak) * 0.55
+            + normalized_ratio(segment_visibility_mean, 1.0) * 0.15,
+            0.30,
+            1.0,
+        )
+        start_ratio = round(segment_index / segment_count, 4)
+        end_ratio = round((segment_index + 1) / segment_count, 4)
+        phase_name = phase_names[segment_index]
+        segments.append(
+            {
+                "key": phase_name,
+                "label": f"{phase_name} {dominant_region} focus",
+                "startRatio": start_ratio,
+                "endRatio": end_ratio,
+                "poseWeight": round(pose_weight, 4),
+                "timingWeight": round(timing_weight, 4),
+                "jointWeights": {
+                    target["name"]: target["weight"]
+                    for target in weighted_targets
+                },
+                "dominantRegion": dominant_region,
+            }
+        )
+
+    return {
+        "version": "v1",
+        "primaryJoints": primary_joints,
+        "segments": segments,
+    }
+
+
+def average_focus_target_scores(samples: list[dict[str, Any]]) -> dict[str, float]:
+    totals: dict[str, float] = {}
+    for sample in samples:
+        visibility_weight = 0.65 + clamp(float(sample.get("visibility", 0.0)), 0.0, 1.0) * 0.35
+        for target_name, raw_score in dict(sample.get("targets", {})).items():
+            totals[target_name] = totals.get(target_name, 0.0) + clamp(float(raw_score), 0.0, 1.0) * visibility_weight
+
+    sample_count = max(len(samples), 1)
+    return {
+        target_name: round(total_score / sample_count, 6)
+        for target_name, total_score in totals.items()
+    }
+
+
+def build_weighted_focus_targets(
+    target_scores: dict[str, float],
+    limit: int,
+    fallback: list[dict[str, float | str]] | None = None,
+) -> list[dict[str, float | str]]:
+    if not target_scores:
+        return fallback if fallback is not None else default_focus_targets()
+
+    ranked_targets = sorted(
+        target_scores.items(),
+        key=lambda item: (-item[1], item[0]),
+    )
+    peak_score = ranked_targets[0][1]
+    minimum_score = max(peak_score * 0.18, 0.025)
+
+    weighted_targets: list[dict[str, float | str]] = []
+    for target_name, raw_score in ranked_targets:
+        if raw_score < minimum_score:
+            continue
+        weighted_targets.append(
+            {
+                "name": target_name,
+                "weight": round(clamp(0.35 + normalized_ratio(raw_score, peak_score) * 0.65, 0.35, 1.0), 4),
+            }
+        )
+        if len(weighted_targets) >= limit:
+            break
+
+    if weighted_targets:
+        return weighted_targets
+    return fallback if fallback is not None else default_focus_targets()
+
+
+def resolve_focus_segment_count(frame_count: int) -> int:
+    if frame_count <= 8:
+        return 3
+    if frame_count <= 20:
+        return 4
+    return 5
+
+
+def resolve_focus_region(target_names: list[str]) -> str:
+    arm_score = sum(1 for name in target_names if "Elbow" in name or "Wrist" in name)
+    leg_score = sum(1 for name in target_names if "Knee" in name or "Ankle" in name)
+    hip_score = sum(1 for name in target_names if "Hip" in name)
+
+    if arm_score > leg_score and arm_score >= hip_score:
+        return "arm"
+    if leg_score > arm_score and leg_score >= hip_score:
+        return "leg"
+    if hip_score > 0:
+        return "torso"
+    return "body"
+
+
+def default_focus_targets() -> list[dict[str, float | str]]:
+    return [
+        {"name": "leftElbow", "weight": 1.0},
+        {"name": "rightElbow", "weight": 1.0},
+        {"name": "leftKnee", "weight": 0.82},
+        {"name": "rightKnee", "weight": 0.82},
+    ]
 
 
 def compute_symmetry_score(
@@ -657,6 +879,12 @@ def average(left: float | None, right: float | None) -> float:
 
 def max_or_zero(values: list[float]) -> float:
     return max(values) if values else 0.0
+
+
+def normalized_ratio(value: float, maximum: float) -> float:
+    if maximum <= 1e-6:
+        return 0.0
+    return clamp(value / maximum, 0.0, 1.0)
 
 
 def count_motion_bursts(values: list[float]) -> int:

@@ -142,6 +142,7 @@ public class DefaultScoringService implements ScoringService {
             JsonNode rhythm = analysisSummary.path("rhythm");
             JsonNode symmetry = analysisSummary.path("symmetry");
             JsonNode kinematics = analysisSummary.path("kinematics");
+            FocusProfile focusProfile = parseFocusProfile(analysisSummary.path("focusProfile"));
 
             Map<String, JointSignal> joints = new HashMap<>();
             JsonNode jointsNode = kinematics.path("joints");
@@ -185,10 +186,60 @@ public class DefaultScoringService implements ScoringService {
                     framesWithPose,
                     averageVisibility,
                     signals,
-                    hasAnalysisSummary);
+                    hasAnalysisSummary,
+                    focusProfile);
         } catch (IOException exception) {
             return ParsedMotionProfile.empty();
         }
+    }
+
+    private FocusProfile parseFocusProfile(JsonNode focusProfileNode) {
+        if (!focusProfileNode.isObject()) {
+            return FocusProfile.empty();
+        }
+
+        String version = focusProfileNode.path("version").asText("v1");
+        List<WeightedFocusTarget> primaryJoints = new ArrayList<>();
+        for (JsonNode jointNode : focusProfileNode.path("primaryJoints")) {
+            String name = jointNode.path("name").asText();
+            if (name == null || name.isBlank()) {
+                continue;
+            }
+            primaryJoints.add(new WeightedFocusTarget(
+                    name,
+                    clampDouble(readDouble(jointNode.path("weight"), 0.0), 0.0, 1.0)));
+        }
+
+        List<FocusSegment> segments = new ArrayList<>();
+        for (JsonNode segmentNode : focusProfileNode.path("segments")) {
+            String key = segmentNode.path("key").asText();
+            if (key == null || key.isBlank()) {
+                continue;
+            }
+
+            Map<String, Double> jointWeights = new LinkedHashMap<>();
+            JsonNode jointWeightsNode = segmentNode.path("jointWeights");
+            if (jointWeightsNode.isObject()) {
+                jointWeightsNode.fields().forEachRemaining(entry -> jointWeights.put(
+                        entry.getKey(),
+                        clampDouble(readDouble(entry.getValue(), 0.0), 0.0, 1.0)));
+            }
+
+            segments.add(new FocusSegment(
+                    key,
+                    segmentNode.path("label").asText(key),
+                    clampDouble(readDouble(segmentNode.path("startRatio"), 0.0), 0.0, 1.0),
+                    clampDouble(readDouble(segmentNode.path("endRatio"), 1.0), 0.0, 1.0),
+                    clampDouble(readDouble(segmentNode.path("poseWeight"), 0.0), 0.0, 1.0),
+                    clampDouble(readDouble(segmentNode.path("timingWeight"), 0.0), 0.0, 1.0),
+                    segmentNode.path("dominantRegion").asText("body"),
+                    Map.copyOf(jointWeights)));
+        }
+
+        return new FocusProfile(
+                version,
+                List.copyOf(primaryJoints),
+                List.copyOf(segments));
     }
 
     private double calculatePoseShapeDifference(ParsedMotionProfile reference, ParsedMotionProfile attempt) {
@@ -196,10 +247,12 @@ public class DefaultScoringService implements ScoringService {
         double weightedDistanceTotal = 0.0;
         double frameWeightTotal = 0.0;
         for (int index = 0; index < comparisonFrames; index++) {
+            double ratio = comparisonFrames == 1 ? 0.0 : index / (double) (comparisonFrames - 1);
             FrameLandmarkSet referenceFrame = selectAlignedFrame(reference.frames(), index, comparisonFrames);
             FrameLandmarkSet attemptFrame = selectAlignedFrame(attempt.frames(), index, comparisonFrames);
-            double weight = combinedFrameWeight(referenceFrame, attemptFrame);
-            weightedDistanceTotal += comparePoseShape(referenceFrame, attemptFrame) * weight;
+            double weight = combinedFrameWeight(referenceFrame, attemptFrame)
+                    * resolvePoseSegmentWeight(reference.focusProfile(), ratio);
+            weightedDistanceTotal += comparePoseShape(referenceFrame, attemptFrame, reference.focusProfile(), ratio) * weight;
             frameWeightTotal += weight;
         }
 
@@ -212,11 +265,12 @@ public class DefaultScoringService implements ScoringService {
                 Math.abs(reference.signals().upperBodySymmetry() - attempt.signals().upperBodySymmetry()),
                 Math.abs(reference.signals().lowerBodySymmetry() - attempt.signals().lowerBodySymmetry()),
                 Math.abs(reference.signals().fullBodySymmetry() - attempt.signals().fullBodySymmetry()));
+        Map<String, Double> focusJointWeights = aggregateFocusJointWeights(reference.focusProfile());
         double jointShapeGap = average(
                 Math.abs(reference.signals().jointRangeMean() - attempt.signals().jointRangeMean()),
                 Math.abs(reference.signals().jointRangePeak() - attempt.signals().jointRangePeak()),
-                compareSharedJointMetric(reference.signals().joints(), attempt.signals().joints(), JointSignal::mean),
-                compareSharedJointMetric(reference.signals().joints(), attempt.signals().joints(), JointSignal::range));
+                compareSharedJointMetric(reference.signals().joints(), attempt.signals().joints(), JointSignal::mean, focusJointWeights),
+                compareSharedJointMetric(reference.signals().joints(), attempt.signals().joints(), JointSignal::range, focusJointWeights));
         double summaryDifference = average(symmetryGap, jointShapeGap);
         return landmarkDifference * 0.70 + summaryDifference * 0.30;
     }
@@ -225,8 +279,8 @@ public class DefaultScoringService implements ScoringService {
         double durationGap = ratioGap(reference.durationMs(), attempt.durationMs());
         double frameSpanGap = ratioGap(reference.frameSpan(), attempt.frameSpan());
 
-        List<PoseDescriptor> referenceDescriptors = buildNormalizedPoseDescriptors(reference.frames(), 14);
-        List<PoseDescriptor> attemptDescriptors = buildNormalizedPoseDescriptors(attempt.frames(), 14);
+        List<PoseDescriptor> referenceDescriptors = buildNormalizedPoseDescriptors(reference.frames(), 14, reference.focusProfile(), true);
+        List<PoseDescriptor> attemptDescriptors = buildNormalizedPoseDescriptors(attempt.frames(), 14, FocusProfile.empty(), false);
 
         if (referenceDescriptors.size() < 2 || attemptDescriptors.size() < 2) {
             double sampleGap = ratioGap(reference.sampleCount(), attempt.sampleCount());
@@ -305,18 +359,24 @@ public class DefaultScoringService implements ScoringService {
         return bestFrame;
     }
 
-    private double comparePoseShape(FrameLandmarkSet referenceFrame, FrameLandmarkSet attemptFrame) {
+    private double comparePoseShape(
+            FrameLandmarkSet referenceFrame,
+            FrameLandmarkSet attemptFrame,
+            FocusProfile focusProfile,
+            double ratio) {
         LandmarkAnchor referenceAnchor = buildAnchor(referenceFrame.points());
         LandmarkAnchor attemptAnchor = buildAnchor(attemptFrame.points());
         PoseDescriptor referenceDescriptor = buildPoseDescriptor(
                 referenceFrame.points(),
                 referenceAnchor,
-                referenceFrame.qualityScore());
+                referenceFrame.qualityScore(),
+                1.0);
         PoseDescriptor attemptDescriptor = buildPoseDescriptor(
                 attemptFrame.points(),
                 attemptAnchor,
-                attemptFrame.qualityScore());
-        return comparePoseDescriptors(referenceDescriptor, attemptDescriptor);
+                attemptFrame.qualityScore(),
+                1.0);
+        return comparePoseDescriptors(referenceDescriptor, attemptDescriptor, resolvePoseFeatureWeights(focusProfile, ratio));
     }
 
     private LandmarkAnchor buildAnchor(Map<String, LandmarkPoint> points) {
@@ -685,19 +745,31 @@ public class DefaultScoringService implements ScoringService {
             Map<String, JointSignal> referenceJoints,
             Map<String, JointSignal> attemptJoints,
             ToDoubleFunction<JointSignal> selector) {
+        return compareSharedJointMetric(referenceJoints, attemptJoints, selector, Map.of());
+    }
+
+    private double compareSharedJointMetric(
+            Map<String, JointSignal> referenceJoints,
+            Map<String, JointSignal> attemptJoints,
+            ToDoubleFunction<JointSignal> selector,
+            Map<String, Double> focusJointWeights) {
         if (referenceJoints.isEmpty() || attemptJoints.isEmpty()) {
             return 0.0;
         }
 
-        List<Double> differences = new ArrayList<>();
+        double weightedTotal = 0.0;
+        double weightTotal = 0.0;
         for (Map.Entry<String, JointSignal> entry : referenceJoints.entrySet()) {
             JointSignal attemptJoint = attemptJoints.get(entry.getKey());
             if (attemptJoint == null) {
                 continue;
             }
-            differences.add(Math.abs(selector.applyAsDouble(entry.getValue()) - selector.applyAsDouble(attemptJoint)));
+            double difference = Math.abs(selector.applyAsDouble(entry.getValue()) - selector.applyAsDouble(attemptJoint));
+            double weight = resolveJointSummaryWeight(entry.getKey(), focusJointWeights);
+            weightedTotal += difference * weight;
+            weightTotal += weight;
         }
-        return differences.stream().mapToDouble(Double::doubleValue).average().orElse(0.0);
+        return weightTotal > 0.0 ? weightedTotal / weightTotal : 0.0;
     }
 
     private double relativePointGap(List<FrameLandmarkSet> referenceFrames, List<FrameLandmarkSet> attemptFrames, String pointName) {
@@ -761,15 +833,21 @@ public class DefaultScoringService implements ScoringService {
         return "모양";
     }
 
-    private List<PoseDescriptor> buildNormalizedPoseDescriptors(List<FrameLandmarkSet> frames, int targetCount) {
+    private List<PoseDescriptor> buildNormalizedPoseDescriptors(
+            List<FrameLandmarkSet> frames,
+            int targetCount,
+            FocusProfile focusProfile,
+            boolean useTimingFocus) {
         if (frames.isEmpty()) {
             return List.of();
         }
         int count = Math.max(2, Math.min(targetCount, Math.max(2, frames.size())));
         List<PoseDescriptor> descriptors = new ArrayList<>();
         for (int index = 0; index < count; index++) {
+            double ratio = count == 1 ? 0.0 : index / (double) (count - 1);
             FrameLandmarkSet frame = selectAlignedFrame(frames, index, count);
-            descriptors.add(buildPoseDescriptor(frame.points(), buildAnchor(frame.points()), frame.qualityScore()));
+            double focusWeight = useTimingFocus ? resolveTimingSegmentWeight(focusProfile, ratio) : 1.0;
+            descriptors.add(buildPoseDescriptor(frame.points(), buildAnchor(frame.points()), frame.qualityScore(), focusWeight));
         }
         return descriptors;
     }
@@ -784,7 +862,8 @@ public class DefaultScoringService implements ScoringService {
             PoseDescriptor current = descriptors.get(index);
             curve.add(new MotionCurveSample(
                     comparePoseDescriptors(previous, current),
-                    Math.max(0.08, average(previous.qualityScore(), current.qualityScore()))));
+                    Math.max(0.08, average(previous.qualityScore(), current.qualityScore())
+                            * average(previous.focusWeight(), current.focusWeight()))));
         }
         return curve;
     }
@@ -823,7 +902,11 @@ public class DefaultScoringService implements ScoringService {
                 Math.max(0.08, Math.sqrt(referenceSample.weight() * attemptSample.weight())));
     }
 
-    private PoseDescriptor buildPoseDescriptor(Map<String, LandmarkPoint> points, LandmarkAnchor anchor, double qualityScore) {
+    private PoseDescriptor buildPoseDescriptor(
+            Map<String, LandmarkPoint> points,
+            LandmarkAnchor anchor,
+            double qualityScore,
+            double focusWeight) {
         List<Double> features = new ArrayList<>();
 
         addPairMidpointFeature(features, points, anchor, "left_shoulder", "right_shoulder", "nose");
@@ -839,10 +922,25 @@ public class DefaultScoringService implements ScoringService {
         addRelativeDistanceFeature(features, points, anchor, "left_wrist", "right_wrist");
         addRelativeDistanceFeature(features, points, anchor, "left_ankle", "right_ankle");
 
-        return new PoseDescriptor(features, qualityScore);
+        return new PoseDescriptor(features, qualityScore, focusWeight);
+    }
+
+    private double resolveTimingSegmentWeight(FocusProfile focusProfile, double ratio) {
+        FocusSegment segment = resolveFocusSegment(focusProfile, ratio);
+        if (segment == null || segment.timingWeight() <= 0.0) {
+            return 1.0;
+        }
+        return 0.70 + (segment.timingWeight() * 0.60);
     }
 
     private double comparePoseDescriptors(PoseDescriptor referenceDescriptor, PoseDescriptor attemptDescriptor) {
+        return comparePoseDescriptors(referenceDescriptor, attemptDescriptor, Map.of());
+    }
+
+    private double comparePoseDescriptors(
+            PoseDescriptor referenceDescriptor,
+            PoseDescriptor attemptDescriptor,
+            Map<Integer, Double> featureWeights) {
         List<Double> referenceFeatures = referenceDescriptor.features();
         List<Double> attemptFeatures = attemptDescriptor.features();
         if (referenceFeatures.isEmpty() || attemptFeatures.isEmpty()) {
@@ -850,16 +948,107 @@ public class DefaultScoringService implements ScoringService {
         }
 
         int comparisons = Math.min(referenceFeatures.size(), attemptFeatures.size());
-        List<Double> differences = new ArrayList<>();
+        double weightedTotal = 0.0;
+        double weightTotal = 0.0;
         for (int index = 0; index < comparisons; index++) {
             double referenceValue = referenceFeatures.get(index);
             double attemptValue = attemptFeatures.get(index);
             double difference = isAngleFeatureIndex(index)
                     ? angleDifference(referenceValue, attemptValue) / Math.PI
                     : Math.abs(referenceValue - attemptValue);
-            differences.add(difference);
+            double weight = featureWeights.getOrDefault(index, 1.0);
+            weightedTotal += difference * weight;
+            weightTotal += weight;
         }
-        return differences.stream().mapToDouble(Double::doubleValue).average().orElse(1.0);
+        return weightTotal > 0.0 ? weightedTotal / weightTotal : 1.0;
+    }
+
+    private Map<Integer, Double> resolvePoseFeatureWeights(FocusProfile focusProfile, double ratio) {
+        Map<String, Double> jointWeights = aggregateFocusJointWeights(focusProfile);
+        FocusSegment segment = resolveFocusSegment(focusProfile, ratio);
+        if (segment != null) {
+            segment.jointWeights().forEach((name, weight) -> jointWeights.merge(name, weight, Math::max));
+        }
+
+        Map<Integer, Double> featureWeights = new HashMap<>();
+        for (int index = 0; index < 12; index++) {
+            featureWeights.put(index, resolvePoseFeatureWeight(index, jointWeights));
+        }
+        return featureWeights;
+    }
+
+    private double resolvePoseFeatureWeight(int featureIndex, Map<String, Double> jointWeights) {
+        return switch (featureIndex) {
+            case 0 -> 1.0 + weightedAverage(jointWeights, "leftHip", "rightHip") * 0.18;
+            case 1 -> 1.0 + weightedAverage(jointWeights, "leftHip", "rightHip") * 0.22;
+            case 2 -> 1.0 + weightedAverage(jointWeights, "leftElbow", "leftWrist") * 1.20;
+            case 3 -> 1.0 + weightedAverage(jointWeights, "rightElbow", "rightWrist") * 1.20;
+            case 4 -> 1.0 + weightedAverage(jointWeights, "leftKnee", "leftAnkle", "leftHip") * 0.70;
+            case 5 -> 1.0 + weightedAverage(jointWeights, "rightKnee", "rightAnkle", "rightHip") * 0.70;
+            case 6 -> 1.0 + weightedAverage(jointWeights, "leftWrist", "leftElbow") * 1.05;
+            case 7 -> 1.0 + weightedAverage(jointWeights, "rightWrist", "rightElbow") * 1.05;
+            case 8 -> 1.0 + weightedAverage(jointWeights, "leftAnkle", "leftKnee", "leftHip") * 0.62;
+            case 9 -> 1.0 + weightedAverage(jointWeights, "rightAnkle", "rightKnee", "rightHip") * 0.62;
+            case 10 -> 1.0 + weightedAverage(jointWeights, "leftWrist", "rightWrist", "leftElbow", "rightElbow") * 1.15;
+            case 11 -> 1.0 + weightedAverage(jointWeights, "leftAnkle", "rightAnkle", "leftKnee", "rightKnee") * 0.68;
+            default -> 1.0;
+        };
+    }
+
+    private Map<String, Double> aggregateFocusJointWeights(FocusProfile focusProfile) {
+        if (focusProfile == null) {
+            return Map.of();
+        }
+
+        Map<String, Double> weights = new LinkedHashMap<>();
+        for (WeightedFocusTarget target : focusProfile.primaryJoints()) {
+            weights.merge(target.name(), target.weight(), Math::max);
+        }
+        for (FocusSegment segment : focusProfile.segments()) {
+            segment.jointWeights().forEach((name, weight) -> weights.merge(name, weight, Math::max));
+        }
+        return weights;
+    }
+
+    private FocusSegment resolveFocusSegment(FocusProfile focusProfile, double ratio) {
+        if (focusProfile == null || focusProfile.segments().isEmpty()) {
+            return null;
+        }
+
+        for (FocusSegment segment : focusProfile.segments()) {
+            boolean inRange = ratio >= segment.startRatio()
+                    && (ratio < segment.endRatio() || Math.abs(ratio - segment.endRatio()) < 1e-6 || segment.endRatio() >= 1.0);
+            if (inRange) {
+                return segment;
+            }
+        }
+        return focusProfile.segments().get(focusProfile.segments().size() - 1);
+    }
+
+    private double resolvePoseSegmentWeight(FocusProfile focusProfile, double ratio) {
+        FocusSegment segment = resolveFocusSegment(focusProfile, ratio);
+        if (segment == null || segment.poseWeight() <= 0.0) {
+            return 1.0;
+        }
+        return 0.72 + (segment.poseWeight() * 0.56);
+    }
+
+    private double resolveJointSummaryWeight(String jointName, Map<String, Double> focusJointWeights) {
+        return 1.0 + (focusJointWeights.getOrDefault(jointName, 0.0) * 0.70);
+    }
+
+    private double weightedAverage(Map<String, Double> weights, String... keys) {
+        double total = 0.0;
+        int count = 0;
+        for (String key : keys) {
+            Double weight = weights.get(key);
+            if (weight == null) {
+                continue;
+            }
+            total += weight;
+            count++;
+        }
+        return count == 0 ? 0.0 : total / count;
     }
 
     private boolean isAngleFeatureIndex(int index) {
@@ -1006,10 +1195,11 @@ public class DefaultScoringService implements ScoringService {
             int framesWithPose,
             double averageVisibility,
             MotionSignals signals,
-            boolean hasAnalysisSummary) {
+            boolean hasAnalysisSummary,
+            FocusProfile focusProfile) {
 
         static ParsedMotionProfile empty() {
-            return new ParsedMotionProfile(0, 0, 0L, List.of(), 0, 0, 0.0, MotionSignals.empty(), false);
+            return new ParsedMotionProfile(0, 0, 0L, List.of(), 0, 0, 0.0, MotionSignals.empty(), false, FocusProfile.empty());
         }
 
         boolean hasLandmarks() {
@@ -1097,10 +1287,35 @@ public class DefaultScoringService implements ScoringService {
     private record MotionCurveComparison(double difference, double weight) {
     }
 
-    private record PoseDescriptor(List<Double> features, double qualityScore) {
-        PoseDescriptor(List<Double> features, double qualityScore) {
+    private record FocusProfile(
+            String version,
+            List<WeightedFocusTarget> primaryJoints,
+            List<FocusSegment> segments) {
+
+        static FocusProfile empty() {
+            return new FocusProfile("v1", List.of(), List.of());
+        }
+    }
+
+    private record WeightedFocusTarget(String name, double weight) {
+    }
+
+    private record FocusSegment(
+            String key,
+            String label,
+            double startRatio,
+            double endRatio,
+            double poseWeight,
+            double timingWeight,
+            String dominantRegion,
+            Map<String, Double> jointWeights) {
+    }
+
+    private record PoseDescriptor(List<Double> features, double qualityScore, double focusWeight) {
+        PoseDescriptor(List<Double> features, double qualityScore, double focusWeight) {
             this.features = Collections.unmodifiableList(new ArrayList<>(features));
             this.qualityScore = qualityScore;
+            this.focusWeight = focusWeight;
         }
     }
 }

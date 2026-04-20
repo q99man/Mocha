@@ -394,6 +394,59 @@ class DefaultScoringServiceTest {
         assertThat(result.weakestArea()).isEqualTo("detection quality");
     }
 
+    @Test
+    void legFocusedReferencePenalizesLegMismatchMoreThanArmFocusedReference() {
+        String armFocusedReferenceProfileData = buildSequenceProfileJson(
+                "reference",
+                buildFocusProfileJson("arm"),
+                new FramePose(0.98, 0.42, 0.58, 0.40, 0.60, 0.45, 0.55, 0.32, 0.68),
+                new FramePose(0.98, 0.42, 0.58, 0.40, 0.60, 0.48, 0.52, 0.31, 0.69),
+                new FramePose(0.98, 0.42, 0.58, 0.40, 0.60, 0.45, 0.55, 0.32, 0.68));
+        String legFocusedReferenceProfileData = buildSequenceProfileJson(
+                "reference",
+                buildFocusProfileJson("leg"),
+                new FramePose(0.98, 0.42, 0.58, 0.40, 0.60, 0.45, 0.55, 0.32, 0.68),
+                new FramePose(0.98, 0.42, 0.58, 0.40, 0.60, 0.48, 0.52, 0.31, 0.69),
+                new FramePose(0.98, 0.42, 0.58, 0.40, 0.60, 0.45, 0.55, 0.32, 0.68));
+        String legMismatchProfileData = buildSequenceProfileJson(
+                "attempt",
+                new FramePose(0.98, 0.42, 0.58, 0.30, 0.60, 0.45, 0.55, 0.10, 0.68),
+                new FramePose(0.98, 0.42, 0.58, 0.32, 0.60, 0.48, 0.52, 0.12, 0.69),
+                new FramePose(0.98, 0.42, 0.58, 0.30, 0.60, 0.45, 0.55, 0.10, 0.68));
+
+        ChallengeMotionProfile armFocusedReferenceProfile = new ChallengeMotionProfile(
+                new Challenge("title", "desc", "cat", "medium", null, null, 10, true),
+                armFocusedReferenceProfileData,
+                1111,
+                3,
+                12000,
+                "mediapipe-fastapi-pose-v1",
+                LocalDateTime.now());
+        ChallengeMotionProfile legFocusedReferenceProfile = new ChallengeMotionProfile(
+                new Challenge("title", "desc", "cat", "medium", null, null, 10, true),
+                legFocusedReferenceProfileData,
+                1112,
+                3,
+                12000,
+                "mediapipe-fastapi-pose-v1",
+                LocalDateTime.now());
+
+        ScoringResult armFocusedResult = scoringService.calculateScore(armFocusedReferenceProfile, new MotionAnalysisResult(
+                legMismatchProfileData,
+                2222,
+                3,
+                12000,
+                "mediapipe-fastapi-pose-v1"));
+        ScoringResult legFocusedResult = scoringService.calculateScore(legFocusedReferenceProfile, new MotionAnalysisResult(
+                legMismatchProfileData,
+                3333,
+                3,
+                12000,
+                "mediapipe-fastapi-pose-v1"));
+
+        assertThat(legFocusedResult.poseSimilarity()).isLessThan(armFocusedResult.poseSimilarity());
+    }
+
     private String buildProfileJson(
             String originalFileName,
             String storagePath,
@@ -478,6 +531,10 @@ class DefaultScoringServiceTest {
     }
 
     private String buildSequenceProfileJson(String phase, FramePose... frames) {
+        return buildSequenceProfileJson(phase, null, frames);
+    }
+
+    private String buildSequenceProfileJson(String phase, String focusProfileJson, FramePose... frames) {
         StringBuilder landmarkFrames = new StringBuilder();
         for (int index = 0; index < frames.length; index++) {
             if (index > 0) {
@@ -485,6 +542,9 @@ class DefaultScoringServiceTest {
             }
             landmarkFrames.append(buildFrameJson(index, phase, frames[index]));
         }
+        String focusProfileBlock = focusProfileJson == null || focusProfileJson.isBlank()
+                ? ""
+                : ",\n                      \"focusProfile\": " + focusProfileJson;
 
         return """
                 {
@@ -541,7 +601,7 @@ class DefaultScoringServiceTest {
                           "leftKnee": {"mean": 0.61, "range": 0.30, "stdDev": 0.08},
                           "rightKnee": {"mean": 0.60, "range": 0.31, "stdDev": 0.08}
                         }
-                      }
+                      }%s
                     }
                   }
                 }
@@ -554,7 +614,70 @@ class DefaultScoringServiceTest {
                 frames.length,
                 frames.length,
                 averageVisibility(frames),
-                visibilitySpread(frames));
+                visibilitySpread(frames),
+                focusProfileBlock);
+    }
+
+    private String buildFocusProfileJson(String dominantRegion) {
+        if ("leg".equals(dominantRegion)) {
+            return """
+                    {
+                      "version": "v1",
+                      "primaryJoints": [
+                        {"name": "leftKnee", "weight": 1.0},
+                        {"name": "rightKnee", "weight": 1.0},
+                        {"name": "leftAnkle", "weight": 0.95},
+                        {"name": "rightAnkle", "weight": 0.95}
+                      ],
+                      "segments": [
+                        {
+                          "key": "impact",
+                          "label": "impact leg focus",
+                          "startRatio": 0.0,
+                          "endRatio": 1.0,
+                          "poseWeight": 1.0,
+                          "timingWeight": 0.7,
+                          "dominantRegion": "leg",
+                          "jointWeights": {
+                            "leftKnee": 1.0,
+                            "rightKnee": 1.0,
+                            "leftAnkle": 0.95,
+                            "rightAnkle": 0.95
+                          }
+                        }
+                      ]
+                    }
+                    """;
+        }
+
+        return """
+                {
+                  "version": "v1",
+                  "primaryJoints": [
+                    {"name": "leftElbow", "weight": 1.0},
+                    {"name": "rightElbow", "weight": 1.0},
+                    {"name": "leftWrist", "weight": 0.95},
+                    {"name": "rightWrist", "weight": 0.95}
+                  ],
+                  "segments": [
+                    {
+                      "key": "impact",
+                      "label": "impact arm focus",
+                      "startRatio": 0.0,
+                      "endRatio": 1.0,
+                      "poseWeight": 1.0,
+                      "timingWeight": 0.7,
+                      "dominantRegion": "arm",
+                      "jointWeights": {
+                        "leftElbow": 1.0,
+                        "rightElbow": 1.0,
+                        "leftWrist": 0.95,
+                        "rightWrist": 0.95
+                      }
+                    }
+                  ]
+                }
+                """;
     }
 
     private String buildFrameJson(int frameIndex, String phase, FramePose framePose) {
