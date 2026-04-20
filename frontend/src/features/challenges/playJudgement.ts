@@ -32,6 +32,21 @@ export type PlayJudgementCue = PlayJudgementPlanItem & {
   confidence: number;
 };
 
+export type MotionAnalysisJudgementCue = {
+  id: number;
+  beatIndex: number;
+  second: number;
+  triggerMs: number;
+  windowMs: number;
+  lane: number;
+  accent: boolean;
+  combo: number;
+  verdict: PlayJudgementVerdict;
+  source: PlayJudgementEvaluation['source'];
+  offsetMs: number;
+  confidence: number;
+};
+
 const TIMELINE_PREVIEW_PATTERN: PlayJudgementVerdict[] = [
   'PERFECT',
   'GOOD',
@@ -62,32 +77,32 @@ const JUDGEMENT_COPY: Record<PlayJudgementVerdict, { tone: PlayJudgementTone; la
   PERFECT: {
     tone: 'perfect',
     label: 'PERFECT',
-    guide: '핵심 박자를 정확하게 맞춘 구간',
+    guide: 'Best alignment with the reference beat.',
   },
   GOOD: {
     tone: 'good',
     label: 'GROOVE',
-    guide: '흐름을 유지하며 안정적으로 연결',
+    guide: 'Close enough to keep the flow stable.',
   },
   HOLD: {
     tone: 'hold',
     label: 'FLOW',
-    guide: '중심을 유지하며 다음 박자를 준비',
+    guide: 'Stable hold section carried into the next beat.',
   },
   EARLY: {
     tone: 'early',
     label: 'EARLY',
-    guide: '박자보다 조금 빠르게 들어간 구간',
+    guide: 'Movement started a little ahead of the beat.',
   },
   LATE: {
     tone: 'late',
     label: 'LATE',
-    guide: '박자보다 조금 늦게 반응한 구간',
+    guide: 'Movement reacted a little behind the beat.',
   },
   MISS: {
     tone: 'miss',
     label: 'MISS',
-    guide: '포인트를 놓쳐 다시 맞춰야 하는 구간',
+    guide: 'The section needs a cleaner retry.',
   },
 };
 
@@ -146,6 +161,28 @@ export function buildPlayJudgementCue(
     source: evaluation.source,
     offsetMs: evaluation.offsetMs,
     confidence: evaluation.confidence,
+  };
+}
+
+export function buildMotionAnalysisJudgementCue(cue: MotionAnalysisJudgementCue): PlayJudgementCue {
+  const copy = JUDGEMENT_COPY[cue.verdict];
+
+  return {
+    id: cue.id,
+    beatIndex: cue.beatIndex,
+    second: cue.second,
+    triggerMs: cue.triggerMs,
+    windowMs: cue.windowMs,
+    lane: cue.lane,
+    accent: cue.accent,
+    combo: cue.combo,
+    verdict: cue.verdict,
+    tone: copy.tone,
+    label: copy.label,
+    guide: copy.guide,
+    source: cue.source,
+    offsetMs: cue.offsetMs,
+    confidence: cue.confidence,
   };
 }
 

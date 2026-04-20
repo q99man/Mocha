@@ -32,14 +32,17 @@ uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 - Spring 백엔드가 전달한 로컬 영상 경로를 읽어 landmark를 추출합니다.
 - `.task` 모델 파일이 필요합니다.
 
-기본 모델 경로:
+기본 모델 탐색 순서:
 
+- `C:\SpringWork\Mocha\mediapipe-bridge\models\pose_landmarker_active.task`
+- `C:\SpringWork\Mocha\mediapipe-bridge\models\pose_landmarker_heavy.task`
+- `C:\SpringWork\Mocha\mediapipe-bridge\models\pose_landmarker_full.task`
 - `C:\SpringWork\Mocha\mediapipe-bridge\models\pose_landmarker_lite.task`
 
 환경변수로 모델 경로를 바꿀 수 있습니다.
 
 ```powershell
-$env:MEDIAPIPE_BRIDGE_MODEL_PATH='C:\path\to\pose_landmarker_lite.task'
+$env:MEDIAPIPE_BRIDGE_MODEL_PATH='C:\path\to\pose_landmarker_heavy.task'
 ```
 
 ## 요청 예시
@@ -55,7 +58,7 @@ $env:MEDIAPIPE_BRIDGE_MODEL_PATH='C:\path\to\pose_landmarker_lite.task'
     "size": 2483201
   },
   "runtime": {
-    "timeoutMillis": 5000
+    "timeoutMillis": 20000
   }
 }
 ```

@@ -35,6 +35,7 @@ public class AttemptVideoProcessingService {
     private final MotionAnalysisService motionAnalysisService;
     private final ScoringService scoringService;
     private final SimpleScoringPreviewService simpleScoringPreviewService;
+    private final AttemptJudgementTimelineService attemptJudgementTimelineService;
     private final VideoStorageService videoStorageService;
 
     public AttemptVideoProcessingService(
@@ -44,6 +45,7 @@ public class AttemptVideoProcessingService {
             MotionAnalysisService motionAnalysisService,
             ScoringService scoringService,
             SimpleScoringPreviewService simpleScoringPreviewService,
+            AttemptJudgementTimelineService attemptJudgementTimelineService,
             VideoStorageService videoStorageService) {
         this.attemptRepository = attemptRepository;
         this.attemptProcessingJobRepository = attemptProcessingJobRepository;
@@ -51,6 +53,7 @@ public class AttemptVideoProcessingService {
         this.motionAnalysisService = motionAnalysisService;
         this.scoringService = scoringService;
         this.simpleScoringPreviewService = simpleScoringPreviewService;
+        this.attemptJudgementTimelineService = attemptJudgementTimelineService;
         this.videoStorageService = videoStorageService;
     }
 
@@ -62,6 +65,10 @@ public class AttemptVideoProcessingService {
             String notes) {
         MotionAnalysisResult attemptAnalysis = motionAnalysisService.analyzeAttemptVideo(storedVideo);
         ScoringResult scoringResult = scoringService.calculateScore(referenceProfile, attemptAnalysis);
+        List<AttemptJudgementCueResponse> judgementTimeline = attemptJudgementTimelineService.buildTimeline(
+                referenceProfile.getProfileData(),
+                attemptAnalysis.rawProfileData());
+        String judgementTimelineData = attemptJudgementTimelineService.serializeTimeline(judgementTimeline);
         Attempt existingAttempt = attemptRepository.findTopByChallengeIdAndMemberIdOrderByCreatedAtDescIdDesc(challenge.getId(), member.getId())
                 .orElse(null);
         PreviousAttemptSnapshot previousAttempt = PreviousAttemptSnapshot.from(existingAttempt);
@@ -78,6 +85,7 @@ public class AttemptVideoProcessingService {
                         PROCESSING_NOTICE_AUTOSCORED,
                         notes,
                         scoringResult.summary(),
+                        judgementTimelineData,
                         scoringResult.poseSimilarity(),
                         scoringResult.timingSimilarity(),
                         scoringResult.stabilitySimilarity(),
@@ -91,6 +99,7 @@ public class AttemptVideoProcessingService {
                 PROCESSING_NOTICE_AUTOSCORED,
                 notes,
                 scoringResult.summary(),
+                judgementTimelineData,
                 scoringResult.poseSimilarity(),
                 scoringResult.timingSimilarity(),
                 scoringResult.stabilitySimilarity(),
@@ -109,12 +118,14 @@ public class AttemptVideoProcessingService {
                 attempt.getId(),
                 challenge.getId(),
                 challenge.getTitle(),
+                "/uploads/" + storedVideo.storagePath(),
                 scoringResult.score(),
                 attempt.getStatus(),
                 AttemptResultSource.VIDEO_UPLOAD_AUTOSCORED,
                 previewResult.scoreAvailable(),
                 previewResult.resultHeadline(),
                 scoringResult.summary(),
+                judgementTimeline,
                 attemptAnalysis.analyzerName(),
                 attempt.getProcessingMode(),
                 attempt.isProcessingComplete(),

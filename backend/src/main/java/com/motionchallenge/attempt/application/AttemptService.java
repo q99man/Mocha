@@ -60,6 +60,7 @@ public class AttemptService {
     private final AttemptVideoProcessingDispatcher attemptVideoProcessingDispatcher;
     private final MotionSessionRuntimeEventPublisher motionSessionRuntimeEventPublisher;
     private final AttemptAsyncPendingProperties asyncPendingProperties;
+    private final AttemptJudgementTimelineService attemptJudgementTimelineService;
     private final CurrentMemberService currentMemberService;
 
     public AttemptService(
@@ -73,6 +74,7 @@ public class AttemptService {
             AttemptVideoProcessingDispatcher attemptVideoProcessingDispatcher,
             MotionSessionRuntimeEventPublisher motionSessionRuntimeEventPublisher,
             AttemptAsyncPendingProperties asyncPendingProperties,
+            AttemptJudgementTimelineService attemptJudgementTimelineService,
             CurrentMemberService currentMemberService) {
         this.attemptRepository = attemptRepository;
         this.attemptProcessingJobRepository = attemptProcessingJobRepository;
@@ -84,6 +86,7 @@ public class AttemptService {
         this.attemptVideoProcessingDispatcher = attemptVideoProcessingDispatcher;
         this.motionSessionRuntimeEventPublisher = motionSessionRuntimeEventPublisher;
         this.asyncPendingProperties = asyncPendingProperties;
+        this.attemptJudgementTimelineService = attemptJudgementTimelineService;
         this.currentMemberService = currentMemberService;
     }
 
@@ -99,7 +102,8 @@ public class AttemptService {
                         attempt,
                         comparisonByAttemptId.get(attempt.getId()),
                         uploadedAttemptIds.contains(attempt.getId()),
-                        latestProcessingJobByAttemptId.get(attempt.getId())))
+                        latestProcessingJobByAttemptId.get(attempt.getId()),
+                        false))
                 .toList();
     }
 
@@ -111,7 +115,7 @@ public class AttemptService {
         boolean hasUploadedVideo = findUploadedAttemptIds(List.of(attempt)).contains(attempt.getId());
         AttemptComparisonSnapshot comparison = buildComparisonSnapshot(attempt, hasUploadedVideo);
         AttemptProcessingJob latestProcessingJob = findLatestProcessingJobsByAttemptId(List.of(attempt)).get(attempt.getId());
-        return toResponse(attempt, comparison, hasUploadedVideo, latestProcessingJob);
+        return toResponse(attempt, comparison, hasUploadedVideo, latestProcessingJob, true);
     }
 
     public AttemptProcessingJobProgressResponse getAttemptVideoProcessingProgressFallback(Long challengeId, String trackingId) {
@@ -164,7 +168,7 @@ public class AttemptService {
         removeAttemptVideoIfPresent(attempt);
         consolidateAttemptHistory(challengeId, member.getId(), attempt.getId());
 
-        return toResponse(attempt, null, false, null);
+        return toResponse(attempt, null, false, null, false);
     }
 
     @Transactional
@@ -188,7 +192,7 @@ public class AttemptService {
         removeAttemptVideoIfPresent(attempt);
         consolidateAttemptHistory(challenge.getId(), member.getId(), attempt.getId());
 
-        return toResponse(attempt, null, false, null);
+        return toResponse(attempt, null, false, null, false);
     }
 
     @Transactional
@@ -303,21 +307,31 @@ public class AttemptService {
             Attempt attempt,
             AttemptComparisonSnapshot comparison,
             boolean hasUploadedVideo,
-            AttemptProcessingJob latestProcessingJob) {
+            AttemptProcessingJob latestProcessingJob,
+            boolean includeJudgementTimeline) {
         String resultSource = resolveResultSource(attempt, hasUploadedVideo);
         String displayStatus = resolveDisplayStatus(attempt, resultSource);
         SimpleScoringResult scoringResult = simpleScoringPreviewService.buildResult(displayStatus, attempt.getScore());
         String processingMode = resolvePersistedProcessingMode(attempt, resultSource);
         boolean processingComplete = resolvePersistedProcessingComplete(attempt, resultSource);
         String processingNotice = resolvePersistedProcessingNotice(attempt, resultSource);
+        String attemptVideoUrl = includeJudgementTimeline && hasUploadedVideo
+                ? attemptVideoRepository.findByAttemptId(attempt.getId())
+                        .map(video -> "/uploads/" + video.getStoragePath())
+                        .orElse(null)
+                : null;
         AttemptProcessingJob responseProcessingJob = AttemptResultSource.VIDEO_UPLOAD_AUTOSCORED.equals(resultSource)
                 ? latestProcessingJob
                 : null;
+        List<AttemptJudgementCueResponse> judgementTimeline = includeJudgementTimeline && AttemptResultSource.VIDEO_UPLOAD_AUTOSCORED.equals(resultSource)
+                ? attemptJudgementTimelineService.readTimeline(attempt.getJudgementTimelineData())
+                : List.of();
 
         return new AttemptSummaryResponse(
                 attempt.getId(),
                 attempt.getChallenge().getId(),
                 attempt.getChallenge().getTitle(),
+                attemptVideoUrl,
                 attempt.getMember().getId(),
                 attempt.getMember().getDisplayName(),
                 attempt.getMember().getEmail(),
@@ -327,6 +341,7 @@ public class AttemptService {
                 scoringResult.scoreAvailable(),
                 scoringResult.resultHeadline(),
                 resolveResultSummary(attempt, scoringResult, resultSource),
+                judgementTimeline,
                 processingMode,
                 processingComplete,
                 processingNotice,

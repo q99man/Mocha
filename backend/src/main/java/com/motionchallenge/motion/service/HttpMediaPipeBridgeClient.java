@@ -2,6 +2,7 @@ package com.motionchallenge.motion.service;
 
 import java.util.List;
 import java.util.Map;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
@@ -15,10 +16,10 @@ import org.springframework.web.util.UriComponentsBuilder;
 @Component
 public class HttpMediaPipeBridgeClient implements MediaPipeBridgeClient {
 
-    private final RestClient restClient;
+    private final RestClient.Builder restClientBuilder;
 
     public HttpMediaPipeBridgeClient(RestClient.Builder restClientBuilder) {
-        this.restClient = restClientBuilder.build();
+        this.restClientBuilder = restClientBuilder;
     }
 
     @Override
@@ -35,7 +36,7 @@ public class HttpMediaPipeBridgeClient implements MediaPipeBridgeClient {
                 new MediaPipeHttpAnalyzeRequest.Runtime(request.timeoutMillis()));
 
         try {
-            MediaPipeHttpAnalyzeResponse response = restClient.post()
+            MediaPipeHttpAnalyzeResponse response = buildRestClient(request.timeoutMillis()).post()
                     .uri(url)
                     .body(payload)
                     .retrieve()
@@ -89,6 +90,16 @@ public class HttpMediaPipeBridgeClient implements MediaPipeBridgeClient {
                 .path(request.analyzePath())
                 .build()
                 .toUriString();
+    }
+
+    private RestClient buildRestClient(long timeoutMillis) {
+        int safeTimeout = (int) Math.max(1_000L, Math.min(timeoutMillis, Integer.MAX_VALUE));
+        SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
+        requestFactory.setConnectTimeout(safeTimeout);
+        requestFactory.setReadTimeout(safeTimeout);
+        return restClientBuilder
+                .requestFactory(requestFactory)
+                .build();
     }
 
     private void validateResponse(MediaPipeHttpAnalyzeResponse response) {

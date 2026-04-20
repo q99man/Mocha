@@ -10,6 +10,7 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
+import jakarta.persistence.Lob;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 
@@ -50,6 +51,10 @@ public class Attempt extends BaseTimeEntity {
     @Column(length = 1000)
     private String resultSummary;
 
+    @Lob
+    @Column(columnDefinition = "LONGTEXT")
+    private String judgementTimelineData;
+
     @Column
     private Integer poseSimilarity;
 
@@ -69,7 +74,7 @@ public class Attempt extends BaseTimeEntity {
     }
 
     public Attempt(Challenge challenge, Member member, Integer score, String status, String notes) {
-        this(challenge, member, score, status, null, false, null, notes, null, null, null, null, null, null);
+        this(challenge, member, score, status, null, false, null, notes, null, null, null, null, null, null, null);
     }
 
     public Attempt(
@@ -81,7 +86,7 @@ public class Attempt extends BaseTimeEntity {
             boolean processingComplete,
             String processingNotice,
             String notes) {
-        this(challenge, member, score, status, processingMode, processingComplete, processingNotice, notes, null, null, null, null, null, null);
+        this(challenge, member, score, status, processingMode, processingComplete, processingNotice, notes, null, null, null, null, null, null, null);
     }
 
     public Attempt(
@@ -94,6 +99,7 @@ public class Attempt extends BaseTimeEntity {
             String processingNotice,
             String notes,
             String resultSummary,
+            String judgementTimelineData,
             Integer poseSimilarity,
             Integer timingSimilarity,
             Integer stabilitySimilarity,
@@ -108,6 +114,7 @@ public class Attempt extends BaseTimeEntity {
         this.processingNotice = processingNotice;
         this.notes = notes;
         this.resultSummary = resultSummary;
+        this.judgementTimelineData = judgementTimelineData;
         this.poseSimilarity = poseSimilarity;
         this.timingSimilarity = timingSimilarity;
         this.stabilitySimilarity = stabilitySimilarity;
@@ -155,6 +162,10 @@ public class Attempt extends BaseTimeEntity {
         return resultSummary;
     }
 
+    public String getJudgementTimelineData() {
+        return judgementTimelineData;
+    }
+
     public Integer getPoseSimilarity() {
         return poseSimilarity;
     }
@@ -183,6 +194,7 @@ public class Attempt extends BaseTimeEntity {
         this.processingNotice = processingNotice;
         this.notes = notes;
         this.resultSummary = null;
+        this.judgementTimelineData = null;
         this.poseSimilarity = null;
         this.timingSimilarity = null;
         this.stabilitySimilarity = null;
@@ -198,6 +210,7 @@ public class Attempt extends BaseTimeEntity {
         this.processingNotice = processingNotice;
         this.notes = notes;
         this.resultSummary = null;
+        this.judgementTimelineData = null;
         this.poseSimilarity = null;
         this.timingSimilarity = null;
         this.stabilitySimilarity = null;
@@ -212,6 +225,7 @@ public class Attempt extends BaseTimeEntity {
             String processingNotice,
             String notes,
             String resultSummary,
+            String judgementTimelineData,
             Integer poseSimilarity,
             Integer timingSimilarity,
             Integer stabilitySimilarity,
@@ -224,6 +238,7 @@ public class Attempt extends BaseTimeEntity {
         this.processingNotice = processingNotice;
         this.notes = notes;
         this.resultSummary = resultSummary;
+        this.judgementTimelineData = judgementTimelineData;
         this.poseSimilarity = poseSimilarity;
         this.timingSimilarity = timingSimilarity;
         this.stabilitySimilarity = stabilitySimilarity;

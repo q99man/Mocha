@@ -13,7 +13,7 @@ class SourceVideo(BaseModel):
 
 
 class RuntimeOptions(BaseModel):
-    timeoutMillis: int = Field(default=5000, ge=1)
+    timeoutMillis: int = Field(default=20000, ge=1)
 
 
 class AnalyzeRequest(BaseModel):

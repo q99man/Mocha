@@ -1,17 +1,20 @@
 package com.motionchallenge.attempt.application;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 public record AttemptResultResponse(
         Long attemptId,
         Long challengeId,
         String challengeTitle,
+        String attemptVideoUrl,
         int score,
         String status,
         String resultSource,
         boolean scoreAvailable,
         String resultHeadline,
         String resultSummary,
+        List<AttemptJudgementCueResponse> judgementTimeline,
         String analyzerName,
         String processingMode,
         boolean processingComplete,
@@ -43,12 +46,14 @@ public record AttemptResultResponse(
                 attemptId,
                 challengeId,
                 challengeTitle,
+                attemptVideoUrl,
                 score,
                 status,
                 resultSource,
                 scoreAvailable,
                 resultHeadline,
                 resultSummary,
+                judgementTimeline,
                 analyzerName,
                 nextProcessingMode,
                 nextProcessingComplete,

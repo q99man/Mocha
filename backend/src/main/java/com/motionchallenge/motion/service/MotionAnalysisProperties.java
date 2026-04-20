@@ -34,9 +34,9 @@ public class MotionAnalysisProperties {
     public static class Mediapipe {
         private String endpoint = "http://localhost:8000";
         private String analyzePath = "/api/v1/analyze";
-        private long timeoutMillis = 5000L;
+        private long timeoutMillis = 20000L;
         private String modelDirectory = "../mediapipe-bridge/models";
-        private String activeModelFileName = "pose_landmarker_lite.task";
+        private String activeModelFileName = "pose_landmarker_active.task";
 
         public String getEndpoint() {
             return endpoint;

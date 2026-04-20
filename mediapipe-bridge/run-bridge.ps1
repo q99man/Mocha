@@ -12,7 +12,20 @@ $cacheRoot = Join-Path $root ".cache"
 $tempRoot = Join-Path $cacheRoot "temp"
 $matplotlibConfigRoot = Join-Path $cacheRoot "matplotlib"
 $modelsRoot = Join-Path $root "models"
-$defaultModelPath = Join-Path $modelsRoot "pose_landmarker_lite.task"
+$defaultModelCandidates = @(
+    "pose_landmarker_active.task",
+    "pose_landmarker_heavy.task",
+    "pose_landmarker_full.task",
+    "pose_landmarker_lite.task"
+)
+$defaultModelPath = $null
+foreach ($candidate in $defaultModelCandidates) {
+    $candidatePath = Join-Path $modelsRoot $candidate
+    if (Test-Path $candidatePath) {
+        $defaultModelPath = $candidatePath
+        break
+    }
+}
 
 function Test-CommandAvailable {
     param([string]$Name)
@@ -73,12 +86,12 @@ if (-not $env:MPLCONFIGDIR) {
 $env:MEDIAPIPE_BRIDGE_MODE = "mediapipe"
 $configuredModelPath = $env:MEDIAPIPE_BRIDGE_MODEL_PATH
 if ([string]::IsNullOrWhiteSpace($configuredModelPath)) {
-    if (Test-Path $defaultModelPath) {
+    if ($defaultModelPath -and (Test-Path $defaultModelPath)) {
         $env:MEDIAPIPE_BRIDGE_MODEL_PATH = $defaultModelPath
     }
 } elseif (-not (Test-Path $configuredModelPath)) {
     Write-Warning "Configured MEDIAPIPE_BRIDGE_MODEL_PATH does not exist: $configuredModelPath"
-    if (Test-Path $defaultModelPath) {
+    if ($defaultModelPath -and (Test-Path $defaultModelPath)) {
         Write-Host "Falling back to bundled model: $defaultModelPath"
         $env:MEDIAPIPE_BRIDGE_MODEL_PATH = $defaultModelPath
     }

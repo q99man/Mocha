@@ -7,11 +7,29 @@ export type AttemptResultSource =
   | 'VIDEO_UPLOAD_AUTOSCORED';
 
 export type AttemptBreakdownArea = 'pose shape' | 'pose timing' | 'detection quality';
+export type AttemptJudgementVerdict = 'PERFECT' | 'GOOD' | 'HOLD' | 'EARLY' | 'LATE' | 'MISS';
+export type AttemptJudgementSource = 'motion-analysis' | 'timeline-preview';
+
+export type AttemptJudgementCue = {
+  id: number;
+  beatIndex: number;
+  second: number;
+  triggerMs: number;
+  windowMs: number;
+  lane: number;
+  accent: boolean;
+  combo: number;
+  verdict: AttemptJudgementVerdict;
+  source: AttemptJudgementSource;
+  offsetMs: number;
+  confidence: number;
+};
 
 export type AttemptSummary = {
   id: number;
   challengeId: number;
   challengeTitle: string;
+  attemptVideoUrl: string | null;
   memberId: number;
   memberDisplayName: string;
   memberEmail: string;
@@ -21,6 +39,7 @@ export type AttemptSummary = {
   scoreAvailable: boolean;
   resultHeadline: string;
   resultSummary: string;
+  judgementTimeline: AttemptJudgementCue[];
   processingMode: AttemptProcessingMode | null;
   processingComplete: boolean;
   processingNotice: string | null;
@@ -67,12 +86,14 @@ export type AttemptVideoResult = {
   attemptId: number | null;
   challengeId: number;
   challengeTitle: string;
+  attemptVideoUrl: string | null;
   score: number;
   status: AttemptStatus;
   resultSource: AttemptResultSource;
   scoreAvailable: boolean;
   resultHeadline: string;
   resultSummary: string;
+  judgementTimeline: AttemptJudgementCue[];
   analyzerName: string;
   processingMode: AttemptProcessingMode | null;
   processingComplete: boolean;
