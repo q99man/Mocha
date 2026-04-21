@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 
 import { createBoardPost, getBoardPost, updateBoardPost } from '../shared/api/boardApi';
 import { useAuth } from '../shared/auth/AuthProvider';
+import { CompactConfirmDialog } from '../shared/components/CompactConfirmDialog';
 import { CompactSegmentedControl } from '../shared/components/CompactSegmentedControl';
 import { CompactToggle } from '../shared/components/CompactToggle';
 import type { BoardCategory, BoardPostInput } from '../shared/types/board';
@@ -24,6 +25,7 @@ export function BoardEditorPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [reviewManagedPost, setReviewManagedPost] = useState(false);
+  const [submitConfirmOpen, setSubmitConfirmOpen] = useState(false);
 
   useEffect(() => {
     if (!isEditMode || !id) {
@@ -82,8 +84,7 @@ export function BoardEditorPage() {
     return isAdmin ? [{ value: 'NOTICE', label: '공지' }, ...baseOptions] : baseOptions;
   }, [isAdmin]);
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  async function submitForm() {
     setSaving(true);
     setError(null);
 
@@ -105,6 +106,21 @@ export function BoardEditorPage() {
       setError(saveError instanceof Error ? saveError.message : '게시글을 저장하지 못했습니다.');
       setSaving(false);
     }
+  }
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (saving) {
+      return;
+    }
+
+    if (isEditMode) {
+      setSubmitConfirmOpen(true);
+      return;
+    }
+
+    await submitForm();
   }
 
   if (loading) {
@@ -205,6 +221,24 @@ export function BoardEditorPage() {
           {error ? <p className="review-composer__message review-composer__message--error">{error}</p> : null}
         </form>
       </section>
+
+      <CompactConfirmDialog
+        open={submitConfirmOpen}
+        title="게시글 수정"
+        description="입력한 내용으로 게시글을 수정합니다. 변경사항은 상세 화면과 목록에 바로 반영됩니다."
+        confirmLabel="수정"
+        cancelLabel="취소"
+        busy={saving}
+        onConfirm={async () => {
+          await submitForm();
+          setSubmitConfirmOpen(false);
+        }}
+        onCancel={() => {
+          if (!saving) {
+            setSubmitConfirmOpen(false);
+          }
+        }}
+      />
     </div>
   );
 }

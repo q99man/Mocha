@@ -1,8 +1,10 @@
-﻿import { Fragment, useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 import { formatDifficulty } from '../features/challenges/difficulty';
-import { ReviewStars } from '../features/reviews/ReviewStars';
+import { MyPageAttemptsTab } from '../features/mypage/MyPageAttemptsTab';
+import { MyPagePostsTab } from '../features/mypage/MyPagePostsTab';
+import { MyPageReviewsTab } from '../features/mypage/MyPageReviewsTab';
 import { getAttempts } from '../shared/api/attemptApi';
 import {
   createBoardPost,
@@ -14,8 +16,6 @@ import {
 import { getChallenges } from '../shared/api/challengeApi';
 import { getMyReviews, removeReview, updateReview } from '../shared/api/reviewApi';
 import { useAuth } from '../shared/auth/AuthProvider';
-import { CompactSegmentedControl } from '../shared/components/CompactSegmentedControl';
-import { Pagination } from '../shared/components/Pagination';
 import { CompactConfirmDialog } from '../shared/components/CompactConfirmDialog';
 import type { AttemptSummary } from '../shared/types/attempt';
 import type { BoardPost, BoardPostInput, BoardPostSummary } from '../shared/types/board';
@@ -37,6 +37,7 @@ const INITIAL_REVIEW_FORM: ReviewInput = {
   rating: 5,
   content: '',
 };
+
 const POST_CATEGORY_OPTIONS: Array<{ value: BoardPostInput['category']; label: string }> = [
   { value: 'FREE', label: '자유' },
   { value: 'QNA', label: '질문' },
@@ -44,7 +45,9 @@ const POST_CATEGORY_OPTIONS: Array<{ value: BoardPostInput['category']; label: s
 
 type MyPageConfirmState =
   | { type: 'none' }
+  | { type: 'update-post'; postId: number }
   | { type: 'delete-post'; postId: number }
+  | { type: 'update-review'; reviewId: number }
   | { type: 'delete-review'; reviewId: number };
 
 export function MyPage() {
@@ -241,12 +244,12 @@ export function MyPage() {
 
   const tabSummary = useMemo(() => {
     if (activeTab === 'ATTEMPTS') {
-      return '내 기록 ' + latestAttempts.length + '개';
+      return `내 기록 ${latestAttempts.length}개`;
     }
     if (activeTab === 'POSTS') {
-      return '내 게시글 ' + postTotalCount + '개';
+      return `내 게시글 ${postTotalCount}개`;
     }
-    return '내 후기 ' + reviews.length + '개';
+    return `내 후기 ${reviews.length}개`;
   }, [activeTab, latestAttempts.length, postTotalCount, reviews.length]);
 
   function resetInlineStates() {
@@ -427,6 +430,10 @@ export function MyPage() {
     }
   }
 
+  function requestUpdatePost(postId: number) {
+    setConfirmState({ type: 'update-post', postId });
+  }
+
   function handleDeletePost(postId: number) {
     setConfirmState({ type: 'delete-post', postId });
   }
@@ -464,6 +471,16 @@ export function MyPage() {
       setConfirmState({ type: 'none' });
       setPostBusy(false);
     }
+  }
+
+  async function confirmUpdatePost() {
+    if (confirmState.type !== 'update-post') {
+      return;
+    }
+
+    const { postId } = confirmState;
+    await handleUpdatePost(postId);
+    setConfirmState({ type: 'none' });
   }
 
   function handleStartReviewEdit(review: Review) {
@@ -509,6 +526,10 @@ export function MyPage() {
     }
   }
 
+  function requestUpdateReview(reviewId: number) {
+    setConfirmState({ type: 'update-review', reviewId });
+  }
+
   function handleDeleteReview(reviewId: number) {
     setConfirmState({ type: 'delete-review', reviewId });
   }
@@ -535,6 +556,16 @@ export function MyPage() {
       setConfirmState({ type: 'none' });
       setReviewBusy(false);
     }
+  }
+
+  async function confirmUpdateReview() {
+    if (confirmState.type !== 'update-review') {
+      return;
+    }
+
+    const { reviewId } = confirmState;
+    await handleUpdateReview(reviewId);
+    setConfirmState({ type: 'none' });
   }
 
   if (loading || (postsLoading && postPage === 1)) {
@@ -587,573 +618,108 @@ export function MyPage() {
         </div>
 
         {activeTab === 'ATTEMPTS' ? (
-          <>
-            {pagedAttempts.length === 0 ? (
-              <div className="glass-panel glass-panel--nested glass-panel--empty">
-                <strong>아직 저장된 기록이 없습니다.</strong>
-                <p>챌린지를 완료하면 여기서 바로 확인할 수 있습니다.</p>
-              </div>
-            ) : (
-              <div className="mypage-compact-table">
-                <div className="mypage-compact-table__head mypage-compact-table__head--attempts" role="presentation">
-                  <span>상태</span>
-                  <span>챌린지</span>
-                  <span>점수</span>
-                  <span>유형</span>
-                  <span>일시</span>
-                </div>
-
-                <div className="mypage-compact-table__body">
-                  {pagedAttempts.map((attempt) => {
-                    const isExpanded = expandedAttemptId === attempt.id;
-
-                    return (
-                      <Fragment key={attempt.id}>
-                        <article
-                          className={`mypage-compact-row mypage-compact-row--attempts${isExpanded ? ' is-expanded' : ''}`}
-                          role="button"
-                          tabIndex={0}
-                          onClick={() => handleAttemptRowToggle(attempt.id)}
-                          onKeyDown={(event) => {
-                            if (event.key === 'Enter' || event.key === ' ') {
-                              event.preventDefault();
-                              handleAttemptRowToggle(attempt.id);
-                            }
-                          }}
-                        >
-                          <div className="mypage-compact-row__status">
-                            <span className={"board-classic-badge" + (attempt.processingComplete ? " is-pinned" : "")}>
-                              {attempt.processingComplete ? '완료' : '처리중'}
-                            </span>
-                          </div>
-                          <div className="mypage-compact-row__title">
-                            <button className="mypage-inline-trigger" type="button">
-                              {attempt.challengeTitle}
-                            </button>
-                          </div>
-                          <div className="mypage-compact-row__metric">
-                            {attempt.scoreAvailable ? attempt.score + '점' : '-'}
-                          </div>
-                          <div className="mypage-compact-row__meta">{formatResultSource(attempt.resultSource)}</div>
-                          <div className="mypage-compact-row__date">{formatDate(attempt.attemptedAt)}</div>
-                        </article>
-
-                        {isExpanded ? (
-                          <section className="mypage-inline-detail">
-                            <div className="mypage-inline-detail__header">
-                              <div>
-                                <strong>{attempt.challengeTitle}</strong>
-                                <p>
-                                  {attempt.processingComplete ? '완료된 기록' : '처리 중인 기록'} · 생성 {formatDate(attempt.attemptedAt)}
-                                </p>
-                              </div>
-                              <div className="inline-actions board-actions-right">
-                                <Link
-                                  className="button-link button-link--secondary button-link--compact"
-                                  to={`/challenges?challengeId=${attempt.challengeId}`}
-                                >
-                                  챌린지 보기
-                                </Link>
-                              </div>
-                            </div>
-
-                            <div className="mypage-inline-meta">
-                              <span>{attempt.scoreAvailable ? '점수 ' + attempt.score + '점' : '점수 산출 전'}</span>
-                              <span>{formatResultSource(attempt.resultSource)}</span>
-                              <span>{toAttemptAreaLabel(attempt.strongestArea, '강점 없음')}</span>
-                              <span>{toAttemptAreaLabel(attempt.weakestArea, '보완 영역 없음')}</span>
-                            </div>
-
-                            <article className="mypage-inline-content">
-                              {attempt.resultHeadline}
-                              {"\n"}
-                              {"\n"}
-                              {attempt.resultSummary}
-                              {attempt.coachingTeaser ? "\n\n코칭: " + attempt.coachingTeaser : ""}
-                              {attempt.processingNotice ? "\n\n안내: " + attempt.processingNotice : ""}
-                            </article>
-                          </section>
-                        ) : null}
-                      </Fragment>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
-            <Pagination currentPage={attemptPage} totalPages={attemptTotalPages} onPageChange={setAttemptPage} />
-          </>
+          <MyPageAttemptsTab
+            pagedAttempts={pagedAttempts}
+            expandedAttemptId={expandedAttemptId}
+            attemptPage={attemptPage}
+            attemptTotalPages={attemptTotalPages}
+            onToggleAttempt={handleAttemptRowToggle}
+            onAttemptPageChange={setAttemptPage}
+            formatResultSource={formatResultSource}
+            formatDate={formatDate}
+            toAttemptAreaLabel={toAttemptAreaLabel}
+          />
         ) : null}
 
         {activeTab === 'POSTS' ? (
-          <>
-            <div className="mypage-inline-toolbar">
-              <p className="mypage-inline-toolbar__note">게시글 항목을 누르면 아래에서 바로 상세보기와 수정이 열립니다.</p>
-              <div className="inline-actions board-actions-right">
-                <button className="button-link button-link--compact" type="button" onClick={handleStartCreatePost}>
-                  글쓰기
-                </button>
-              </div>
-            </div>
-
-            {creatingPost ? (
-              <section className="mypage-inline-detail mypage-inline-detail--editor">
-                <div className="mypage-inline-detail__header">
-                  <div>
-                    <strong>새 게시글 작성</strong>
-                    <p>게시판에 맞게 간단하게 작성하고 바로 등록할 수 있습니다.</p>
-                  </div>
-                  <div className="inline-actions board-actions-right">
-                    <button
-                      className="button-link button-link--secondary button-link--compact"
-                      type="button"
-                      onClick={handleCancelPostEditor}
-                      disabled={postBusy}
-                    >
-                      닫기
-                    </button>
-                    <button
-                      className="button-link button-link--compact"
-                      type="button"
-                      onClick={() => void handleCreatePost()}
-                      disabled={postBusy || !postForm.title.trim() || !postForm.content.trim()}
-                    >
-                      {postBusy ? '등록 중...' : '등록하기'}
-                    </button>
-                  </div>
-                </div>
-
-                <div className="mypage-inline-form">
-                  <CompactSegmentedControl
-                    label="분류"
-                    value={postForm.category}
-                    options={POST_CATEGORY_OPTIONS}
-                    disabled={postBusy}
-                    onChange={(nextCategory) =>
-                      setPostForm((current) => ({
-                        ...current,
-                        category: nextCategory as BoardPostInput['category'],
-                      }))
-                    }
-                  />
-
-                  <label className="mypage-inline-field">
-                    <span>제목</span>
-                    <input
-                      type="text"
-                      value={postForm.title}
-                      disabled={postBusy}
-                      maxLength={120}
-                      onChange={(event) => setPostForm((current) => ({ ...current, title: event.target.value }))}
-                    />
-                  </label>
-
-                  <label className="mypage-inline-field">
-                    <span>내용</span>
-                    <textarea
-                      value={postForm.content}
-                      rows={8}
-                      disabled={postBusy}
-                      maxLength={2400}
-                      onChange={(event) => setPostForm((current) => ({ ...current, content: event.target.value }))}
-                    />
-                  </label>
-                </div>
-
-                {postActionSuccess ? <p className="mypage-inline-message is-success">{postActionSuccess}</p> : null}
-                {postActionError ? <p className="mypage-inline-message is-error">{postActionError}</p> : null}
-              </section>
-            ) : null}
-
-            {postsLoading ? (
-              <div className="glass-panel glass-panel--nested glass-panel--empty">
-                <strong>게시글을 불러오는 중입니다.</strong>
-              </div>
-            ) : posts.length === 0 ? (
-              <div className="glass-panel glass-panel--nested glass-panel--empty">
-                <strong>아직 작성한 게시글이 없습니다.</strong>
-                <p>게시판에서 글을 작성하면 여기서 바로 확인할 수 있습니다.</p>
-              </div>
-            ) : (
-              <div className="mypage-compact-table">
-                <div className="mypage-compact-table__head mypage-compact-table__head--posts" role="presentation">
-                  <span>분류</span>
-                  <span>제목</span>
-                  <span>조회수</span>
-                  <span>댓글</span>
-                  <span>작성일</span>
-                </div>
-
-                <div className="mypage-compact-table__body">
-                  {posts.map((post) => {
-                    const detail = postDetailsById[post.id];
-                    const isExpanded = expandedPostId === post.id;
-                    const isEditing = editingPostId === post.id;
-
-                    return (
-                      <Fragment key={post.id}>
-                        <article
-                          className={`mypage-compact-row mypage-compact-row--posts${isExpanded ? ' is-expanded' : ''}`}
-                          role="button"
-                          tabIndex={0}
-                          onClick={() => void handlePostRowToggle(post.id)}
-                          onKeyDown={(event) => {
-                            if (event.key === 'Enter' || event.key === ' ') {
-                              event.preventDefault();
-                              void handlePostRowToggle(post.id);
-                            }
-                          }}
-                        >
-                          <div className="mypage-compact-row__status">
-                            <span className={"board-compact-badge" + (post.pinned ? " is-pinned" : "")}>
-                              {toCategoryLabel(post.category)}
-                            </span>
-                          </div>
-                          <div className="mypage-compact-row__title">
-                            <button className="mypage-inline-trigger" type="button">
-                              {post.title}
-                            </button>
-                          </div>
-                          <div className="mypage-compact-row__metric">{post.viewCount}</div>
-                          <div className="mypage-compact-row__metric">{post.commentCount}</div>
-                          <div className="mypage-compact-row__date">{formatDate(post.createdAt)}</div>
-                        </article>
-                        {isExpanded ? (
-                          <section className="mypage-inline-detail">
-                            {postDetailLoadingId === post.id ? (
-                              <div className="mypage-inline-detail__empty">
-                                <strong>게시글 상세를 불러오는 중입니다.</strong>
-                              </div>
-                            ) : postDetailError && !detail ? (
-                              <div className="mypage-inline-detail__empty">
-                                <strong>게시글 상세를 불러오지 못했습니다.</strong>
-                                <p>{postDetailError}</p>
-                              </div>
-                            ) : detail ? (
-                              <>
-                                <div className="mypage-inline-detail__header">
-                                  <div>
-                                    <strong>{detail.title}</strong>
-                                    <p>
-                                      {toCategoryLabel(detail.category)} · {detail.authorDisplayName} · 작성 {formatDate(detail.createdAt)}
-                                    </p>
-                                  </div>
-                                  <div className="inline-actions board-actions-right">
-                                    {!isEditing ? (
-                                      <>
-                                        <button
-                                          className="button-link button-link--secondary button-link--compact"
-                                          type="button"
-                                          onClick={(event) => {
-                                            event.stopPropagation();
-                                            handleStartPostEdit(detail);
-                                          }}
-                                        >
-                                          수정하기
-                                        </button>
-                                        <button
-                                          className="button-link button-link--compact"
-                                          type="button"
-                                          disabled={postBusy}
-                                          onClick={(event) => {
-                                            event.stopPropagation();
-                                            handleDeletePost(detail.id);
-                                          }}
-                                        >
-                                          {postBusy ? '처리 중...' : '삭제하기'}
-                                        </button>
-                                      </>
-                                    ) : (
-                                      <>
-                                        <button
-                                          className="button-link button-link--secondary button-link--compact"
-                                          type="button"
-                                          onClick={(event) => {
-                                            event.stopPropagation();
-                                            handleCancelPostEditor();
-                                          }}
-                                          disabled={postBusy}
-                                        >
-                                          취소
-                                        </button>
-                                        <button
-                                          className="button-link button-link--compact"
-                                          type="button"
-                                          onClick={(event) => {
-                                            event.stopPropagation();
-                                            void handleUpdatePost(detail.id);
-                                          }}
-                                          disabled={postBusy || !postForm.title.trim() || !postForm.content.trim()}
-                                        >
-                                          {postBusy ? '수정 중...' : '수정하기'}
-                                        </button>
-                                      </>
-                                    )}
-                                  </div>
-                                </div>
-
-                                {!isEditing ? (
-                                  <>
-                                    <div className="mypage-inline-meta">
-                                      <span>議고쉶 {detail.viewCount}</span>
-                                      <span>?볤? {detail.commentCount}</span>
-                                      <span>?섏젙 {formatDate(detail.updatedAt)}</span>
-                                    </div>
-                                    <article className="mypage-inline-content">{detail.content}</article>
-                                  </>
-                                ) : (
-                                  <div className="mypage-inline-form">
-                                    <CompactSegmentedControl
-                                      label="遺꾨쪟"
-                                      value={postForm.category}
-                                      options={POST_CATEGORY_OPTIONS}
-                                      disabled={postBusy}
-                                      onChange={(nextCategory) =>
-                                        setPostForm((current) => ({
-                                          ...current,
-                                          category: nextCategory as BoardPostInput['category'],
-                                        }))
-                                      }
-                                    />
-
-                                    <label className="mypage-inline-field">
-                                      <span>?쒕ぉ</span>
-                                      <input
-                                        type="text"
-                                        value={postForm.title}
-                                        disabled={postBusy}
-                                        maxLength={120}
-                                        onChange={(event) =>
-                                          setPostForm((current) => ({ ...current, title: event.target.value }))
-                                        }
-                                      />
-                                    </label>
-
-                                    <label className="mypage-inline-field">
-                                      <span>?댁슜</span>
-                                      <textarea
-                                        value={postForm.content}
-                                        rows={8}
-                                        disabled={postBusy}
-                                        maxLength={2400}
-                                        onChange={(event) =>
-                                          setPostForm((current) => ({ ...current, content: event.target.value }))
-                                        }
-                                      />
-                                    </label>
-                                  </div>
-                                )}
-
-                                {postActionSuccess ? <p className="mypage-inline-message is-success">{postActionSuccess}</p> : null}
-                                {postActionError ? <p className="mypage-inline-message is-error">{postActionError}</p> : null}
-                              </>
-                            ) : null}
-                          </section>
-                        ) : null}
-                      </Fragment>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
-            <Pagination currentPage={postPage} totalPages={postTotalPages} onPageChange={setPostPage} />
-          </>
+          <MyPagePostsTab
+            creatingPost={creatingPost}
+            postsLoading={postsLoading}
+            posts={posts}
+            postDetailsById={postDetailsById}
+            postDetailLoadingId={postDetailLoadingId}
+            postDetailError={postDetailError}
+            expandedPostId={expandedPostId}
+            editingPostId={editingPostId}
+            postForm={postForm}
+            postBusy={postBusy}
+            postActionSuccess={postActionSuccess}
+            postActionError={postActionError}
+            postPage={postPage}
+            postTotalPages={postTotalPages}
+            categoryOptions={POST_CATEGORY_OPTIONS}
+            setPostForm={setPostForm}
+            onPostPageChange={setPostPage}
+            onStartCreatePost={handleStartCreatePost}
+            onCancelPostEditor={handleCancelPostEditor}
+            onCreatePost={handleCreatePost}
+            onTogglePost={handlePostRowToggle}
+            onStartPostEdit={handleStartPostEdit}
+            onRequestUpdatePost={requestUpdatePost}
+            onDeletePost={handleDeletePost}
+            toCategoryLabel={toCategoryLabel}
+            formatDate={formatDate}
+          />
         ) : null}
 
         {activeTab === 'REVIEWS' ? (
-          <>
-            <div className="mypage-inline-toolbar">
-              <p className="mypage-inline-toolbar__note">후기 항목을 누르면 아래에서 상세보기, 수정, 삭제가 바로 열립니다.</p>
-            </div>
-
-            {pagedReviews.length === 0 ? (
-              <div className="glass-panel glass-panel--nested glass-panel--empty">
-                <strong>작성한 후기가 아직 없습니다.</strong>
-                <p>챌린지에 참여하면 후기 버튼으로 바로 등록할 수 있습니다.</p>
-              </div>
-            ) : (
-              <div className="mypage-compact-table">
-                <div className="mypage-compact-table__head mypage-compact-table__head--reviews" role="presentation">
-                  <span>난이도</span>
-                  <span>제목</span>
-                  <span>별점</span>
-                  <span>작성일</span>
-                </div>
-
-                <div className="mypage-compact-table__body">
-                  {pagedReviews.map((review) => {
-                    const isExpanded = expandedReviewId === review.id;
-                    const isEditing = editingReviewId === review.id;
-
-                    return (
-                      <Fragment key={review.id}>
-                        <article
-                          className={`mypage-compact-row mypage-compact-row--reviews${isExpanded ? ' is-expanded' : ''}`}
-                          role="button"
-                          tabIndex={0}
-                          onClick={() => handleReviewRowToggle(review.id)}
-                          onKeyDown={(event) => {
-                            if (event.key === 'Enter' || event.key === ' ') {
-                              event.preventDefault();
-                              handleReviewRowToggle(review.id);
-                            }
-                          }}
-                        >
-                          <div className="mypage-compact-row__status">
-                            <span className="board-compact-badge">{challengeDifficultyById[review.challengeId] ?? '-'}</span>
-                          </div>
-                          <div className="mypage-compact-row__title">
-                            <button className="mypage-inline-trigger" type="button">
-                              {review.challengeTitle}
-                            </button>
-                          </div>
-                          <div className="mypage-compact-row__metric">★ {review.rating.toFixed(1)}</div>
-                          <div className="mypage-compact-row__date">{formatDate(review.createdAt)}</div>
-                        </article>
-
-                        {isExpanded ? (
-                          <section className="mypage-inline-detail">
-                            <div className="mypage-inline-detail__header">
-                              <div>
-                                <strong>{review.challengeTitle}</strong>
-                                <p>
-                                  {challengeDifficultyById[review.challengeId] ?? '-'} · 작성 {formatDate(review.createdAt)}
-                                </p>
-                              </div>
-                              <div className="inline-actions board-actions-right">
-                                <button
-                                  className="button-link button-link--secondary button-link--compact"
-                                  type="button"
-                                  onClick={(event) => {
-                                    event.stopPropagation();
-                                    void navigate(`/challenges?panel=reviews&challengeId=${review.challengeId}`);
-                                  }}
-                                >
-                                  챌린지 보기
-                                </button>
-                                {!isEditing ? (
-                                  <>
-                                    <button
-                                      className="button-link button-link--secondary button-link--compact"
-                                      type="button"
-                                      onClick={(event) => {
-                                        event.stopPropagation();
-                                        handleStartReviewEdit(review);
-                                      }}
-                                    >
-                                      수정하기
-                                    </button>
-                                    <button
-                                      className="button-link button-link--compact"
-                                      type="button"
-                                      disabled={reviewBusy}
-                                      onClick={(event) => {
-                                        event.stopPropagation();
-                                        handleDeleteReview(review.id);
-                                      }}
-                                    >
-                                      {reviewBusy ? '처리 중...' : '삭제하기'}
-                                    </button>
-                                  </>
-                                ) : (
-                                  <>
-                                    <button
-                                      className="button-link button-link--secondary button-link--compact"
-                                      type="button"
-                                      onClick={(event) => {
-                                        event.stopPropagation();
-                                        handleCancelReviewEdit();
-                                      }}
-                                      disabled={reviewBusy}
-                                    >
-                                      취소
-                                    </button>
-                                    <button
-                                      className="button-link button-link--compact"
-                                      type="button"
-                                      onClick={(event) => {
-                                        event.stopPropagation();
-                                        void handleUpdateReview(review.id);
-                                      }}
-                                      disabled={reviewBusy || !reviewForm.content.trim()}
-                                    >
-                                      {reviewBusy ? '수정 중...' : '수정하기'}
-                                    </button>
-                                  </>
-                                )}
-                              </div>
-                            </div>
-
-                            {!isEditing ? (
-                              <>
-                                <div className="mypage-inline-meta">
-                                  <span>별점</span>
-                                  <ReviewStars value={review.rating} disabled />
-                                  <span>{review.rating.toFixed(1)}점</span>
-                                </div>
-                                <article className="mypage-inline-content">{review.content}</article>
-                              </>
-                            ) : (
-                              <div className="mypage-inline-form">
-                                <label className="mypage-inline-field">
-                                  <span>蹂꾩젏</span>
-                                  <div className="mypage-inline-stars">
-                                    <ReviewStars
-                                      value={reviewForm.rating}
-                                      disabled={reviewBusy}
-                                      onChange={(nextRating) =>
-                                        setReviewForm((current) => ({ ...current, rating: nextRating }))
-                                      }
-                                    />
-                                    <strong>{reviewForm.rating.toFixed(1)}</strong>
-                                  </div>
-                                </label>
-
-                                <label className="mypage-inline-field">
-                                  <span>후기 내용</span>
-                                  <textarea
-                                    value={reviewForm.content}
-                                    rows={7}
-                                    disabled={reviewBusy}
-                                    maxLength={1200}
-                                    onChange={(event) =>
-                                      setReviewForm((current) => ({ ...current, content: event.target.value }))
-                                    }
-                                  />
-                                </label>
-                              </div>
-                            )}
-
-                            {reviewActionSuccess ? <p className="mypage-inline-message is-success">{reviewActionSuccess}</p> : null}
-                            {reviewActionError ? <p className="mypage-inline-message is-error">{reviewActionError}</p> : null}
-                          </section>
-                        ) : null}
-                      </Fragment>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
-            <Pagination currentPage={reviewPage} totalPages={reviewTotalPages} onPageChange={setReviewPage} />
-          </>
+          <MyPageReviewsTab
+            pagedReviews={pagedReviews}
+            expandedReviewId={expandedReviewId}
+            editingReviewId={editingReviewId}
+            reviewForm={reviewForm}
+            reviewBusy={reviewBusy}
+            reviewActionSuccess={reviewActionSuccess}
+            reviewActionError={reviewActionError}
+            reviewPage={reviewPage}
+            reviewTotalPages={reviewTotalPages}
+            challengeDifficultyById={challengeDifficultyById}
+            setReviewForm={setReviewForm}
+            onReviewPageChange={setReviewPage}
+            onToggleReview={handleReviewRowToggle}
+            onNavigateToChallenge={(challengeId) => navigate(`/challenges?panel=reviews&challengeId=${challengeId}`)}
+            onStartReviewEdit={handleStartReviewEdit}
+            onCancelReviewEdit={handleCancelReviewEdit}
+            onRequestUpdateReview={requestUpdateReview}
+            onDeleteReview={handleDeleteReview}
+            formatDate={formatDate}
+          />
         ) : null}
       </section>
 
       <CompactConfirmDialog
         open={confirmState.type !== 'none'}
-        title={confirmState.type === 'delete-post' ? '게시글 삭제' : '후기 삭제'}
-        description={
-          confirmState.type === 'delete-post'
-            ? '선택한 게시글을 삭제하면 마이페이지와 게시글 목록에서 바로 사라집니다.'
-            : '선택한 후기를 삭제하면 챌린지 후기 목록에서 바로 사라집니다.'
+        title={
+          confirmState.type === 'update-post'
+            ? '게시글 수정'
+            : confirmState.type === 'delete-post'
+              ? '게시글 삭제'
+              : confirmState.type === 'update-review'
+                ? '후기 수정'
+                : '후기 삭제'
         }
-        confirmLabel="삭제"
+        description={
+          confirmState.type === 'update-post'
+            ? '입력한 내용으로 게시글을 수정합니다. 변경사항은 목록과 상세 화면에 바로 반영됩니다.'
+            : confirmState.type === 'delete-post'
+              ? '선택한 게시글을 삭제하면 마이페이지와 게시글 목록에서 바로 사라집니다.'
+              : confirmState.type === 'update-review'
+                ? '입력한 내용으로 후기를 수정합니다. 변경사항은 마이페이지와 챌린지 후기 목록에 바로 반영됩니다.'
+                : '선택한 후기를 삭제하면 챌린지 후기 목록에서 바로 사라집니다.'
+        }
+        confirmLabel={confirmState.type === 'delete-post' || confirmState.type === 'delete-review' ? '삭제' : '수정'}
         cancelLabel="취소"
-        tone="danger"
-        busy={confirmState.type === 'delete-post' ? postBusy : reviewBusy}
-        onConfirm={confirmState.type === 'delete-post' ? confirmDeletePost : confirmDeleteReview}
+        tone={confirmState.type === 'delete-post' || confirmState.type === 'delete-review' ? 'danger' : 'default'}
+        busy={confirmState.type === 'update-post' || confirmState.type === 'delete-post' ? postBusy : reviewBusy}
+        onConfirm={
+          confirmState.type === 'update-post'
+            ? confirmUpdatePost
+            : confirmState.type === 'delete-post'
+              ? confirmDeletePost
+              : confirmState.type === 'update-review'
+                ? confirmUpdateReview
+                : confirmDeleteReview
+        }
         onCancel={() => setConfirmState({ type: 'none' })}
       />
     </div>
@@ -1178,24 +744,27 @@ function toCategoryLabel(category: BoardPostSummary['category']) {
 function formatResultSource(value: AttemptSummary['resultSource']) {
   switch (value) {
     case 'VIDEO_UPLOAD_AUTOSCORED':
-      return '영상 채점';
+      return '자동 채점';
     case 'SAMPLE_SCORING_PREVIEW':
-      return '테스트 모드';
+      return '미리보기';
     case 'PREPARED_FLOW':
-      return '준비 상태';
+      return '준비 흐름';
     default:
       return value;
   }
 }
 
-function toAttemptAreaLabel(value: AttemptSummary['strongestArea'] | AttemptSummary['weakestArea'], fallback: string) {
+function toAttemptAreaLabel(
+  value: AttemptSummary['strongestArea'] | AttemptSummary['weakestArea'],
+  fallback: string,
+) {
   if (!value) {
     return fallback;
   }
 
   switch (value) {
     case 'detection quality':
-      return '감지 정밀도';
+      return '검출 품질';
     default:
       return value;
   }
@@ -1216,10 +785,10 @@ function formatDate(value: string) {
 }
 
 function buildExcerpt(content: string) {
-  const normalized = content.trim().replace(/\s+/g, ' ');
-  if (normalized.length <= 120) {
-    return normalized;
+  const trimmed = content.trim();
+  if (trimmed.length <= 100) {
+    return trimmed;
   }
 
-  return `${normalized.slice(0, 117)}...`;
+  return `${trimmed.slice(0, 100)}...`;
 }

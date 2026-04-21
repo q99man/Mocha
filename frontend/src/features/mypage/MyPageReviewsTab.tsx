@@ -1,0 +1,226 @@
+import { Fragment, type Dispatch, type SetStateAction } from 'react';
+
+import { ReviewStars } from '../reviews/ReviewStars';
+import { Pagination } from '../../shared/components/Pagination';
+import type { Review, ReviewInput } from '../../shared/types/review';
+
+type MyPageReviewsTabProps = {
+  pagedReviews: Review[];
+  expandedReviewId: number | null;
+  editingReviewId: number | null;
+  reviewForm: ReviewInput;
+  reviewBusy: boolean;
+  reviewActionSuccess: string | null;
+  reviewActionError: string | null;
+  reviewPage: number;
+  reviewTotalPages: number;
+  challengeDifficultyById: Record<number, string>;
+  setReviewForm: Dispatch<SetStateAction<ReviewInput>>;
+  onReviewPageChange: (page: number) => void;
+  onToggleReview: (reviewId: number) => void;
+  onNavigateToChallenge: (challengeId: number) => void | Promise<void>;
+  onStartReviewEdit: (review: Review) => void;
+  onCancelReviewEdit: () => void;
+  onRequestUpdateReview: (reviewId: number) => void;
+  onDeleteReview: (reviewId: number) => void;
+  formatDate: (value: string) => string;
+};
+
+export function MyPageReviewsTab({
+  pagedReviews,
+  expandedReviewId,
+  editingReviewId,
+  reviewForm,
+  reviewBusy,
+  reviewActionSuccess,
+  reviewActionError,
+  reviewPage,
+  reviewTotalPages,
+  challengeDifficultyById,
+  setReviewForm,
+  onReviewPageChange,
+  onToggleReview,
+  onNavigateToChallenge,
+  onStartReviewEdit,
+  onCancelReviewEdit,
+  onRequestUpdateReview,
+  onDeleteReview,
+  formatDate,
+}: MyPageReviewsTabProps) {
+  return (
+    <>
+      <div className="mypage-inline-toolbar">
+        <p className="mypage-inline-toolbar__note">후기 항목을 누르면 아래에서 상세보기, 수정, 삭제가 바로 열립니다.</p>
+      </div>
+
+      {pagedReviews.length === 0 ? (
+        <div className="glass-panel glass-panel--nested glass-panel--empty">
+          <strong>작성한 후기가 아직 없습니다.</strong>
+          <p>챌린지에 참여하면 후기 버튼으로 바로 등록할 수 있습니다.</p>
+        </div>
+      ) : (
+        <div className="mypage-compact-table">
+          <div className="mypage-compact-table__head mypage-compact-table__head--reviews" role="presentation">
+            <span>난이도</span>
+            <span>제목</span>
+            <span>별점</span>
+            <span>작성일</span>
+          </div>
+
+          <div className="mypage-compact-table__body">
+            {pagedReviews.map((review) => {
+              const isExpanded = expandedReviewId === review.id;
+              const isEditing = editingReviewId === review.id;
+
+              return (
+                <Fragment key={review.id}>
+                  <article
+                    className={`mypage-compact-row mypage-compact-row--reviews${isExpanded ? ' is-expanded' : ''}`}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => onToggleReview(review.id)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        onToggleReview(review.id);
+                      }
+                    }}
+                  >
+                    <div className="mypage-compact-row__status">
+                      <span className="board-compact-badge">{challengeDifficultyById[review.challengeId] ?? '-'}</span>
+                    </div>
+                    <div className="mypage-compact-row__title">
+                      <button className="mypage-inline-trigger" type="button">
+                        {review.challengeTitle}
+                      </button>
+                    </div>
+                    <div className="mypage-compact-row__metric">★ {review.rating.toFixed(1)}</div>
+                    <div className="mypage-compact-row__date">{formatDate(review.createdAt)}</div>
+                  </article>
+
+                  {isExpanded ? (
+                    <section className="mypage-inline-detail">
+                      <div className="mypage-inline-detail__header">
+                        <div>
+                          <strong>{review.challengeTitle}</strong>
+                          <p>
+                            {challengeDifficultyById[review.challengeId] ?? '-'} · 작성 {formatDate(review.createdAt)}
+                          </p>
+                        </div>
+                        <div className="inline-actions board-actions-right">
+                          <button
+                            className="button-link button-link--secondary button-link--compact"
+                            type="button"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              void onNavigateToChallenge(review.challengeId);
+                            }}
+                          >
+                            챌린지 보기
+                          </button>
+                          {!isEditing ? (
+                            <>
+                              <button
+                                className="button-link button-link--secondary button-link--compact"
+                                type="button"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  onStartReviewEdit(review);
+                                }}
+                              >
+                                수정하기
+                              </button>
+                              <button
+                                className="button-link button-link--compact"
+                                type="button"
+                                disabled={reviewBusy}
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  onDeleteReview(review.id);
+                                }}
+                              >
+                                {reviewBusy ? '처리 중...' : '삭제하기'}
+                              </button>
+                            </>
+                          ) : (
+                            <>
+                              <button
+                                className="button-link button-link--secondary button-link--compact"
+                                type="button"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  onCancelReviewEdit();
+                                }}
+                                disabled={reviewBusy}
+                              >
+                                취소
+                              </button>
+                              <button
+                                className="button-link button-link--compact"
+                                type="button"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  onRequestUpdateReview(review.id);
+                                }}
+                                disabled={reviewBusy || !reviewForm.content.trim()}
+                              >
+                                {reviewBusy ? '수정 중...' : '수정하기'}
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </div>
+
+                      {!isEditing ? (
+                        <>
+                          <div className="mypage-inline-meta">
+                            <span>별점</span>
+                            <ReviewStars value={review.rating} disabled />
+                            <span>{review.rating.toFixed(1)}점</span>
+                          </div>
+                          <article className="mypage-inline-content">{review.content}</article>
+                        </>
+                      ) : (
+                        <div className="mypage-inline-form">
+                          <label className="mypage-inline-field">
+                            <span>별점</span>
+                            <div className="mypage-inline-stars">
+                              <ReviewStars
+                                value={reviewForm.rating}
+                                disabled={reviewBusy}
+                                onChange={(nextRating) =>
+                                  setReviewForm((current) => ({ ...current, rating: nextRating }))
+                                }
+                              />
+                              <strong>{reviewForm.rating.toFixed(1)}</strong>
+                            </div>
+                          </label>
+
+                          <label className="mypage-inline-field">
+                            <span>후기 내용</span>
+                            <textarea
+                              value={reviewForm.content}
+                              rows={7}
+                              disabled={reviewBusy}
+                              maxLength={1200}
+                              onChange={(event) => setReviewForm((current) => ({ ...current, content: event.target.value }))}
+                            />
+                          </label>
+                        </div>
+                      )}
+
+                      {reviewActionSuccess ? <p className="mypage-inline-message is-success">{reviewActionSuccess}</p> : null}
+                      {reviewActionError ? <p className="mypage-inline-message is-error">{reviewActionError}</p> : null}
+                    </section>
+                  ) : null}
+                </Fragment>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      <Pagination currentPage={reviewPage} totalPages={reviewTotalPages} onPageChange={onReviewPageChange} />
+    </>
+  );
+}

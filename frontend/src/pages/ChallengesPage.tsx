@@ -1,10 +1,11 @@
-import { KeyboardEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 
 import '../features/challenges/challenge-play.css';
 import { CameraSetupModal } from '../features/challenges/CameraSetupModal';
-import { ChallengeVisual } from '../features/challenges/ChallengeVisual';
-import { ReviewStars } from '../features/reviews/ReviewStars';
+import { ChallengeDetailHero } from '../features/challenges/ChallengeDetailHero';
+import { ChallengeListPane } from '../features/challenges/ChallengeListPane';
+import { ChallengeReviewsPane } from '../features/challenges/ChallengeReviewsPane';
 import { getAttempts } from '../shared/api/attemptApi';
 import { getChallenges } from '../shared/api/challengeApi';
 import { resolveApiUrl } from '../shared/api/client';
@@ -26,6 +27,7 @@ const INITIAL_REVIEW_FORM: ReviewInput = {
 
 type ChallengeReviewConfirmState =
   | { type: 'none' }
+  | { type: 'update-review'; reviewId: number }
   | { type: 'delete-review'; reviewId: number };
 
 export function ChallengesPage() {
@@ -301,6 +303,11 @@ export function ChallengesPage() {
 
       const step = Math.max(audio.volume / (AUDIO_FADE_MS / 30), 0.05);
       fadeTimerRef.current = window.setInterval(() => {
+        if (!audioRef.current) {
+          resolve();
+          return;
+        }
+
         if (audio.volume - step <= 0) {
           audio.volume = 0;
           audio.pause();
@@ -546,6 +553,10 @@ export function ChallengesPage() {
     }
   }
 
+  function requestReviewUpdate(reviewId: number) {
+    setConfirmState({ type: 'update-review', reviewId });
+  }
+
   function handleReviewDelete(reviewId: number) {
     setConfirmState({ type: 'delete-review', reviewId });
   }
@@ -579,6 +590,16 @@ export function ChallengesPage() {
       setConfirmState({ type: 'none' });
       setReviewEditBusy(false);
     }
+  }
+
+  async function confirmReviewUpdate() {
+    if (confirmState.type !== 'update-review') {
+      return;
+    }
+
+    const { reviewId } = confirmState;
+    await handleReviewUpdate(reviewId);
+    setConfirmState({ type: 'none' });
   }
 
   useEffect(() => {
@@ -625,343 +646,76 @@ export function ChallengesPage() {
       <video ref={audioRef} style={{ display: 'none' }} playsInline preload="auto" />
 
       <div className="song-select">
-        <div className="song-select__detail song-select__detail--video-fill">
-          {selectedChallenge && resolvedPreviewUrl ? (
-            <video
-              key={selectedChallenge.id}
-              className="song-select__bg-video"
-              src={resolvedPreviewUrl}
-              autoPlay
-              muted
-              loop
-              playsInline
-              preload="auto"
-            />
-          ) : selectedChallenge ? (
-            <div className="song-select__bg-video-placeholder">
-              <ChallengeVisual
-                title={selectedChallenge.title}
-                thumbnailUrl={selectedChallenge.thumbnailUrl}
-                fallbackThumbnailVideoUrl={selectedChallenge.fallbackThumbnailVideoUrl}
-                className=""
-                placeholderClassName=""
-              />
-            </div>
-          ) : null}
-
-          <div className="song-select__detail-gradient" />
-
-          {selectedChallenge ? (
-            <div className="song-select__detail-overlay">
-              <div className="song-select__detail-content">
-                <h2 className="song-select__title song-select__title--overlay">{selectedChallenge.title}</h2>
-              </div>
-
-              <div className="song-select__actions">
-                <button
-                  type="button"
-                  className="song-select__action-btn"
-                  onClick={() => setModalChallengeId(selectedChallenge.id)}
-                >
-                  도전 시작
-                </button>
-              </div>
-            </div>
-          ) : null}
-        </div>
+        <ChallengeDetailHero
+          selectedChallenge={selectedChallenge}
+          resolvedPreviewUrl={resolvedPreviewUrl}
+          onOpenModal={setModalChallengeId}
+        />
 
         <div className="song-select__list-pane">
-          <div className="song-select__filter-bar">
-            {filterOptions.map((option) => (
-              <button
-                key={option.key}
-                type="button"
-                className={`song-select__filter-tab${activeFilter === option.key ? ' song-select__filter-tab--active' : ''}`}
-                onClick={() => {
-                  setActiveFilter(option.key);
-                  setActivePanel('list');
-                }}
-              >
-                {option.label}
-              </button>
-            ))}
-          </div>
-
           {activePanel === 'list' ? (
-            <div className="song-select__list">
-              {filteredChallenges.length === 0 ? (
-                <div className="song-select__empty">
-                  <p>조건에 맞는 챌린지가 없습니다.</p>
-                </div>
-              ) : (
-                filteredChallenges.map((challenge) => (
-                  <div
-                    key={challenge.id}
-                    ref={(node) => {
-                      challengeItemRefs.current[challenge.id] = node;
-                    }}
-                    className={`song-select__item${selectedId === challenge.id ? ' song-select__item--active' : ''}`}
-                    role="button"
-                    tabIndex={selectedId === challenge.id ? 0 : -1}
-                    onClick={() => handleItemClick(challenge.id)}
-                    onKeyDown={(event) => handleItemKeyDown(event, challenge.id)}
-                    onFocus={() => {
-                      setSelectedId(challenge.id);
-                    }}
-                    onDoubleClick={() => {
-                      setSelectedId(challenge.id);
-                      setModalChallengeId(challenge.id);
-                    }}
-                  >
-                    <div className="song-select__item-thumb">
-                      <div className="song-select__item-difficulty">
-                        <strong>{formatDifficulty(challenge.difficulty)}</strong>
-                      </div>
-                    </div>
-
-                    <div className="song-select__item-info">
-                      <span className="song-select__item-title">{challenge.title}</span>
-                      <span className="song-select__item-sub">
-                        {challenge.category} · {formatDuration(challenge.durationSec)}
-                      </span>
-                    </div>
-
-                    <div className="song-select__item-actions">
-                      <button
-                        type="button"
-                        className="song-select__item-review-btn"
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          openReviewsPanel(challenge.id);
-                        }}
-                      >
-                        후기
-                      </button>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
+            <ChallengeListPane
+              filterOptions={filterOptions}
+              activeFilter={activeFilter}
+              filteredChallenges={filteredChallenges}
+              selectedId={selectedId}
+              onSelectFilter={(filter) => {
+                setActiveFilter(filter);
+                setActivePanel('list');
+              }}
+              registerItemRef={(challengeId, node) => {
+                challengeItemRefs.current[challengeId] = node;
+              }}
+              onItemClick={handleItemClick}
+              onItemKeyDown={handleItemKeyDown}
+              onItemFocus={setSelectedId}
+              onItemDoubleClick={(challengeId) => {
+                setSelectedId(challengeId);
+                setModalChallengeId(challengeId);
+              }}
+              onOpenReviews={openReviewsPanel}
+              formatDuration={formatDuration}
+              formatDifficulty={formatDifficulty}
+            />
           ) : (
-            <div className="song-select__review-panel">
-              <div className="song-select__review-panel-header">
-                <div>
-                  <strong>{selectedChallenge?.title ?? '챌린지 후기'}</strong>
-                  <span>참여자 후기를 바로 확인할 수 있습니다.</span>
-                </div>
-                <div className="song-select__review-panel-actions">
-                  {canWriteReview ? (
-                    <button
-                      type="button"
-                      className={`song-select__panel-btn${reviewFormOpen ? ' is-active' : ''}`}
-                      onClick={reviewFormOpen ? closeReviewForm : openReviewForm}
-                    >
-                      {reviewFormOpen ? '작성 닫기' : '후기 작성'}
-                    </button>
-                  ) : null}
-                  <button type="button" className="song-select__panel-btn" onClick={openListPanel}>
-                    목록으로
-                  </button>
-                </div>
-              </div>
-
-              {!isAuthenticated ? (
-                <div className="song-select__review-notice">
-                  로그인 후 도전한 챌린지에만 후기를 작성할 수 있습니다.
-                </div>
-              ) : !hasAttemptedSelectedChallenge ? (
-                <div className="song-select__review-notice">
-                  내가 도전한 챌린지에만 후기를 작성할 수 있습니다.
-                </div>
-              ) : hasMyReview ? (
-                <div className="song-select__review-notice song-select__review-notice--done">
-                  이 챌린지에는 이미 후기를 작성했습니다.
-                </div>
-              ) : null}
-
-              {reviewFormOpen ? (
-                <form
-                  className="song-select__review-compose"
-                  onSubmit={(event) => {
-                    event.preventDefault();
-                    void handleReviewSubmit();
-                  }}
-                >
-                  <div className="song-select__review-compose-head">
-                    <div>
-                      <strong>후기 작성</strong>
-                      <span>도전 경험을 바로 남겨 주세요.</span>
-                    </div>
-                    <div className="song-select__review-rating">
-                      <ReviewStars
-                        value={reviewForm.rating}
-                        disabled={reviewSubmitBusy}
-                        onChange={(nextRating) => setReviewForm((current) => ({ ...current, rating: nextRating }))}
-                      />
-                      <b>{reviewForm.rating.toFixed(1)}점</b>
-                    </div>
-                  </div>
-
-                  <label className="song-select__review-field">
-                    <span>후기 내용</span>
-                    <textarea
-                      value={reviewForm.content}
-                      rows={5}
-                      maxLength={1200}
-                      disabled={reviewSubmitBusy}
-                      placeholder="좋았던 점, 어려웠던 구간, 다시 도전할 때 참고할 내용을 적어 주세요."
-                      onChange={(event) => setReviewForm((current) => ({ ...current, content: event.target.value }))}
-                    />
-                  </label>
-
-                  <div className="song-select__review-compose-footer">
-                    <span>{reviewForm.content.trim().length}/1200</span>
-                    <div className="song-select__review-compose-buttons">
-                      <button
-                        type="button"
-                        className="song-select__panel-btn"
-                        onClick={closeReviewForm}
-                        disabled={reviewSubmitBusy}
-                      >
-                        취소
-                      </button>
-                      <button
-                        type="submit"
-                        className="song-select__item-review-btn"
-                        disabled={reviewSubmitBusy || !reviewForm.content.trim()}
-                      >
-                        {reviewSubmitBusy ? '저장 중...' : '등록하기'}
-                      </button>
-                    </div>
-                  </div>
-                </form>
-              ) : null}
-
-              {reviewSubmitSuccess ? (
-                <p className="song-select__review-message song-select__review-message--success">{reviewSubmitSuccess}</p>
-              ) : null}
-              {reviewSubmitError ? (
-                <p className="song-select__review-message song-select__review-message--error">{reviewSubmitError}</p>
-              ) : null}
-              {reviewEditSuccess ? (
-                <p className="song-select__review-message song-select__review-message--success">{reviewEditSuccess}</p>
-              ) : null}
-              {reviewEditError && editingReviewId == null ? (
-                <p className="song-select__review-message song-select__review-message--error">{reviewEditError}</p>
-              ) : null}
-
-              {reviewLoading ? (
-                <div className="song-select__empty">
-                  <p>후기를 불러오는 중입니다.</p>
-                </div>
-              ) : reviewError ? (
-                <div className="song-select__empty">
-                  <p>{reviewError}</p>
-                </div>
-              ) : selectedChallengeReviews.length === 0 ? (
-                <div className="song-select__empty">
-                  <p>아직 등록된 후기가 없습니다.</p>
-                </div>
-              ) : (
-                selectedChallengeReviews.map((review) => {
-                  const isMine = review.mine || (user != null && review.memberId === user.id);
-                  const isEditing = editingReviewId === review.id;
-
-                  return (
-                    <article className="song-select__review-card" key={review.id}>
-                      <div className="song-select__review-header">
-                        <div>
-                          <strong>{review.memberDisplayName}</strong>
-                          <span>{formatReviewDate(review.updatedAt)}</span>
-                        </div>
-                        <div className="song-select__review-header-side">
-                          <span className="song-select__review-score">{renderStars(review.rating)}</span>
-                          {isMine ? <span className="song-select__review-mine">내 후기</span> : null}
-                        </div>
-                      </div>
-
-                      {!isEditing ? (
-                        <>
-                          <p className="song-select__review-content">{review.content}</p>
-                          {isMine ? (
-                            <div className="song-select__review-actions">
-                              <button
-                                type="button"
-                                className="song-select__panel-btn"
-                                onClick={() => handleStartReviewEdit(review)}
-                                disabled={reviewEditBusy}
-                              >
-                                수정
-                              </button>
-                              <button
-                                type="button"
-                                className="song-select__panel-btn song-select__panel-btn--danger"
-                                onClick={() => handleReviewDelete(review.id)}
-                                disabled={reviewEditBusy}
-                              >
-                                삭제
-                              </button>
-                            </div>
-                          ) : null}
-                        </>
-                      ) : (
-                        <div className="song-select__review-edit">
-                          <div className="song-select__review-rating">
-                            <ReviewStars
-                              value={reviewEditForm.rating}
-                              disabled={reviewEditBusy}
-                              onChange={(nextRating) =>
-                                setReviewEditForm((current) => ({ ...current, rating: nextRating }))
-                              }
-                            />
-                            <b>{reviewEditForm.rating.toFixed(1)}점</b>
-                          </div>
-
-                          <label className="song-select__review-field">
-                            <span>후기 내용</span>
-                            <textarea
-                              value={reviewEditForm.content}
-                              rows={5}
-                              maxLength={1200}
-                              disabled={reviewEditBusy}
-                              onChange={(event) =>
-                                setReviewEditForm((current) => ({ ...current, content: event.target.value }))
-                              }
-                            />
-                          </label>
-
-                          <div className="song-select__review-compose-footer">
-                            <span>{reviewEditForm.content.trim().length}/1200</span>
-                            <div className="song-select__review-compose-buttons">
-                              <button
-                                type="button"
-                                className="song-select__panel-btn"
-                                onClick={handleCancelReviewEdit}
-                                disabled={reviewEditBusy}
-                              >
-                                취소
-                              </button>
-                              <button
-                                type="button"
-                                className="song-select__item-review-btn"
-                                onClick={() => void handleReviewUpdate(review.id)}
-                                disabled={reviewEditBusy || !reviewEditForm.content.trim()}
-                              >
-                                {reviewEditBusy ? '저장 중...' : '수정 완료'}
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      )}
-
-                      {isEditing && reviewEditError ? (
-                        <p className="song-select__review-message song-select__review-message--error">{reviewEditError}</p>
-                      ) : null}
-                    </article>
-                  );
-                })
-              )}
-            </div>
+            <ChallengeReviewsPane
+              selectedChallenge={selectedChallenge}
+              isAuthenticated={isAuthenticated}
+              hasAttemptedSelectedChallenge={hasAttemptedSelectedChallenge}
+              hasMyReview={hasMyReview}
+              canWriteReview={canWriteReview}
+              reviewFormOpen={reviewFormOpen}
+              reviewForm={reviewForm}
+              reviewSubmitBusy={reviewSubmitBusy}
+              reviewSubmitSuccess={reviewSubmitSuccess}
+              reviewSubmitError={reviewSubmitError}
+              reviewEditSuccess={reviewEditSuccess}
+              reviewEditError={reviewEditError}
+              reviewLoading={reviewLoading}
+              reviewError={reviewError}
+              selectedChallengeReviews={selectedChallengeReviews}
+              editingReviewId={editingReviewId}
+              reviewEditForm={reviewEditForm}
+              reviewEditBusy={reviewEditBusy}
+              currentUserId={user?.id}
+              setReviewForm={setReviewForm}
+              setReviewEditForm={setReviewEditForm}
+              onToggleReviewForm={() => {
+                if (reviewFormOpen) {
+                  closeReviewForm();
+                } else {
+                  openReviewForm();
+                }
+              }}
+              onOpenListPanel={openListPanel}
+              onSubmitReview={handleReviewSubmit}
+              onStartReviewEdit={handleStartReviewEdit}
+              onDeleteReview={handleReviewDelete}
+              onCancelReviewEdit={handleCancelReviewEdit}
+              onRequestReviewUpdate={requestReviewUpdate}
+              formatReviewDate={formatReviewDate}
+              renderStars={renderStars}
+            />
           )}
         </div>
       </div>
@@ -980,14 +734,18 @@ export function ChallengesPage() {
       ) : null}
 
       <CompactConfirmDialog
-        open={confirmState.type === 'delete-review'}
-        title="후기 삭제"
-        description="선택한 후기를 삭제하면 이 챌린지의 후기 목록에서 바로 제외됩니다."
-        confirmLabel="삭제"
+        open={confirmState.type !== 'none'}
+        title={confirmState.type === 'update-review' ? '후기 수정' : '후기 삭제'}
+        description={
+          confirmState.type === 'update-review'
+            ? '입력한 내용으로 후기를 수정합니다. 변경사항은 챌린지 후기 목록에 바로 반영됩니다.'
+            : '선택한 후기를 삭제하면 챌린지 후기 목록에서 바로 사라집니다.'
+        }
+        confirmLabel={confirmState.type === 'update-review' ? '수정' : '삭제'}
         cancelLabel="취소"
-        tone="danger"
+        tone={confirmState.type === 'update-review' ? 'default' : 'danger'}
         busy={reviewEditBusy}
-        onConfirm={confirmReviewDelete}
+        onConfirm={confirmState.type === 'update-review' ? confirmReviewUpdate : confirmReviewDelete}
         onCancel={() => setConfirmState({ type: 'none' })}
       />
     </div>

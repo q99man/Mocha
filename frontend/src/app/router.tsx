@@ -4,6 +4,7 @@ import { AppLayout } from '../shared/components/AppLayout';
 import { RequireAuth } from '../shared/auth/RequireAuth';
 import { RequireAdmin } from '../shared/auth/RequireAdmin';
 import { AdminChallengeAnalysisPage } from '../pages/AdminChallengeAnalysisPage';
+import { AdminHubPage } from '../pages/AdminHubPage';
 import { AdminModelAssetsPage } from '../pages/AdminModelAssetsPage';
 import { AttemptResultPage } from '../pages/AttemptResultPage';
 import { AuthPage } from '../pages/AuthPage';
@@ -90,6 +91,10 @@ export const router = createBrowserRouter([
       </RequireAdmin>
     ),
     children: [
+      {
+        index: true,
+        element: <AdminHubPage />,
+      },
       {
         path: 'model-assets',
         element: <AdminModelAssetsPage />,

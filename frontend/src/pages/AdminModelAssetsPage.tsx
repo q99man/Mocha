@@ -1,7 +1,10 @@
-﻿import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from 'react';
-import { createPortal } from 'react-dom';
-import { Fragment } from 'react';
-import { Link } from 'react-router-dom';
+import { useEffect, useMemo, useState } from 'react';
+
+import { formatDifficulty, parseDifficulty } from '../features/challenges/difficulty';
+import { AdminAssetsSection } from '../features/admin/AdminAssetsSection';
+import { AdminChallengeEditorModal } from '../features/admin/AdminChallengeEditorModal';
+import { AdminChallengesSection } from '../features/admin/AdminChallengesSection';
+import { CompactConfirmDialog } from '../shared/components/CompactConfirmDialog';
 import {
   deletePoseLandmarkerModel,
   getActivePoseLandmarkerAsset,
@@ -16,14 +19,6 @@ import {
   updateChallenge,
   updateChallengeActive,
 } from '../shared/api/challengeApi';
-import {
-  formatDifficulty,
-  parseDifficulty,
-  getDifficultyOptions,
-} from '../features/challenges/difficulty';
-import { CompactConfirmDialog } from '../shared/components/CompactConfirmDialog';
-import { CompactFileField } from '../shared/components/CompactFileField';
-import { Pagination } from '../shared/components/Pagination';
 import type { ModelAsset } from '../shared/types/admin';
 import type { Challenge } from '../shared/types/challenge';
 
@@ -100,6 +95,21 @@ export function AdminModelAssetsPage() {
     void loadAdminData();
   }, []);
 
+  useEffect(() => {
+    const body = document.body;
+    const modalOpen = challengeModalOpen || confirmDialog.kind !== 'NONE';
+
+    if (!modalOpen) {
+      body.classList.remove('body--modal-open');
+      return;
+    }
+
+    body.classList.add('body--modal-open');
+    return () => {
+      body.classList.remove('body--modal-open');
+    };
+  }, [challengeModalOpen, confirmDialog]);
+
   const activeChallenges = useMemo(() => challenges.filter((challenge) => challenge.isActive), [challenges]);
   const pendingAnalysisChallenges = useMemo(
     () =>
@@ -121,7 +131,9 @@ export function AdminModelAssetsPage() {
   const categoryOptions = useMemo(() => {
     const categories = new Set<string>();
     challenges.forEach((challenge) => {
-      if (challenge.category.trim()) categories.add(challenge.category);
+      if (challenge.category.trim()) {
+        categories.add(challenge.category);
+      }
     });
     return ['ALL', ...Array.from(categories).sort((left, right) => left.localeCompare(right, 'ko-KR'))];
   }, [challenges]);
@@ -158,44 +170,46 @@ export function AdminModelAssetsPage() {
       });
   }, [activeCategoryFilter, activeSort, activeStatusFilter, challengeSearch, challenges]);
 
+  const pagedChallenges = useMemo(() => {
+    const startIndex = (challengePage - 1) * CHALLENGES_PER_PAGE;
+    return filteredChallenges.slice(startIndex, startIndex + CHALLENGES_PER_PAGE);
+  }, [challengePage, filteredChallenges]);
+
   const challengeTotalPages = Math.max(1, Math.ceil(filteredChallenges.length / CHALLENGES_PER_PAGE));
   const assetTotalPages = Math.max(1, Math.ceil(assets.length / ASSETS_PER_PAGE));
+  const modelSummary = activeAsset ? `현재 활성 모델 ${activeAsset.originalFileName}` : '현재 활성 모델이 없습니다.';
+  const challengeSummary = `활성 ${activeChallenges.length}개 · 평가 준비 ${evaluationReadyChallenges.length}개 · 분석 대기 ${pendingAnalysisChallenges.length}개`;
+  const confirmBusy =
+    (confirmDialog.kind === 'DELETE_ASSET' && deletingAssetId === confirmDialog.asset.id) ||
+    (confirmDialog.kind === 'DELETE_CHALLENGE' && deletingId === confirmDialog.challenge.id);
+  const modalTitle = editingChallengeId ? '챌린지 수정' : '챌린지 생성';
+  const modalDescription = editingChallengeId
+    ? '기본 정보를 수정하고 필요하면 레퍼런스 영상도 함께 교체합니다.'
+    : '레퍼런스 영상을 등록해 새 챌린지를 생성합니다.';
+  const modalReferenceLabel = selectedReferenceVideo
+    ? selectedReferenceVideo.name
+    : editingChallengeId
+      ? '기존 레퍼런스 유지'
+      : '영상 선택 필요';
+  const modalDurationLabel = Number(challengeForm.durationSec) > 0 ? `${challengeForm.durationSec}초` : '길이 미입력';
+  const modalGuideLabel = challengeForm.guideVideoUrl.trim() ? '가이드 연결됨' : '가이드 URL 없음';
+  const modalThumbnailLabel = challengeForm.thumbnailUrl.trim() ? '썸네일 연결됨' : '썸네일 URL 없음';
 
   useEffect(() => {
     setChallengePage(1);
   }, [activeCategoryFilter, activeSort, activeStatusFilter, challengeSearch]);
 
   useEffect(() => {
-    if (challengePage > challengeTotalPages) setChallengePage(challengeTotalPages);
+    if (challengePage > challengeTotalPages) {
+      setChallengePage(challengeTotalPages);
+    }
   }, [challengePage, challengeTotalPages]);
 
   useEffect(() => {
-    if (assetPage > assetTotalPages) setAssetPage(assetTotalPages);
-  }, [assetPage, assetTotalPages]);
-
-  useEffect(() => {
-    const body = document.body;
-    const modalOpen = challengeModalOpen || confirmDialog.kind !== 'NONE';
-    if (!modalOpen) {
-      body.classList.remove('body--modal-open');
-      return;
+    if (assetPage > assetTotalPages) {
+      setAssetPage(assetTotalPages);
     }
-
-    body.classList.add('body--modal-open');
-    return () => {
-      body.classList.remove('body--modal-open');
-    };
-  }, [challengeModalOpen, confirmDialog]);
-
-  const pagedChallenges = useMemo(() => {
-    const startIndex = (challengePage - 1) * CHALLENGES_PER_PAGE;
-    return filteredChallenges.slice(startIndex, startIndex + CHALLENGES_PER_PAGE);
-  }, [challengePage, filteredChallenges]);
-
-  const pagedAssets = useMemo(() => {
-    const startIndex = (assetPage - 1) * ASSETS_PER_PAGE;
-    return assets.slice(startIndex, startIndex + ASSETS_PER_PAGE);
-  }, [assetPage, assets]);
+  }, [assetPage, assetTotalPages]);
 
   async function loadAdminData() {
     setLoading(true);
@@ -216,8 +230,7 @@ export function AdminModelAssetsPage() {
     }
   }
 
-  async function handleModelSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  async function handleModelSubmit() {
     if (!selectedModelFile) {
       setUploadError('.task 모델 파일을 먼저 선택해 주세요.');
       return;
@@ -301,7 +314,9 @@ export function AdminModelAssetsPage() {
   }
 
   function closeChallengeModal() {
-    if (challengeSubmitting) return;
+    if (challengeSubmitting) {
+      return;
+    }
     setChallengeModalOpen(false);
     setEditingChallengeId(null);
     setChallengeForm(initialChallengeForm);
@@ -310,8 +325,7 @@ export function AdminModelAssetsPage() {
     setChallengeError(null);
   }
 
-  async function handleChallengeSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  async function handleChallengeSubmit() {
     if (!editingChallengeId && !selectedReferenceVideo) {
       setChallengeError('레퍼런스 영상을 먼저 선택해 주세요.');
       return;
@@ -377,7 +391,9 @@ export function AdminModelAssetsPage() {
     try {
       await deleteChallenge(challenge.id);
       setAnalysisMessage(`챌린지 삭제 완료: ${challenge.title} (#${challenge.id})`);
-      if (createdChallengeId === challenge.id) setCreatedChallengeId(null);
+      if (createdChallengeId === challenge.id) {
+        setCreatedChallengeId(null);
+      }
       if (expandedChallengeId === challenge.id) {
         setExpandedChallengeId(null);
       }
@@ -407,26 +423,6 @@ export function AdminModelAssetsPage() {
     }
   }
 
-  const modelSummary = activeAsset
-    ? `현재 활성 모델 ${activeAsset.originalFileName}`
-    : '현재 활성 모델이 없습니다.';
-  const challengeSummary = `활성 ${activeChallenges.length}개 · 평가 준비 ${evaluationReadyChallenges.length}개 · 분석 대기 ${pendingAnalysisChallenges.length}개`;
-  const confirmBusy =
-    (confirmDialog.kind === 'DELETE_ASSET' && deletingAssetId === confirmDialog.asset.id) ||
-    (confirmDialog.kind === 'DELETE_CHALLENGE' && deletingId === confirmDialog.challenge.id);
-  const modalTitle = editingChallengeId ? '챌린지 수정' : '챌린지 생성';
-  const modalDescription = editingChallengeId
-    ? '기본 정보를 수정하고 필요하면 레퍼런스 영상도 함께 교체합니다.'
-    : '레퍼런스 영상을 등록해 새 챌린지를 생성합니다.';
-  const modalReferenceLabel = selectedReferenceVideo
-    ? selectedReferenceVideo.name
-    : editingChallengeId
-      ? '기존 레퍼런스 유지'
-      : '영상 선택 필요';
-  const modalDurationLabel = Number(challengeForm.durationSec) > 0 ? `${challengeForm.durationSec}초` : '길이 미입력';
-  const modalGuideLabel = challengeForm.guideVideoUrl.trim() ? '가이드 연결됨' : '가이드 URL 없음';
-  const modalThumbnailLabel = challengeForm.thumbnailUrl.trim() ? '썸네일 연결됨' : '썸네일 URL 없음';
-
   async function handleConfirmDialogSubmit() {
     if (confirmDialog.kind === 'DELETE_ASSET') {
       const success = await handleDeleteModelAsset(confirmDialog.asset);
@@ -455,11 +451,7 @@ export function AdminModelAssetsPage() {
             </div>
 
             <div className="inline-actions">
-              <button
-                className="button-link button-link--secondary button-link--compact"
-                type="button"
-                onClick={() => void loadAdminData()}
-              >
+              <button className="button-link button-link--secondary button-link--compact" type="button" onClick={() => void loadAdminData()}>
                 새로고침
               </button>
               <button className="button-link button-link--compact" type="button" onClick={openCreateChallengeModal}>
@@ -475,7 +467,7 @@ export function AdminModelAssetsPage() {
             {createdChallengeId ? <span className="glass-chip">최근 생성 #{createdChallengeId}</span> : null}
           </div>
 
-          {(uploadSuccess || uploadError || analysisMessage || analysisError || error || challengeSuccess) ? (
+          {uploadSuccess || uploadError || analysisMessage || analysisError || error || challengeSuccess ? (
             <div className="glass-status-stack">
               {uploadSuccess ? <p className="review-composer__message review-composer__message--success">{uploadSuccess}</p> : null}
               {challengeSuccess ? <p className="review-composer__message review-composer__message--success">{challengeSuccess}</p> : null}
@@ -486,436 +478,68 @@ export function AdminModelAssetsPage() {
             </div>
           ) : null}
 
-          <section className="glass-panel glass-panel--nested admin-hub-compact__section">
-            <div className="board-detail-compact__toolbar admin-hub-compact__section-header">
-              <div>
-                <h3 className="glass-section-title">모델 관리</h3>
-                <p className="glass-toolbar__note">{modelSummary}</p>
-              </div>
-              <div className="board-detail-compact__meta">
-                <span className="board-classic-badge">{assets.length}개 자산</span>
-                <span className="board-classic-badge">{activeAsset ? '활성 모델 있음' : '모델 필요'}</span>
-              </div>
-            </div>
+          <AdminAssetsSection
+            loading={loading}
+            assets={assets}
+            activeAsset={activeAsset}
+            modelSummary={modelSummary}
+            selectedModelFile={selectedModelFile}
+            versionLabel={versionLabel}
+            uploading={uploading}
+            deletingAssetId={deletingAssetId}
+            expandedAssetId={expandedAssetId}
+            assetPage={assetPage}
+            assetTotalPages={assetTotalPages}
+            setVersionLabel={setVersionLabel}
+            onSelectModelFile={(file) => {
+              setSelectedModelFile(file);
+              setUploadError(null);
+              setUploadSuccess(null);
+            }}
+            onSubmitModel={handleModelSubmit}
+            onToggleAssetRow={handleAssetRowToggle}
+            onConfirmDeleteAsset={(asset) => setConfirmDialog({ kind: 'DELETE_ASSET', asset })}
+            onAssetPageChange={setAssetPage}
+            buildActiveDescription={buildActiveDescription}
+            formatFileSize={formatFileSize}
+            formatDateTime={formatDateTime}
+            formatDateTimeFull={formatDateTimeFull}
+          />
 
-            <form className="admin-hub-compact__upload" onSubmit={(event) => void handleModelSubmit(event)}>
-              <CompactFileField
-                label="모델 파일"
-                accept=".task"
-                buttonLabel="모델 선택"
-                emptyLabel=".task 모델 파일을 선택해 주세요."
-                selectedFileName={selectedModelFile?.name ?? null}
-                disabled={uploading}
-                onSelect={(file) => {
-                  setSelectedModelFile(file);
-                  setUploadError(null);
-                  setUploadSuccess(null);
-                }}
-              />
-              <label className="mypage-inline-field">
-                <span>버전 라벨</span>
-                <input
-                  type="text"
-                  value={versionLabel}
-                  onChange={(event) => setVersionLabel(event.target.value)}
-                  placeholder="예: lite-v1"
-                />
-              </label>
-              <div className="admin-hub-compact__upload-actions">
-                <button className="button-link button-link--compact" type="submit" disabled={uploading}>
-                  {uploading ? '업로드 중...' : '모델 업로드'}
-                </button>
-              </div>
-            </form>
-
-            {selectedModelFile ? (
-              <p className="glass-toolbar__note admin-hub-compact__inline-note">선택 파일: {selectedModelFile.name}</p>
-            ) : null}
-            {activeAsset ? (
-              <p className="glass-toolbar__note admin-hub-compact__inline-note">{buildActiveDescription(activeAsset)}</p>
-            ) : null}
-
-            {loading ? (
-              <div className="glass-panel glass-panel--nested glass-panel--empty">
-                <strong>모델 자산을 불러오는 중입니다.</strong>
-              </div>
-            ) : pagedAssets.length === 0 ? (
-              <div className="glass-panel glass-panel--nested glass-panel--empty">
-                <strong>등록된 모델 자산이 없습니다.</strong>
-              </div>
-            ) : (
-              <div className="admin-hub-compact-table">
-                <div className="admin-hub-compact-table__head admin-hub-compact-table__head--assets" role="presentation">
-                  <span>상태</span>
-                  <span>모델</span>
-                  <span>버전</span>
-                  <span>등록일</span>
-                  <span>상세</span>
-                </div>
-
-                <div className="admin-hub-compact-table__body">
-                  {pagedAssets.map((asset) => {
-                    const isExpanded = expandedAssetId === asset.id;
-
-                    return (
-                      <Fragment key={asset.id}>
-                        <article
-                          className={`admin-hub-compact-row admin-hub-compact-row--assets${isExpanded ? ' is-expanded' : ''}`}
-                          role="button"
-                          tabIndex={0}
-                          onClick={() => handleAssetRowToggle(asset.id)}
-                          onKeyDown={(event) => {
-                            if (event.key === 'Enter' || event.key === ' ') {
-                              event.preventDefault();
-                              handleAssetRowToggle(asset.id);
-                            }
-                          }}
-                        >
-                          <div className="admin-hub-compact-row__status">
-                            <span className={`board-classic-badge${asset.active ? ' is-pinned' : ''}`}>
-                              {asset.active ? '활성' : '보관'}
-                            </span>
-                          </div>
-                          <div className="admin-hub-compact-row__title">
-                            <strong>{asset.originalFileName}</strong>
-                            <span>모델 #{asset.id} · {formatFileSize(asset.size)}</span>
-                          </div>
-                          <div className="admin-hub-compact-row__meta">{asset.versionLabel ?? '라벨 없음'}</div>
-                          <div className="admin-hub-compact-row__date">{formatDateTime(asset.createdAt)}</div>
-                          <div className="admin-hub-compact-row__actions">
-                            <button
-                              className="button-link button-link--secondary admin-hub-compact__action-btn"
-                              type="button"
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                handleAssetRowToggle(asset.id);
-                              }}
-                            >
-                              {isExpanded ? '닫기' : '상세'}
-                            </button>
-                          </div>
-                        </article>
-
-                        {isExpanded ? (
-                          <section className="admin-hub-compact__inline-detail">
-                            <div className="admin-hub-compact__inline-header">
-                              <div>
-                                <strong>{asset.originalFileName}</strong>
-                                <p>{asset.active ? '현재 운영 중인 활성 모델입니다.' : '보관 중인 모델 자산입니다.'}</p>
-                              </div>
-                              <div className="admin-hub-compact-row__actions admin-hub-compact-row__actions--wrap">
-                                <button
-                                  className="button-link button-link--secondary admin-hub-compact__action-btn admin-hub-compact__action-btn--danger"
-                                  type="button"
-                                  disabled={deletingAssetId === asset.id || uploading}
-                                  onClick={() => setConfirmDialog({ kind: 'DELETE_ASSET', asset })}
-                                >
-                                  {deletingAssetId === asset.id ? '삭제 중...' : '모델 삭제'}
-                                </button>
-                              </div>
-                            </div>
-
-                            <div className="admin-hub-compact__inline-meta">
-                              <span>버전 {asset.versionLabel ?? '라벨 없음'}</span>
-                              <span>용량 {formatFileSize(asset.size)}</span>
-                              <span>형식 {asset.contentType ?? '미지정'}</span>
-                              <span>등록 {formatDateTimeFull(asset.createdAt)}</span>
-                              <span>업데이트 {formatDateTimeFull(asset.updatedAt)}</span>
-                            </div>
-
-                            <div className="admin-hub-compact__inline-grid">
-                              <div className="admin-hub-compact__inline-card">
-                                <span>저장 경로</span>
-                                <strong>{asset.storagePath}</strong>
-                              </div>
-                              <div className="admin-hub-compact__inline-card">
-                                <span>실행 경로</span>
-                                <strong>{asset.runtimePath}</strong>
-                              </div>
-                            </div>
-                          </section>
-                        ) : null}
-                      </Fragment>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
-            <Pagination currentPage={assetPage} totalPages={assetTotalPages} onPageChange={setAssetPage} />
-          </section>
-
-          <section className="glass-panel glass-panel--nested admin-hub-compact__section">
-            <div className="board-detail-compact__toolbar admin-hub-compact__section-header">
-              <div>
-                <h3 className="glass-section-title">챌린지 관리</h3>
-                <p className="glass-toolbar__note">{challengeSummary}</p>
-              </div>
-            </div>
-
-            <div className="admin-hub-compact__filters">
-              <label className="mypage-inline-field">
-                <span>검색</span>
-                <input
-                  type="text"
-                  value={challengeSearch}
-                  onChange={(event) => setChallengeSearch(event.target.value)}
-                  placeholder="제목, 설명, 카테고리, ID"
-                />
-              </label>
-              <div className="admin-hub-compact__filter-group">
-                <span className="admin-hub-compact__filter-label">카테고리</span>
-                <div className="admin-hub-compact__filter-options" role="group" aria-label="카테고리 필터">
-                  {categoryOptions.map((category) => {
-                    const isActive = activeCategoryFilter === category;
-                    return (
-                      <button
-                        key={category}
-                        type="button"
-                        className={`admin-hub-compact__filter-option${isActive ? ' is-active' : ''}`}
-                        onClick={() => setActiveCategoryFilter(category)}
-                      >
-                        {category === 'ALL' ? '전체' : category}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-              <div className="admin-hub-compact__filter-group">
-                <span className="admin-hub-compact__filter-label">상태</span>
-                <div className="admin-hub-compact__filter-options" role="group" aria-label="상태 필터">
-                  {STATUS_FILTER_OPTIONS.map((option) => {
-                    const isActive = activeStatusFilter === option.value;
-                    return (
-                      <button
-                        key={option.value}
-                        type="button"
-                        className={`admin-hub-compact__filter-option${isActive ? ' is-active' : ''}`}
-                        onClick={() => setActiveStatusFilter(option.value)}
-                      >
-                        {option.label}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-              <div className="admin-hub-compact__filter-group">
-                <span className="admin-hub-compact__filter-label">정렬</span>
-                <div className="admin-hub-compact__filter-options" role="group" aria-label="정렬 기준">
-                  {SORT_OPTIONS.map((option) => {
-                    const isActive = activeSort === option.value;
-                    return (
-                      <button
-                        key={option.value}
-                        type="button"
-                        className={`admin-hub-compact__filter-option${isActive ? ' is-active' : ''}`}
-                        onClick={() => setActiveSort(option.value)}
-                      >
-                        {option.label}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-              <div className="admin-hub-compact__filter-actions">
-                <button
-                  className="button-link button-link--secondary button-link--compact"
-                  type="button"
-                  onClick={resetChallengeFilters}
-                >
-                  필터 초기화
-                </button>
-              </div>
-            </div>
-
-            <p className="glass-toolbar__note admin-hub-compact__inline-note">
-              현재 조건에 맞는 챌린지 {filteredChallenges.length}개
-            </p>
-
-            {loading ? (
-              <div className="glass-panel glass-panel--nested glass-panel--empty">
-                <strong>챌린지 목록을 불러오는 중입니다.</strong>
-              </div>
-            ) : pagedChallenges.length === 0 ? (
-              <div className="glass-panel glass-panel--nested glass-panel--empty">
-                <strong>조건에 맞는 챌린지가 없습니다.</strong>
-              </div>
-            ) : (
-              <div className="admin-hub-compact-table">
-                <div className="admin-hub-compact-table__head admin-hub-compact-table__head--challenges" role="presentation">
-                  <span>상태</span>
-                  <span>챌린지</span>
-                  <span>난이도</span>
-                  <span>분석</span>
-                  <span>상세</span>
-                </div>
-
-                <div className="admin-hub-compact-table__body">
-                  {pagedChallenges.map((challenge) => {
-                    const isExpanded = expandedChallengeId === challenge.id;
-
-                    return (
-                      <Fragment key={challenge.id}>
-                        <article
-                          className={`admin-hub-compact-row admin-hub-compact-row--challenges${isExpanded ? ' is-expanded' : ''}`}
-                          role="button"
-                          tabIndex={0}
-                          onClick={() => handleChallengeRowToggle(challenge.id)}
-                          onKeyDown={(event) => {
-                            if (event.key === 'Enter' || event.key === ' ') {
-                              event.preventDefault();
-                              handleChallengeRowToggle(challenge.id);
-                            }
-                          }}
-                        >
-                          <div className="admin-hub-compact-row__status admin-hub-compact-row__status--stack">
-                            <span className={`board-classic-badge${challenge.isActive ? ' is-pinned' : ''}`}>
-                              {challenge.isActive ? '활성' : '비활성'}
-                            </span>
-                            <span className={`board-classic-badge${challenge.referenceMotionProfileReady ? ' is-pinned' : ''}`}>
-                              {getChallengeReadyLabel(challenge)}
-                            </span>
-                          </div>
-                          <div className="admin-hub-compact-row__title">
-                            <strong>{challenge.title}</strong>
-                            <span>
-                              #{challenge.id} · {challenge.category} · {challenge.description}
-                            </span>
-                          </div>
-                          <div className="admin-hub-compact-row__metric">{formatDifficulty(challenge.difficulty)}</div>
-                          <div className="admin-hub-compact-row__meta">
-                            {formatReferenceStatus(challenge.referenceAnalysisStatus)}
-                          </div>
-                          <div className="admin-hub-compact-row__actions">
-                            <button
-                              className="button-link button-link--secondary admin-hub-compact__action-btn"
-                              type="button"
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                handleChallengeRowToggle(challenge.id);
-                              }}
-                            >
-                              {isExpanded ? '닫기' : '상세'}
-                            </button>
-                          </div>
-                        </article>
-
-                        {isExpanded ? (
-                          <section className="admin-hub-compact__inline-detail">
-                            <div className="admin-hub-compact__inline-header">
-                              <div>
-                                <strong>{challenge.title}</strong>
-                                <p>{challenge.description}</p>
-                              </div>
-                              <div className="admin-hub-compact-row__actions admin-hub-compact-row__actions--wrap">
-                                <Link
-                                  className="button-link button-link--secondary admin-hub-compact__action-btn"
-                                  to={`/admin/challenges/${challenge.id}/analysis`}
-                                >
-                                  분석 보기
-                                </Link>
-                                <button
-                                  className="button-link button-link--secondary admin-hub-compact__action-btn"
-                                  type="button"
-                                  disabled={analyzingId === challenge.id || deletingId === challenge.id || togglingId === challenge.id}
-                                  onClick={() => handleEditChallenge(challenge)}
-                                >
-                                  수정
-                                </button>
-                                <button
-                                  className="button-link button-link--secondary admin-hub-compact__action-btn"
-                                  type="button"
-                                  disabled={analyzingId === challenge.id || deletingId === challenge.id || togglingId === challenge.id}
-                                  onClick={() => void handleToggleChallengeActive(challenge)}
-                                >
-                                  {togglingId === challenge.id ? '변경 중...' : challenge.isActive ? '비활성' : '활성'}
-                                </button>
-                                <button
-                                  className="button-link admin-hub-compact__action-btn"
-                                  type="button"
-                                  disabled={
-                                    !activeAsset ||
-                                    !challenge.referenceVideoUploaded ||
-                                    !challenge.isActive ||
-                                    analyzingId === challenge.id ||
-                                    deletingId === challenge.id ||
-                                    togglingId === challenge.id
-                                  }
-                                  onClick={() => void handleAnalyzeReference(challenge.id)}
-                                >
-                                  {analyzingId === challenge.id ? '분석 중...' : '분석 실행'}
-                                </button>
-                                <button
-                                  className="button-link button-link--secondary admin-hub-compact__action-btn admin-hub-compact__action-btn--danger"
-                                  type="button"
-                                  disabled={analyzingId === challenge.id || deletingId === challenge.id || togglingId === challenge.id}
-                                  onClick={() => setConfirmDialog({ kind: 'DELETE_CHALLENGE', challenge })}
-                                >
-                                  {deletingId === challenge.id ? '삭제 중...' : '삭제'}
-                                </button>
-                              </div>
-                            </div>
-
-                            <div className="admin-hub-compact__inline-meta">
-                              <span>카테고리 {challenge.category}</span>
-                              <span>난이도 {formatDifficulty(challenge.difficulty)}</span>
-                              <span>길이 {challenge.durationSec}초</span>
-                              <span>레퍼런스 영상 {challenge.referenceVideoUploaded ? '등록됨' : '없음'}</span>
-                              <span>분석 {formatReferenceStatus(challenge.referenceAnalysisStatus)}</span>
-                              <span>평가 {challenge.referenceMotionProfileReady && challenge.isActive ? '가능' : '준비 중'}</span>
-                              <span>가이드 영상 {challenge.guideVideoUrl ? '연결됨' : '없음'}</span>
-                            </div>
-
-                            <div className="admin-hub-compact__inline-grid">
-                              <div className="admin-hub-compact__inline-card">
-                                <span>레퍼런스 파일</span>
-                                <strong>{challenge.referenceVideoOriginalFileName ?? '등록된 파일이 없습니다.'}</strong>
-                              </div>
-                              <div className="admin-hub-compact__inline-card">
-                                <span>최근 분석 시각</span>
-                                <strong>{challenge.referenceAnalyzedAt ? formatDateTimeFull(challenge.referenceAnalyzedAt) : '아직 분석되지 않았습니다.'}</strong>
-                              </div>
-                              <div className="admin-hub-compact__inline-card">
-                                <span>가이드 영상 URL</span>
-                                <strong>{challenge.guideVideoUrl ?? '연결된 URL이 없습니다.'}</strong>
-                              </div>
-                              <div className="admin-hub-compact__inline-card">
-                                <span>썸네일 URL</span>
-                                <strong>{challenge.thumbnailUrl ?? '연결된 URL이 없습니다.'}</strong>
-                              </div>
-                            </div>
-
-                            {challenge.latestRetrySummary ? (
-                              <div className="admin-hub-compact__inline-grid admin-hub-compact__inline-grid--stats">
-                                <div className="admin-hub-compact__inline-card">
-                                  <span>최근 점수</span>
-                                  <strong>{challenge.latestRetrySummary.latestScore}점</strong>
-                                </div>
-                                <div className="admin-hub-compact__inline-card">
-                                  <span>최근 도전</span>
-                                  <strong>{formatDateTimeFull(challenge.latestRetrySummary.latestAttemptedAt)}</strong>
-                                </div>
-                                <div className="admin-hub-compact__inline-card">
-                                  <span>강점</span>
-                                  <strong>{challenge.latestRetrySummary.strongestArea ?? '데이터 없음'}</strong>
-                                </div>
-                                <div className="admin-hub-compact__inline-card">
-                                  <span>보완</span>
-                                  <strong>{challenge.latestRetrySummary.weakestArea ?? '데이터 없음'}</strong>
-                                </div>
-                              </div>
-                            ) : null}
-                          </section>
-                        ) : null}
-                      </Fragment>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
-            <Pagination currentPage={challengePage} totalPages={challengeTotalPages} onPageChange={setChallengePage} />
-          </section>
+          <AdminChallengesSection
+            loading={loading}
+            filteredChallenges={filteredChallenges}
+            pagedChallenges={pagedChallenges}
+            categoryOptions={categoryOptions}
+            challengeSearch={challengeSearch}
+            activeCategoryFilter={activeCategoryFilter}
+            activeStatusFilter={activeStatusFilter}
+            activeSort={activeSort}
+            challengePage={challengePage}
+            challengeTotalPages={challengeTotalPages}
+            expandedChallengeId={expandedChallengeId}
+            activeAssetReady={Boolean(activeAsset)}
+            analyzingId={analyzingId}
+            deletingId={deletingId}
+            togglingId={togglingId}
+            challengeSummary={challengeSummary}
+            statusFilterOptions={STATUS_FILTER_OPTIONS}
+            sortOptions={SORT_OPTIONS}
+            setChallengeSearch={setChallengeSearch}
+            onSelectCategoryFilter={setActiveCategoryFilter}
+            onSelectStatusFilter={setActiveStatusFilter}
+            onSelectSort={setActiveSort}
+            onResetFilters={resetChallengeFilters}
+            onToggleChallengeRow={handleChallengeRowToggle}
+            onEditChallenge={handleEditChallenge}
+            onToggleChallengeActive={handleToggleChallengeActive}
+            onAnalyzeReference={handleAnalyzeReference}
+            onConfirmDeleteChallenge={(challenge) => setConfirmDialog({ kind: 'DELETE_CHALLENGE', challenge })}
+            onChallengePageChange={setChallengePage}
+            formatDifficulty={formatDifficulty}
+            formatReferenceStatus={formatReferenceStatus}
+            formatDateTimeFull={formatDateTimeFull}
+          />
         </section>
       </div>
 
@@ -924,7 +548,7 @@ export function AdminModelAssetsPage() {
         title={confirmDialog.kind === 'DELETE_ASSET' ? '모델 삭제' : '챌린지 삭제'}
         description={
           confirmDialog.kind === 'DELETE_ASSET'
-            ? `"${confirmDialog.kind === 'DELETE_ASSET' ? confirmDialog.asset.originalFileName : ''}" 모델을 삭제합니다. 활성 모델이라면 상태를 정리하고 다른 최신 모델이 자동으로 활성화될 수 있습니다.`
+            ? `"${confirmDialog.asset.originalFileName}" 모델을 삭제합니다. 활성 모델이라면 상태를 정리하고 다른 최신 모델이 자동으로 활성화될 수 있습니다.`
             : confirmDialog.kind === 'DELETE_CHALLENGE'
               ? `"${confirmDialog.challenge.title}" 챌린지를 삭제합니다. 연결된 시도 기록과 업로드 파일도 함께 정리됩니다.`
               : ''
@@ -941,229 +565,55 @@ export function AdminModelAssetsPage() {
         }}
       />
 
-      {challengeModalOpen && typeof document !== 'undefined'
-        ? createPortal(
-            <div className="glass-modal" role="dialog" aria-modal="true" aria-labelledby="challenge-modal-title">
-              <div className="glass-modal__backdrop" onClick={closeChallengeModal} />
-              <div className="glass-modal__panel admin-hub-compact__modal-panel">
-                <form
-                  className="glass-panel glass-form admin-hub-compact__modal-form"
-                  onSubmit={(event) => void handleChallengeSubmit(event)}
-                >
-                  <div className="glass-toolbar admin-hub-compact__modal-header">
-                    <div>
-                      <h3 className="glass-section-title" id="challenge-modal-title">
-                        {modalTitle}
-                      </h3>
-                      <p className="glass-toolbar__note">{modalDescription}</p>
-                    </div>
-                    <button
-                      className="button-link button-link--secondary admin-hub-compact__modal-btn"
-                      type="button"
-                      onClick={closeChallengeModal}
-                      disabled={challengeSubmitting}
-                    >
-                      닫기
-                    </button>
-                  </div>
-
-                  <div className="admin-hub-compact__modal-summary">
-                    <div className="admin-hub-compact__summary-card">
-                      <span>작업 모드</span>
-                      <strong>{editingChallengeId ? `수정 · #${editingChallengeId}` : '신규 등록'}</strong>
-                    </div>
-                    <div className="admin-hub-compact__summary-card">
-                      <span>난이도 / 길이</span>
-                      <strong>
-                        {challengeDifficultyLevel} / {modalDurationLabel}
-                      </strong>
-                    </div>
-                    <div className="admin-hub-compact__summary-card">
-                      <span>가이드 / 썸네일</span>
-                      <strong>
-                        {modalGuideLabel} · {modalThumbnailLabel}
-                      </strong>
-                    </div>
-                    <div className="admin-hub-compact__summary-card">
-                      <span>레퍼런스 영상</span>
-                      <strong>{modalReferenceLabel}</strong>
-                    </div>
-                  </div>
-
-                  <div className="admin-hub-compact__modal-grid">
-                    <div className="admin-hub-compact__modal-section-label admin-hub-compact__modal-field--full">
-                      기본 정보
-                    </div>
-                    <label className="glass-field admin-hub-compact__modal-field admin-hub-compact__modal-field--full">
-                      <span>챌린지 제목</span>
-                      <input
-                        type="text"
-                        value={challengeForm.title}
-                        onChange={(event) => setChallengeForm((current) => ({ ...current, title: event.target.value }))}
-                        placeholder="예: 사이드 스텝 테스트"
-                      />
-                    </label>
-                    <label className="glass-field admin-hub-compact__modal-field admin-hub-compact__modal-field--full">
-                      <span>설명</span>
-                      <textarea
-                        value={challengeForm.description}
-                        rows={4}
-                        onChange={(event) =>
-                          setChallengeForm((current) => ({ ...current, description: event.target.value }))
-                        }
-                        placeholder="레퍼런스 동작 설명"
-                      />
-                    </label>
-
-                    <label className="glass-field admin-hub-compact__modal-field">
-                      <span>카테고리</span>
-                      <input
-                        type="text"
-                        value={challengeForm.category}
-                        onChange={(event) =>
-                          setChallengeForm((current) => ({ ...current, category: event.target.value }))
-                        }
-                      />
-                    </label>
-                    <label className="glass-field admin-hub-compact__modal-field">
-                      <span>난이도</span>
-                      <div className="admin-hub-compact__difficulty-field">
-                        <div className="admin-hub-compact__difficulty-current">
-                          <strong>{challengeDifficultyLevel}</strong>
-                          <span>선택한 난이도</span>
-                        </div>
-                        <div className="admin-hub-compact__difficulty-picker" role="radiogroup" aria-label="난이도 선택">
-                          {getDifficultyOptions().map((level) => {
-                            const isActive = challengeDifficultyLevel === String(level);
-                            return (
-                              <button
-                                key={level}
-                                type="button"
-                                className={`admin-hub-compact__difficulty-option${isActive ? ' is-active' : ''}`}
-                                aria-pressed={isActive}
-                                onClick={() => setChallengeDifficultyLevel(String(level))}
-                              >
-                                {level}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    </label>
-                    <label className="glass-field admin-hub-compact__modal-field">
-                      <span>길이(초)</span>
-                      <input
-                        type="number"
-                        min={5}
-                        max={600}
-                        value={challengeForm.durationSec}
-                        onChange={(event) =>
-                          setChallengeForm((current) => ({ ...current, durationSec: event.target.value }))
-                        }
-                      />
-                    </label>
-
-                    <div className="admin-hub-compact__modal-section-label admin-hub-compact__modal-field--full">
-                      미디어 연결
-                    </div>
-                    <label className="glass-field admin-hub-compact__modal-field">
-                      <span>썸네일 URL</span>
-                      <input
-                        type="text"
-                        value={challengeForm.thumbnailUrl}
-                        onChange={(event) =>
-                          setChallengeForm((current) => ({ ...current, thumbnailUrl: event.target.value }))
-                        }
-                        placeholder="선택"
-                      />
-                    </label>
-                    <label className="glass-field admin-hub-compact__modal-field">
-                      <span>가이드 영상 URL</span>
-                      <input
-                        type="text"
-                        value={challengeForm.guideVideoUrl}
-                        onChange={(event) =>
-                          setChallengeForm((current) => ({ ...current, guideVideoUrl: event.target.value }))
-                        }
-                        placeholder="선택"
-                      />
-                    </label>
-
-                    <div className="admin-hub-compact__modal-section-label admin-hub-compact__modal-field--full">
-                      레퍼런스 자료
-                    </div>
-                    <div className="admin-hub-compact__modal-field admin-hub-compact__modal-field--full">
-                      <CompactFileField
-                        label={editingChallengeId ? '레퍼런스 영상 교체(선택)' : '레퍼런스 영상'}
-                        accept="video/*"
-                        buttonLabel="영상 선택"
-                        emptyLabel={editingChallengeId ? '기존 레퍼런스 영상을 유지합니다.' : '업로드할 영상을 선택해 주세요.'}
-                        selectedFileName={selectedReferenceVideo?.name ?? null}
-                        disabled={challengeSubmitting}
-                        onSelect={(file) => {
-                          setSelectedReferenceVideo(file);
-                          setChallengeError(null);
-                        }}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="inline-actions admin-hub-compact__modal-actions">
-                    <button className="button-link admin-hub-compact__modal-btn" type="submit" disabled={challengeSubmitting}>
-                      {challengeSubmitting ? (editingChallengeId ? '수정 중...' : '생성 중...') : editingChallengeId ? '수정 저장' : '챌린지 생성'}
-                    </button>
-                    <button
-                      className="button-link button-link--secondary admin-hub-compact__modal-btn"
-                      type="button"
-                      onClick={closeChallengeModal}
-                      disabled={challengeSubmitting}
-                    >
-                      취소
-                    </button>
-                  </div>
-                  {selectedReferenceVideo ? (
-                    <p className="glass-toolbar__note admin-hub-compact__modal-note">선택 영상: {selectedReferenceVideo.name}</p>
-                  ) : null}
-                  {editingChallengeId ? (
-                    <p className="glass-toolbar__note admin-hub-compact__modal-note">수정 중 챌린지 ID: #{editingChallengeId}</p>
-                  ) : null}
-                  {challengeError ? <p className="review-composer__message review-composer__message--error">{challengeError}</p> : null}
-                </form>
-              </div>
-            </div>,
-            document.body,
-          )
-        : null}
+      <AdminChallengeEditorModal
+        open={challengeModalOpen}
+        editingChallengeId={editingChallengeId}
+        challengeSubmitting={challengeSubmitting}
+        challengeForm={challengeForm}
+        challengeDifficultyLevel={challengeDifficultyLevel}
+        selectedReferenceVideo={selectedReferenceVideo}
+        challengeError={challengeError}
+        modalTitle={modalTitle}
+        modalDescription={modalDescription}
+        modalDurationLabel={modalDurationLabel}
+        modalGuideLabel={modalGuideLabel}
+        modalThumbnailLabel={modalThumbnailLabel}
+        modalReferenceLabel={modalReferenceLabel}
+        onClose={closeChallengeModal}
+        onSubmit={handleChallengeSubmit}
+        onSetChallengeForm={(updater) => setChallengeForm((current) => updater(current))}
+        onSetDifficultyLevel={setChallengeDifficultyLevel}
+        onSelectReferenceVideo={(file) => {
+          setSelectedReferenceVideo(file);
+          setChallengeError(null);
+        }}
+      />
     </>
   );
 }
 
 function buildActiveDescription(asset: ModelAsset) {
-  return `${asset.versionLabel ?? '버전 라벨 없음'} / ${formatFileSize(asset.size)} / ${new Date(asset.updatedAt).toLocaleString('ko-KR')}`;
-}
-
-function getChallengeReadyLabel(challenge: Challenge) {
-  if (challenge.referenceMotionProfileReady && challenge.isActive) return '평가 준비';
-  if (challenge.referenceMotionProfileReady) return '활성 대기';
-  if (challenge.referenceVideoUploaded) return '분석 필요';
-  return '영상 필요';
+  return `활성 모델: ${asset.originalFileName} · ${asset.versionLabel ?? '라벨 없음'}`;
 }
 
 function formatReferenceStatus(status: string) {
-  if (status === 'NOT_ANALYZED') return '미분석';
-  if (status === 'ANALYZING') return '분석 중';
-  if (status === 'COMPLETED') return '분석 완료';
-  if (status === 'PENDING') return '대기';
-  if (status === 'PROCESSING') return '처리 중';
-  if (status === 'READY') return '준비 완료';
-  if (status === 'FAILED') return '실패';
-  return status;
+  switch (status) {
+    case 'COMPLETED':
+      return '완료';
+    case 'ANALYZING':
+      return '분석 중';
+    case 'FAILED':
+      return '실패';
+    default:
+      return '대기';
+  }
 }
 
 function formatFileSize(size: number) {
-  if (size >= 1024 * 1024) return `${(size / (1024 * 1024)).toFixed(2)} MB`;
-  if (size >= 1024) return `${(size / 1024).toFixed(1)} KB`;
-  return `${size} B`;
+  if (size < 1024 * 1024) {
+    return `${Math.round(size / 1024)} KB`;
+  }
+  return `${(size / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 function formatDateTime(value: string) {
@@ -1171,10 +621,11 @@ function formatDateTime(value: string) {
   if (Number.isNaN(parsed.getTime())) {
     return value;
   }
-
-  return parsed.toLocaleDateString('ko-KR', {
+  return parsed.toLocaleString('ko-KR', {
     month: '2-digit',
     day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
   });
 }
 
@@ -1183,7 +634,6 @@ function formatDateTimeFull(value: string) {
   if (Number.isNaN(parsed.getTime())) {
     return value;
   }
-
   return parsed.toLocaleString('ko-KR', {
     year: 'numeric',
     month: '2-digit',

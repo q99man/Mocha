@@ -1,0 +1,220 @@
+import { Fragment } from 'react';
+
+import { CompactFileField } from '../../shared/components/CompactFileField';
+import { Pagination } from '../../shared/components/Pagination';
+import type { ModelAsset } from '../../shared/types/admin';
+
+type AdminAssetsSectionProps = {
+  loading: boolean;
+  assets: ModelAsset[];
+  activeAsset: ModelAsset | null;
+  modelSummary: string;
+  selectedModelFile: File | null;
+  versionLabel: string;
+  uploading: boolean;
+  deletingAssetId: number | null;
+  expandedAssetId: number | null;
+  assetPage: number;
+  assetTotalPages: number;
+  setVersionLabel: (value: string) => void;
+  onSelectModelFile: (file: File | null) => void;
+  onSubmitModel: () => void;
+  onToggleAssetRow: (assetId: number) => void;
+  onConfirmDeleteAsset: (asset: ModelAsset) => void;
+  onAssetPageChange: (page: number) => void;
+  buildActiveDescription: (asset: ModelAsset) => string;
+  formatFileSize: (size: number) => string;
+  formatDateTime: (value: string) => string;
+  formatDateTimeFull: (value: string) => string;
+};
+
+export function AdminAssetsSection({
+  loading,
+  assets,
+  activeAsset,
+  modelSummary,
+  selectedModelFile,
+  versionLabel,
+  uploading,
+  deletingAssetId,
+  expandedAssetId,
+  assetPage,
+  assetTotalPages,
+  setVersionLabel,
+  onSelectModelFile,
+  onSubmitModel,
+  onToggleAssetRow,
+  onConfirmDeleteAsset,
+  onAssetPageChange,
+  buildActiveDescription,
+  formatFileSize,
+  formatDateTime,
+  formatDateTimeFull,
+}: AdminAssetsSectionProps) {
+  const pagedAssets = assets.slice((assetPage - 1) * 5, (assetPage - 1) * 5 + 5);
+
+  return (
+    <section className="glass-panel glass-panel--nested admin-hub-compact__section">
+      <div className="board-detail-compact__toolbar admin-hub-compact__section-header">
+        <div>
+          <h3 className="glass-section-title">모델 관리</h3>
+          <p className="glass-toolbar__note">{modelSummary}</p>
+        </div>
+        <div className="board-detail-compact__meta">
+          <span className="board-classic-badge">{assets.length}개 자산</span>
+          <span className="board-classic-badge">{activeAsset ? '활성 모델 있음' : '모델 필요'}</span>
+        </div>
+      </div>
+
+      <form
+        className="admin-hub-compact__upload"
+        onSubmit={(event) => {
+          event.preventDefault();
+          onSubmitModel();
+        }}
+      >
+        <CompactFileField
+          label="모델 파일"
+          accept=".task"
+          buttonLabel="모델 선택"
+          emptyLabel=".task 모델 파일을 선택해 주세요."
+          selectedFileName={selectedModelFile?.name ?? null}
+          disabled={uploading}
+          onSelect={onSelectModelFile}
+        />
+        <label className="mypage-inline-field">
+          <span>버전 라벨</span>
+          <input
+            type="text"
+            value={versionLabel}
+            onChange={(event) => setVersionLabel(event.target.value)}
+            placeholder="예: lite-v1"
+          />
+        </label>
+        <div className="admin-hub-compact__upload-actions">
+          <button className="button-link button-link--compact" type="submit" disabled={uploading}>
+            {uploading ? '업로드 중...' : '모델 업로드'}
+          </button>
+        </div>
+      </form>
+
+      {selectedModelFile ? (
+        <p className="glass-toolbar__note admin-hub-compact__inline-note">선택 파일: {selectedModelFile.name}</p>
+      ) : null}
+      {activeAsset ? (
+        <p className="glass-toolbar__note admin-hub-compact__inline-note">{buildActiveDescription(activeAsset)}</p>
+      ) : null}
+
+      {loading ? (
+        <div className="glass-panel glass-panel--nested glass-panel--empty">
+          <strong>모델 자산을 불러오는 중입니다.</strong>
+        </div>
+      ) : pagedAssets.length === 0 ? (
+        <div className="glass-panel glass-panel--nested glass-panel--empty">
+          <strong>등록된 모델 자산이 없습니다.</strong>
+        </div>
+      ) : (
+        <div className="admin-hub-compact-table">
+          <div className="admin-hub-compact-table__head admin-hub-compact-table__head--assets" role="presentation">
+            <span>상태</span>
+            <span>모델</span>
+            <span>버전</span>
+            <span>등록일</span>
+            <span>상세</span>
+          </div>
+
+          <div className="admin-hub-compact-table__body">
+            {pagedAssets.map((asset) => {
+              const isExpanded = expandedAssetId === asset.id;
+
+              return (
+                <Fragment key={asset.id}>
+                  <article
+                    className={`admin-hub-compact-row admin-hub-compact-row--assets${isExpanded ? ' is-expanded' : ''}`}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => onToggleAssetRow(asset.id)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        onToggleAssetRow(asset.id);
+                      }
+                    }}
+                  >
+                    <div className="admin-hub-compact-row__status">
+                      <span className={`board-classic-badge${asset.active ? ' is-pinned' : ''}`}>
+                        {asset.active ? '활성' : '보관'}
+                      </span>
+                    </div>
+                    <div className="admin-hub-compact-row__title">
+                      <strong>{asset.originalFileName}</strong>
+                      <span>
+                        모델 #{asset.id} · {formatFileSize(asset.size)}
+                      </span>
+                    </div>
+                    <div className="admin-hub-compact-row__meta">{asset.versionLabel ?? '라벨 없음'}</div>
+                    <div className="admin-hub-compact-row__date">{formatDateTime(asset.createdAt)}</div>
+                    <div className="admin-hub-compact-row__actions">
+                      <button
+                        className="button-link button-link--secondary admin-hub-compact__action-btn"
+                        type="button"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          onToggleAssetRow(asset.id);
+                        }}
+                      >
+                        {isExpanded ? '닫기' : '상세'}
+                      </button>
+                    </div>
+                  </article>
+
+                  {isExpanded ? (
+                    <section className="admin-hub-compact__inline-detail">
+                      <div className="admin-hub-compact__inline-header">
+                        <div>
+                          <strong>{asset.originalFileName}</strong>
+                          <p>{asset.active ? '현재 운영 중인 활성 모델입니다.' : '보관 중인 모델 자산입니다.'}</p>
+                        </div>
+                        <div className="admin-hub-compact-row__actions admin-hub-compact-row__actions--wrap">
+                          <button
+                            className="button-link button-link--secondary admin-hub-compact__action-btn admin-hub-compact__action-btn--danger"
+                            type="button"
+                            disabled={deletingAssetId === asset.id || uploading}
+                            onClick={() => onConfirmDeleteAsset(asset)}
+                          >
+                            {deletingAssetId === asset.id ? '삭제 중...' : '모델 삭제'}
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="admin-hub-compact__inline-meta">
+                        <span>버전 {asset.versionLabel ?? '라벨 없음'}</span>
+                        <span>용량 {formatFileSize(asset.size)}</span>
+                        <span>형식 {asset.contentType ?? '미지정'}</span>
+                        <span>등록 {formatDateTimeFull(asset.createdAt)}</span>
+                        <span>업데이트 {formatDateTimeFull(asset.updatedAt)}</span>
+                      </div>
+
+                      <div className="admin-hub-compact__inline-grid">
+                        <div className="admin-hub-compact__inline-card">
+                          <span>저장 경로</span>
+                          <strong>{asset.storagePath}</strong>
+                        </div>
+                        <div className="admin-hub-compact__inline-card">
+                          <span>실행 경로</span>
+                          <strong>{asset.runtimePath}</strong>
+                        </div>
+                      </div>
+                    </section>
+                  ) : null}
+                </Fragment>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      <Pagination currentPage={assetPage} totalPages={assetTotalPages} onPageChange={onAssetPageChange} />
+    </section>
+  );
+}

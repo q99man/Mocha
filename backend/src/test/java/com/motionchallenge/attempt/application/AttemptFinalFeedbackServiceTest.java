@@ -46,7 +46,7 @@ class AttemptFinalFeedbackServiceTest {
         assertThat(result).isNotNull();
         assertThat(result.grade()).isEqualTo("PASS");
         assertThat(result.cleared()).isFalse();
-        assertThat(result.focusLabel()).contains("pose");
+        assertThat(result.focusLabel()).contains("포즈");
     }
 
     private AttemptJudgementCueResponse cue(int id, int combo, String verdict, int offsetMs, double confidence) {

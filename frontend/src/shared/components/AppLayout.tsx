@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 
 import { useAuth } from '../auth/AuthProvider';
+import { CompactConfirmDialog } from './CompactConfirmDialog';
 
 const BASE_NAV_ITEMS = [
   { to: '/', label: '홈' },
@@ -18,6 +19,8 @@ export function AppLayout() {
     (location.pathname.startsWith('/challenges/') && location.pathname.endsWith('/start')) ||
     (location.pathname.startsWith('/attempts/') && location.pathname.endsWith('/result'));
   const [isLandingTopbarScrolled, setIsLandingTopbarScrolled] = useState(false);
+  const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
+  const [logoutBusy, setLogoutBusy] = useState(false);
 
   const navItems = [
     ...BASE_NAV_ITEMS,
@@ -48,6 +51,18 @@ export function AppLayout() {
     };
   }, [isImmersivePlayRoute, isLandingRoute]);
 
+  async function handleConfirmLogout() {
+    setLogoutBusy(true);
+
+    try {
+      await logout();
+      navigate('/');
+    } finally {
+      setLogoutBusy(false);
+      setLogoutConfirmOpen(false);
+    }
+  }
+
   if (isLandingRoute) {
     return (
       <div className="stage-shell stage-shell--landing">
@@ -70,7 +85,7 @@ export function AppLayout() {
               </NavLink>
             ) : null}
             {isAuthenticated ? (
-              <button className="stage-nav__utility" type="button" onClick={() => void logout()}>
+              <button className="stage-nav__utility" type="button" onClick={() => setLogoutConfirmOpen(true)}>
                 로그아웃
               </button>
             ) : (
@@ -84,6 +99,21 @@ export function AppLayout() {
         <main className="stage-main stage-main--landing">
           <Outlet />
         </main>
+
+        <CompactConfirmDialog
+          open={logoutConfirmOpen}
+          title="로그아웃"
+          description="현재 세션을 종료하고 홈 화면으로 이동합니다."
+          confirmLabel="로그아웃"
+          cancelLabel="취소"
+          busy={logoutBusy}
+          onConfirm={handleConfirmLogout}
+          onCancel={() => {
+            if (!logoutBusy) {
+              setLogoutConfirmOpen(false);
+            }
+          }}
+        />
       </div>
     );
   }
@@ -113,9 +143,7 @@ export function AppLayout() {
                 <button
                   className="stage-nav__utility"
                   type="button"
-                  onClick={() => {
-                    void logout().then(() => navigate('/'));
-                  }}
+                  onClick={() => setLogoutConfirmOpen(true)}
                 >
                   로그아웃
                 </button>
@@ -132,6 +160,21 @@ export function AppLayout() {
       <main className="app-main-glass">
         <Outlet />
       </main>
+
+      <CompactConfirmDialog
+        open={logoutConfirmOpen}
+        title="로그아웃"
+        description="현재 세션을 종료하고 홈 화면으로 이동합니다."
+        confirmLabel="로그아웃"
+        cancelLabel="취소"
+        busy={logoutBusy}
+        onConfirm={handleConfirmLogout}
+        onCancel={() => {
+          if (!logoutBusy) {
+            setLogoutConfirmOpen(false);
+          }
+        }}
+      />
     </div>
   );
 }

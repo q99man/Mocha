@@ -2040,6 +2040,22 @@
   background: rgba(200, 170, 100, 0.05);
 }
 
+.play-result__feedback-badge {
+  display: inline-flex;
+  align-items: center;
+  margin-top: 0;
+  margin-bottom: 10px;
+  padding: 5px 9px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 221, 138, 0.28);
+  background: rgba(255, 221, 138, 0.12);
+  color: #ffdd8a;
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
 .play-result__summary-card strong {
   display: block;
   margin-bottom: 8px;
@@ -2096,6 +2112,11 @@
 .play-result__brief-card--good {
   border-color: rgba(110, 231, 183, 0.18);
   background: linear-gradient(180deg, rgba(110, 231, 183, 0.08), rgba(255, 255, 255, 0.04));
+}
+
+.play-result__brief-card--accent {
+  border-color: rgba(125, 211, 252, 0.18);
+  background: linear-gradient(180deg, rgba(125, 211, 252, 0.08), rgba(255, 255, 255, 0.04));
 }
 
 .play-result__brief-card--warning {

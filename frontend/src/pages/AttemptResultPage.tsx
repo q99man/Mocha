@@ -139,6 +139,7 @@ export function AttemptResultPage() {
   }, [attempt?.challengeId]);
 
   const pending = !attempt?.processingComplete || attempt?.processingMode === 'ASYNC_JOB_PENDING';
+  const finalFeedback = !pending ? attempt?.finalFeedback ?? null : null;
   const flowModeLabel = attempt ? formatResultSource(attempt.resultSource) : '';
   const scoreDelta = attempt?.scoreDeltaFromPrevious ?? null;
   const isNewRecord = scoreDelta != null && scoreDelta > 0;
@@ -146,6 +147,8 @@ export function AttemptResultPage() {
   const animatedRate = useAnimatedNumber(Math.max(0, attempt?.score ?? 0), { duration: 1900, decimals: 2 });
   const resultRate = attempt ? `${animatedRate.toFixed(2)}%` : '0.00%';
   const displayedScore = attempt?.scoreAvailable ? animatedScore : '--';
+  const rhythmLabel = finalFeedback?.rhythmLabel || flowModeLabel || '분석 결과';
+  const clearStatusLabel = pending ? '대기' : finalFeedback ? (finalFeedback.cleared ? '클리어' : '재도전') : '완료';
 
   const headline = useMemo(() => {
     if (!attempt) {
@@ -156,8 +159,8 @@ export function AttemptResultPage() {
       return '진행 중';
     }
 
-    return attempt.resultHeadline || '결과';
-  }, [attempt, pending]);
+    return finalFeedback?.headline || attempt.resultHeadline || '결과';
+  }, [attempt, finalFeedback, pending]);
 
   const summary = useMemo(() => {
     if (!attempt) {
@@ -168,8 +171,9 @@ export function AttemptResultPage() {
       return attempt.processingNotice ?? '진행 중';
     }
 
-    return attempt.resultSummary;
-  }, [attempt, pending]);
+    return finalFeedback?.summary || attempt.resultSummary;
+  }, [attempt, finalFeedback, pending]);
+
   const briefComment = useMemo(() => {
     if (!attempt) {
       return '';
@@ -179,8 +183,12 @@ export function AttemptResultPage() {
       return '분석 중';
     }
 
+    if (finalFeedback?.focusLabel) {
+      return `Focus: ${finalFeedback.focusLabel}`;
+    }
+
     return attempt.coachingTeaser || attempt.keepStableFocus || attempt.retryFocus || '다음에는 더 좋아질 수 있습니다.';
-  }, [attempt, pending]);
+  }, [attempt, finalFeedback, pending]);
 
   useEffect(() => {
     setCurrentPlaybackMs(0);
@@ -244,6 +252,7 @@ export function AttemptResultPage() {
         </div>
 
         <div className="play-result__summary-card">
+          {finalFeedback?.badge ? <span className="play-result__feedback-badge">{finalFeedback.badge}</span> : null}
           <strong>{headline}</strong>
           <p>{summary}</p>
           <span>기록 #{String(attempt.id).padStart(3, '0')}</span>
@@ -252,6 +261,14 @@ export function AttemptResultPage() {
         </div>
 
         <div className="play-result__brief-grid">
+          <div className="play-result__brief-card play-result__brief-card--accent">
+            <span>리듬</span>
+            <strong>{rhythmLabel}</strong>
+          </div>
+          <div className={`play-result__brief-card ${finalFeedback?.cleared ? 'play-result__brief-card--good' : 'play-result__brief-card--warning'}`}>
+            <span>판정</span>
+            <strong>{clearStatusLabel}</strong>
+          </div>
           <div className="play-result__brief-card play-result__brief-card--good">
             <span>강점</span>
             <strong>{formatAreaLabel(attempt.strongestArea)}</strong>
@@ -271,12 +288,12 @@ export function AttemptResultPage() {
       <div className="play-result__right">
         <div className="play-result__stat-ring">
           <div className="play-result__stat-item">
-            <span>흐름</span>
-            <strong>{flowModeLabel}</strong>
+            <span>리듬</span>
+            <strong>{rhythmLabel}</strong>
           </div>
           <div className="play-result__stat-item">
-            <span>상태</span>
-            <strong>{pending ? '대기' : '완료'}</strong>
+            <span>판정</span>
+            <strong>{clearStatusLabel}</strong>
           </div>
         </div>
 
@@ -285,6 +302,10 @@ export function AttemptResultPage() {
           <span className="play-result__rate-delta">
             {pending
               ? '진행 중'
+              : finalFeedback
+                ? finalFeedback.cleared
+                  ? '클리어 달성'
+                  : '재도전 추천'
               : attempt.resultSource === 'SAMPLE_SCORING_PREVIEW'
                 ? '미리보기'
                 : '완료'}
