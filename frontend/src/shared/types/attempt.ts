@@ -9,6 +9,7 @@ export type AttemptResultSource =
 export type AttemptBreakdownArea = 'pose shape' | 'pose timing' | 'detection quality';
 export type AttemptJudgementVerdict = 'PERFECT' | 'GOOD' | 'HOLD' | 'EARLY' | 'LATE' | 'MISS';
 export type AttemptJudgementSource = 'motion-analysis' | 'timeline-preview';
+export type AttemptFinalGrade = 'PERFECT' | 'GREAT' | 'GOOD' | 'PASS' | 'TRY_AGAIN';
 
 export type AttemptJudgementCue = {
   id: number;
@@ -25,6 +26,16 @@ export type AttemptJudgementCue = {
   confidence: number;
 };
 
+export type AttemptFinalFeedback = {
+  grade: AttemptFinalGrade;
+  badge: string;
+  headline: string;
+  summary: string;
+  rhythmLabel: string;
+  focusLabel: string;
+  cleared: boolean;
+};
+
 export type AttemptSummary = {
   id: number;
   challengeId: number;
@@ -39,6 +50,7 @@ export type AttemptSummary = {
   scoreAvailable: boolean;
   resultHeadline: string;
   resultSummary: string;
+  finalFeedback: AttemptFinalFeedback | null;
   judgementTimeline: AttemptJudgementCue[];
   processingMode: AttemptProcessingMode | null;
   processingComplete: boolean;
@@ -93,6 +105,7 @@ export type AttemptVideoResult = {
   scoreAvailable: boolean;
   resultHeadline: string;
   resultSummary: string;
+  finalFeedback: AttemptFinalFeedback | null;
   judgementTimeline: AttemptJudgementCue[];
   analyzerName: string;
   processingMode: AttemptProcessingMode | null;

@@ -49,28 +49,28 @@ export function buildAttemptReplayHud(
     tone,
     headline: cue.label,
     subline: cue.guide,
-    cueLabel: `Cue ${String(cue.id).padStart(2, '0')} · ${String(cue.second + 1).padStart(2, '0')} sec`,
+    cueLabel: `큐 ${String(cue.id).padStart(2, '0')} · ${String(cue.second + 1).padStart(2, '0')}초`,
     recommendationTitle: recommendation.title,
     recommendationBody: recommendation.body,
     chips: [
       {
         id: 'timing',
-        label: 'Timing',
+        label: '타이밍',
         value: formatOffset(cue.offsetMs),
       },
       {
         id: 'confidence',
-        label: 'Confidence',
+        label: '확신도',
         value: `${Math.round(cue.confidence * 100)}%`,
       },
       {
         id: 'combo',
-        label: 'Combo',
-        value: cue.combo > 0 ? `${cue.combo}` : 'Reset',
+        label: '콤보',
+        value: cue.combo > 0 ? `${cue.combo}` : '리셋',
       },
       {
         id: 'lane',
-        label: 'Lane',
+        label: '레인',
         value: `${cue.lane + 1}`,
       },
     ],
@@ -84,66 +84,66 @@ function buildRecommendation(cue: ReplayHudCue, attempt: ReplayHudCarrier) {
   switch (cue.verdict) {
     case 'PERFECT':
       return {
-        title: 'Keep this feeling',
+        title: '유지',
         body:
           attempt.keepStableFocus ??
           (strongestArea
-            ? `This cue is strongest when you trust your ${strongestArea} and avoid extra corrections.`
-            : 'Keep the same rhythm and body line through the next cue.'),
+            ? `${strongestArea} 유지`
+            : '리듬 유지'),
       };
     case 'GOOD':
     case 'HOLD':
       return {
-        title: 'Stabilize the section',
+        title: '안정',
         body:
           attempt.keepStableFocus ??
           (strongestArea
-            ? `The section is close. Hold the same ${strongestArea} quality through the transition.`
-            : 'The cue is stable enough. Keep the same pace into the next beat.'),
+            ? `${strongestArea} 유지`
+            : '속도 유지'),
       };
     case 'EARLY':
       return {
-        title: 'Delay the hit slightly',
+        title: '늦게',
         body:
           attempt.retryFocus ??
-          `Wait a fraction longer before the move lands${weakestArea ? ` and watch your ${weakestArea}` : ''}.`,
+          `${weakestArea ? weakestArea : '타이밍'} 확인`,
       };
     case 'LATE':
       return {
-        title: 'Start a touch earlier',
+        title: '빠르게',
         body:
           attempt.retryFocus ??
-          `Prepare the motion earlier${weakestArea ? ` and tighten your ${weakestArea}` : ''} before the beat arrives.`,
+          `${weakestArea ? weakestArea : '타이밍'} 확인`,
       };
     case 'MISS':
     default:
       return {
-        title: 'Reset this cue',
+        title: '다시',
         body:
           attempt.retryFocus ??
           (weakestArea
-            ? `Rebuild this section first. The miss likely starts from your ${weakestArea}.`
-            : 'Slow the section down once, then rebuild the cue with a clean reset.'),
+            ? `${weakestArea}부터`
+            : '천천히 다시'),
       };
   }
 }
 
 function toAreaLabel(area: AttemptSummary['strongestArea'] | AttemptSummary['weakestArea']) {
   if (area === 'pose shape') {
-    return 'pose shape';
+    return '포즈 형태';
   }
   if (area === 'pose timing') {
-    return 'pose timing';
+    return '포즈 타이밍';
   }
   if (area === 'detection quality') {
-    return 'detection quality';
+    return '검출 품질';
   }
   return null;
 }
 
 function formatOffset(offsetMs: number) {
   if (offsetMs === 0) {
-    return 'On time';
+    return '정확';
   }
 
   return `${offsetMs > 0 ? '+' : ''}${offsetMs}ms`;

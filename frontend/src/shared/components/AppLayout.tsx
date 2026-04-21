@@ -4,7 +4,7 @@ import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-do
 import { useAuth } from '../auth/AuthProvider';
 
 const BASE_NAV_ITEMS = [
-  { to: '/', label: '랜딩' },
+  { to: '/', label: '홈' },
   { to: '/challenges', label: '챌린지' },
   { to: '/board', label: '게시판' },
 ];
@@ -14,6 +14,9 @@ export function AppLayout() {
   const navigate = useNavigate();
   const { user, isAdmin, isAuthenticated, logout } = useAuth();
   const isLandingRoute = location.pathname === '/';
+  const isImmersivePlayRoute =
+    (location.pathname.startsWith('/challenges/') && location.pathname.endsWith('/start')) ||
+    (location.pathname.startsWith('/attempts/') && location.pathname.endsWith('/result'));
   const [isLandingTopbarScrolled, setIsLandingTopbarScrolled] = useState(false);
 
   const navItems = [
@@ -23,9 +26,13 @@ export function AppLayout() {
   ];
 
   useEffect(() => {
+    document.body.classList.toggle('body--play-fullscreen', isImmersivePlayRoute);
+
     if (!isLandingRoute) {
       setIsLandingTopbarScrolled(false);
-      return;
+      return () => {
+        document.body.classList.remove('body--play-fullscreen');
+      };
     }
 
     const updateLandingTopbar = () => {
@@ -37,8 +44,9 @@ export function AppLayout() {
 
     return () => {
       window.removeEventListener('scroll', updateLandingTopbar);
+      document.body.classList.remove('body--play-fullscreen');
     };
-  }, [isLandingRoute]);
+  }, [isImmersivePlayRoute, isLandingRoute]);
 
   if (isLandingRoute) {
     return (
@@ -53,7 +61,7 @@ export function AppLayout() {
           <div className="stage-topbar__actions stage-topbar__actions--landing">
             {isAdmin ? (
               <NavLink className="stage-nav__utility" to="/admin/model-assets">
-                운영 허브
+                관리자
               </NavLink>
             ) : null}
             {isAuthenticated && !isAdmin ? (
@@ -84,40 +92,42 @@ export function AppLayout() {
     <div className="app-shell app-shell--glass">
       <div className="app-shell__ambient" aria-hidden="true" />
 
-      <header className="app-header-glass">
-        <Link className="app-header-glass__brand" to="/">
-          <strong>Mocha</strong>
-        </Link>
+      {!isImmersivePlayRoute ? (
+        <header className="app-header-glass">
+          <Link className="app-header-glass__brand" to="/">
+            <strong>Mocha</strong>
+          </Link>
 
-        <nav className="app-header-glass__nav" aria-label="주요 메뉴">
-          {navItems.map((item) => (
-            <NavLink key={item.to} to={item.to} end={item.to === '/'}>
-              {item.label}
-            </NavLink>
-          ))}
-        </nav>
+          <nav className="app-header-glass__nav" aria-label="주요 메뉴">
+            {navItems.map((item) => (
+              <NavLink key={item.to} to={item.to} end={item.to === '/'}>
+                {item.label}
+              </NavLink>
+            ))}
+          </nav>
 
-        <div className="app-header-glass__actions">
-          {isAuthenticated ? (
-            <>
-              <span className="app-header-glass__account">{user?.displayName ?? '사용자'}</span>
-              <button
-                className="stage-nav__utility"
-                type="button"
-                onClick={() => {
-                  void logout().then(() => navigate('/'));
-                }}
-              >
-                로그아웃
+          <div className="app-header-glass__actions">
+            {isAuthenticated ? (
+              <>
+                <span className="app-header-glass__account">{user?.displayName ?? '사용자'}</span>
+                <button
+                  className="stage-nav__utility"
+                  type="button"
+                  onClick={() => {
+                    void logout().then(() => navigate('/'));
+                  }}
+                >
+                  로그아웃
+                </button>
+              </>
+            ) : (
+              <button className="stage-nav__cta" type="button" onClick={() => navigate('/auth')}>
+                로그인
               </button>
-            </>
-          ) : (
-            <button className="stage-nav__cta" type="button" onClick={() => navigate('/auth')}>
-              로그인
-            </button>
-          )}
-        </div>
-      </header>
+            )}
+          </div>
+        </header>
+      ) : null}
 
       <main className="app-main-glass">
         <Outlet />

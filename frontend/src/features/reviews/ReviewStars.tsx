@@ -11,15 +11,25 @@ export function ReviewStars({ value, onChange, disabled = false }: ReviewStarsPr
     <div className="review-stars" aria-label={`평점 ${value}점`}>
       {STAR_VALUES.map((starValue) => {
         const active = starValue <= value;
+        const className = `review-stars__button${active ? ' is-active' : ''}`;
+
+        if (!onChange) {
+          return (
+            <span key={starValue} className={className} aria-hidden="true">
+              ★
+            </span>
+          );
+        }
+
         return (
           <button
             key={starValue}
-            className={`review-stars__button${active ? ' is-active' : ''}`}
+            className={className}
             type="button"
-            disabled={disabled || !onChange}
+            disabled={disabled}
             aria-label={`${starValue}점 선택`}
             aria-pressed={active}
-            onClick={() => onChange?.(starValue)}
+            onClick={() => onChange(starValue)}
           >
             ★
           </button>

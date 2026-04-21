@@ -61,6 +61,7 @@ public class AttemptService {
     private final MotionSessionRuntimeEventPublisher motionSessionRuntimeEventPublisher;
     private final AttemptAsyncPendingProperties asyncPendingProperties;
     private final AttemptJudgementTimelineService attemptJudgementTimelineService;
+    private final AttemptFinalFeedbackService attemptFinalFeedbackService;
     private final CurrentMemberService currentMemberService;
 
     public AttemptService(
@@ -75,6 +76,7 @@ public class AttemptService {
             MotionSessionRuntimeEventPublisher motionSessionRuntimeEventPublisher,
             AttemptAsyncPendingProperties asyncPendingProperties,
             AttemptJudgementTimelineService attemptJudgementTimelineService,
+            AttemptFinalFeedbackService attemptFinalFeedbackService,
             CurrentMemberService currentMemberService) {
         this.attemptRepository = attemptRepository;
         this.attemptProcessingJobRepository = attemptProcessingJobRepository;
@@ -87,6 +89,7 @@ public class AttemptService {
         this.motionSessionRuntimeEventPublisher = motionSessionRuntimeEventPublisher;
         this.asyncPendingProperties = asyncPendingProperties;
         this.attemptJudgementTimelineService = attemptJudgementTimelineService;
+        this.attemptFinalFeedbackService = attemptFinalFeedbackService;
         this.currentMemberService = currentMemberService;
     }
 
@@ -326,6 +329,14 @@ public class AttemptService {
         List<AttemptJudgementCueResponse> judgementTimeline = includeJudgementTimeline && AttemptResultSource.VIDEO_UPLOAD_AUTOSCORED.equals(resultSource)
                 ? attemptJudgementTimelineService.readTimeline(attempt.getJudgementTimelineData())
                 : List.of();
+        String strongestArea = normalizeDisplayText(attempt.getStrongestArea());
+        String weakestArea = normalizeDisplayText(attempt.getWeakestArea());
+        AttemptFinalFeedbackResponse finalFeedback = attemptFinalFeedbackService.build(
+                scoringResult.scoreAvailable(),
+                attempt.getScore(),
+                strongestArea,
+                weakestArea,
+                judgementTimeline);
 
         return new AttemptSummaryResponse(
                 attempt.getId(),
@@ -341,6 +352,7 @@ public class AttemptService {
                 scoringResult.scoreAvailable(),
                 scoringResult.resultHeadline(),
                 resolveResultSummary(attempt, scoringResult, resultSource),
+                finalFeedback,
                 judgementTimeline,
                 processingMode,
                 processingComplete,
@@ -356,8 +368,8 @@ public class AttemptService {
                 attempt.getPoseSimilarity(),
                 attempt.getTimingSimilarity(),
                 attempt.getStabilitySimilarity(),
-                normalizeDisplayText(attempt.getStrongestArea()),
-                normalizeDisplayText(attempt.getWeakestArea()),
+                strongestArea,
+                weakestArea,
                 buildCoachingTeaser(attempt, comparison, hasUploadedVideo),
                 buildRetryFocus(attempt, comparison, hasUploadedVideo),
                 buildKeepStableFocus(attempt, comparison, hasUploadedVideo),

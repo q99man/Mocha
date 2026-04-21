@@ -17,6 +17,7 @@ public record AttemptSummaryResponse(
         boolean scoreAvailable,
         String resultHeadline,
         String resultSummary,
+        AttemptFinalFeedbackResponse finalFeedback,
         List<AttemptJudgementCueResponse> judgementTimeline,
         String processingMode,
         boolean processingComplete,

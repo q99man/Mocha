@@ -16,32 +16,32 @@ export type AttemptReplayFilterOption = {
 export const ATTEMPT_REPLAY_FILTERS: AttemptReplayFilterOption[] = [
   {
     key: 'all',
-    label: 'All',
+    label: '전체',
     predicate: () => true,
   },
   {
     key: 'highlights',
-    label: 'Highlights',
+    label: '하이라이트',
     predicate: (cue, highlightCueIds) => highlightCueIds.has(cue.id),
   },
   {
     key: 'miss',
-    label: 'Miss',
+    label: '미스',
     predicate: (cue) => cue.tone === 'miss',
   },
   {
     key: 'late',
-    label: 'Late',
+    label: '늦음',
     predicate: (cue) => cue.tone === 'late',
   },
   {
     key: 'early',
-    label: 'Early',
+    label: '빠름',
     predicate: (cue) => cue.tone === 'early',
   },
   {
     key: 'stable',
-    label: 'Stable',
+    label: '안정',
     predicate: (cue) => cue.tone === 'perfect' || cue.tone === 'good' || cue.tone === 'hold',
   },
 ];
@@ -56,5 +56,5 @@ export function filterAttemptReplayCues<T extends ReplayFilterCue>(
 }
 
 export function getAttemptReplayFilterLabel(filterKey: AttemptReplayFilterKey) {
-  return ATTEMPT_REPLAY_FILTERS.find((item) => item.key === filterKey)?.label ?? 'All';
+  return ATTEMPT_REPLAY_FILTERS.find((item) => item.key === filterKey)?.label ?? '전체';
 }

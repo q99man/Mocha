@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useState } from 'react';
+﻿import { Fragment, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 
 import { formatDifficulty } from '../features/challenges/difficulty';
@@ -23,9 +23,9 @@ import type { Review, ReviewInput } from '../shared/types/review';
 
 type MyPageTab = 'ATTEMPTS' | 'POSTS' | 'REVIEWS';
 
-const ATTEMPTS_PER_PAGE = 5;
-const REVIEWS_PER_PAGE = 4;
-const POSTS_PER_PAGE = 4;
+const ATTEMPTS_PER_PAGE = 10;
+const REVIEWS_PER_PAGE = 10;
+const POSTS_PER_PAGE = 10;
 
 const INITIAL_POST_FORM: BoardPostInput = {
   category: 'FREE',
@@ -96,7 +96,7 @@ export function MyPage() {
     } catch (loadError) {
       setPosts([]);
       setPostTotalCount(0);
-      const message = loadError instanceof Error ? loadError.message : '내 게시글 목록을 불러오지 못했습니다.';
+      const message = loadError instanceof Error ? loadError.message : '게시글 목록을 불러오지 못했습니다.';
       setError(message);
       throw loadError;
     } finally {
@@ -241,12 +241,12 @@ export function MyPage() {
 
   const tabSummary = useMemo(() => {
     if (activeTab === 'ATTEMPTS') {
-      return `내 기록 ${latestAttempts.length}개`;
+      return '내 기록 ' + latestAttempts.length + '개';
     }
     if (activeTab === 'POSTS') {
-      return `내 게시글 ${postTotalCount}개`;
+      return '내 게시글 ' + postTotalCount + '개';
     }
-    return `내 후기 ${reviews.length}개`;
+    return '내 후기 ' + reviews.length + '개';
   }, [activeTab, latestAttempts.length, postTotalCount, reviews.length]);
 
   function resetInlineStates() {
@@ -555,7 +555,7 @@ export function MyPage() {
       <div className="glass-page board-page-compact">
         <section className="board-compact-shell board-compact-shell--detail mypage-compact-shell">
           <div className="glass-panel glass-panel--empty">
-            <strong>마이페이지를 불러오지 못했습니다.</strong>
+            <strong>마이페이지 정보를 불러오지 못했습니다.</strong>
             <p>{error}</p>
           </div>
         </section>
@@ -591,7 +591,7 @@ export function MyPage() {
             {pagedAttempts.length === 0 ? (
               <div className="glass-panel glass-panel--nested glass-panel--empty">
                 <strong>아직 저장된 기록이 없습니다.</strong>
-                <p>챌린지에 도전하면 이곳에 결과 기록이 쌓입니다.</p>
+                <p>챌린지를 완료하면 여기서 바로 확인할 수 있습니다.</p>
               </div>
             ) : (
               <div className="mypage-compact-table">
@@ -622,7 +622,7 @@ export function MyPage() {
                           }}
                         >
                           <div className="mypage-compact-row__status">
-                            <span className={`board-classic-badge${attempt.processingComplete ? ' is-pinned' : ''}`}>
+                            <span className={"board-classic-badge" + (attempt.processingComplete ? " is-pinned" : "")}>
                               {attempt.processingComplete ? '완료' : '처리중'}
                             </span>
                           </div>
@@ -632,7 +632,7 @@ export function MyPage() {
                             </button>
                           </div>
                           <div className="mypage-compact-row__metric">
-                            {attempt.scoreAvailable ? `${attempt.score}점` : '-'}
+                            {attempt.scoreAvailable ? attempt.score + '점' : '-'}
                           </div>
                           <div className="mypage-compact-row__meta">{formatResultSource(attempt.resultSource)}</div>
                           <div className="mypage-compact-row__date">{formatDate(attempt.attemptedAt)}</div>
@@ -658,7 +658,7 @@ export function MyPage() {
                             </div>
 
                             <div className="mypage-inline-meta">
-                              <span>{attempt.scoreAvailable ? `점수 ${attempt.score}점` : '점수 산출 전'}</span>
+                              <span>{attempt.scoreAvailable ? '점수 ' + attempt.score + '점' : '점수 산출 전'}</span>
                               <span>{formatResultSource(attempt.resultSource)}</span>
                               <span>{toAttemptAreaLabel(attempt.strongestArea, '강점 없음')}</span>
                               <span>{toAttemptAreaLabel(attempt.weakestArea, '보완 영역 없음')}</span>
@@ -666,11 +666,11 @@ export function MyPage() {
 
                             <article className="mypage-inline-content">
                               {attempt.resultHeadline}
-                              {'\n'}
-                              {'\n'}
+                              {"\n"}
+                              {"\n"}
                               {attempt.resultSummary}
-                              {attempt.coachingTeaser ? `\n\n코칭: ${attempt.coachingTeaser}` : ''}
-                              {attempt.processingNotice ? `\n\n안내: ${attempt.processingNotice}` : ''}
+                              {attempt.coachingTeaser ? "\n\n코칭: " + attempt.coachingTeaser : ""}
+                              {attempt.processingNotice ? "\n\n안내: " + attempt.processingNotice : ""}
                             </article>
                           </section>
                         ) : null}
@@ -688,7 +688,7 @@ export function MyPage() {
         {activeTab === 'POSTS' ? (
           <>
             <div className="mypage-inline-toolbar">
-              <p className="mypage-inline-toolbar__note">게시글 제목을 누르면 아래에서 바로 상세보기와 수정이 열립니다.</p>
+              <p className="mypage-inline-toolbar__note">게시글 항목을 누르면 아래에서 바로 상세보기와 수정이 열립니다.</p>
               <div className="inline-actions board-actions-right">
                 <button className="button-link button-link--compact" type="button" onClick={handleStartCreatePost}>
                   글쓰기
@@ -700,8 +700,8 @@ export function MyPage() {
               <section className="mypage-inline-detail mypage-inline-detail--editor">
                 <div className="mypage-inline-detail__header">
                   <div>
-                    <strong>내 게시글 작성</strong>
-                    <p>게시판 톤에 맞춰 간단하게 작성하고 바로 등록할 수 있습니다.</p>
+                    <strong>새 게시글 작성</strong>
+                    <p>게시판에 맞게 간단하게 작성하고 바로 등록할 수 있습니다.</p>
                   </div>
                   <div className="inline-actions board-actions-right">
                     <button
@@ -767,21 +767,21 @@ export function MyPage() {
 
             {postsLoading ? (
               <div className="glass-panel glass-panel--nested glass-panel--empty">
-                <strong>내 게시글을 불러오는 중입니다.</strong>
+                <strong>게시글을 불러오는 중입니다.</strong>
               </div>
             ) : posts.length === 0 ? (
               <div className="glass-panel glass-panel--nested glass-panel--empty">
                 <strong>아직 작성한 게시글이 없습니다.</strong>
-                <p>게시판에서 글을 작성하면 이곳에서 바로 확인할 수 있습니다.</p>
+                <p>게시판에서 글을 작성하면 여기서 바로 확인할 수 있습니다.</p>
               </div>
             ) : (
               <div className="mypage-compact-table">
                 <div className="mypage-compact-table__head mypage-compact-table__head--posts" role="presentation">
                   <span>분류</span>
                   <span>제목</span>
-                  <span>작성일</span>
-                  <span>조회</span>
+                  <span>조회수</span>
                   <span>댓글</span>
+                  <span>작성일</span>
                 </div>
 
                 <div className="mypage-compact-table__body">
@@ -805,7 +805,7 @@ export function MyPage() {
                           }}
                         >
                           <div className="mypage-compact-row__status">
-                            <span className={`board-compact-badge${post.pinned ? ' is-pinned' : ''}`}>
+                            <span className={"board-compact-badge" + (post.pinned ? " is-pinned" : "")}>
                               {toCategoryLabel(post.category)}
                             </span>
                           </div>
@@ -814,11 +814,10 @@ export function MyPage() {
                               {post.title}
                             </button>
                           </div>
-                          <div className="mypage-compact-row__date">{formatDate(post.createdAt)}</div>
                           <div className="mypage-compact-row__metric">{post.viewCount}</div>
                           <div className="mypage-compact-row__metric">{post.commentCount}</div>
+                          <div className="mypage-compact-row__date">{formatDate(post.createdAt)}</div>
                         </article>
-
                         {isExpanded ? (
                           <section className="mypage-inline-detail">
                             {postDetailLoadingId === post.id ? (
@@ -886,7 +885,7 @@ export function MyPage() {
                                           }}
                                           disabled={postBusy || !postForm.title.trim() || !postForm.content.trim()}
                                         >
-                                          {postBusy ? '저장 중...' : '저장하기'}
+                                          {postBusy ? '수정 중...' : '수정하기'}
                                         </button>
                                       </>
                                     )}
@@ -896,16 +895,16 @@ export function MyPage() {
                                 {!isEditing ? (
                                   <>
                                     <div className="mypage-inline-meta">
-                                      <span>조회 {detail.viewCount}</span>
-                                      <span>댓글 {detail.commentCount}</span>
-                                      <span>수정 {formatDate(detail.updatedAt)}</span>
+                                      <span>議고쉶 {detail.viewCount}</span>
+                                      <span>?볤? {detail.commentCount}</span>
+                                      <span>?섏젙 {formatDate(detail.updatedAt)}</span>
                                     </div>
                                     <article className="mypage-inline-content">{detail.content}</article>
                                   </>
                                 ) : (
                                   <div className="mypage-inline-form">
                                     <CompactSegmentedControl
-                                      label="분류"
+                                      label="遺꾨쪟"
                                       value={postForm.category}
                                       options={POST_CATEGORY_OPTIONS}
                                       disabled={postBusy}
@@ -918,7 +917,7 @@ export function MyPage() {
                                     />
 
                                     <label className="mypage-inline-field">
-                                      <span>제목</span>
+                                      <span>?쒕ぉ</span>
                                       <input
                                         type="text"
                                         value={postForm.title}
@@ -931,7 +930,7 @@ export function MyPage() {
                                     </label>
 
                                     <label className="mypage-inline-field">
-                                      <span>내용</span>
+                                      <span>?댁슜</span>
                                       <textarea
                                         value={postForm.content}
                                         rows={8}
@@ -965,13 +964,13 @@ export function MyPage() {
         {activeTab === 'REVIEWS' ? (
           <>
             <div className="mypage-inline-toolbar">
-              <p className="mypage-inline-toolbar__note">후기 제목을 누르면 아래에서 상세보기, 수정, 챌린지 이동이 바로 열립니다.</p>
+              <p className="mypage-inline-toolbar__note">후기 항목을 누르면 아래에서 상세보기, 수정, 삭제가 바로 열립니다.</p>
             </div>
 
             {pagedReviews.length === 0 ? (
               <div className="glass-panel glass-panel--nested glass-panel--empty">
                 <strong>작성한 후기가 아직 없습니다.</strong>
-                <p>챌린지에 참여한 뒤 후기 버튼으로 바로 남길 수 있습니다.</p>
+                <p>챌린지에 참여하면 후기 버튼으로 바로 등록할 수 있습니다.</p>
               </div>
             ) : (
               <div className="mypage-compact-table">
@@ -1001,7 +1000,9 @@ export function MyPage() {
                             }
                           }}
                         >
-                          <div className="mypage-compact-row__meta">{challengeDifficultyById[review.challengeId] ?? '-'}</div>
+                          <div className="mypage-compact-row__status">
+                            <span className="board-compact-badge">{challengeDifficultyById[review.challengeId] ?? '-'}</span>
+                          </div>
                           <div className="mypage-compact-row__title">
                             <button className="mypage-inline-trigger" type="button">
                               {review.challengeTitle}
@@ -1029,7 +1030,7 @@ export function MyPage() {
                                     void navigate(`/challenges?panel=reviews&challengeId=${review.challengeId}`);
                                   }}
                                 >
-                                  챌린지 후기 보기
+                                  챌린지 보기
                                 </button>
                                 {!isEditing ? (
                                   <>
@@ -1077,7 +1078,7 @@ export function MyPage() {
                                       }}
                                       disabled={reviewBusy || !reviewForm.content.trim()}
                                     >
-                                      {reviewBusy ? '저장 중...' : '저장하기'}
+                                      {reviewBusy ? '수정 중...' : '수정하기'}
                                     </button>
                                   </>
                                 )}
@@ -1096,7 +1097,7 @@ export function MyPage() {
                             ) : (
                               <div className="mypage-inline-form">
                                 <label className="mypage-inline-field">
-                                  <span>별점</span>
+                                  <span>蹂꾩젏</span>
                                   <div className="mypage-inline-stars">
                                     <ReviewStars
                                       value={reviewForm.rating}
@@ -1145,8 +1146,8 @@ export function MyPage() {
         title={confirmState.type === 'delete-post' ? '게시글 삭제' : '후기 삭제'}
         description={
           confirmState.type === 'delete-post'
-            ? '선택한 게시글을 삭제하면 마이페이지와 게시판 목록에서 함께 정리됩니다.'
-            : '선택한 후기를 삭제하면 챌린지 후기 목록에서도 바로 사라집니다.'
+            ? '선택한 게시글을 삭제하면 마이페이지와 게시글 목록에서 바로 사라집니다.'
+            : '선택한 후기를 삭제하면 챌린지 후기 목록에서 바로 사라집니다.'
         }
         confirmLabel="삭제"
         cancelLabel="취소"
@@ -1193,12 +1194,8 @@ function toAttemptAreaLabel(value: AttemptSummary['strongestArea'] | AttemptSumm
   }
 
   switch (value) {
-    case 'pose shape':
-      return '포즈 형태';
-    case 'pose timing':
-      return '포즈 타이밍';
     case 'detection quality':
-      return '감지 안정성';
+      return '감지 정밀도';
     default:
       return value;
   }

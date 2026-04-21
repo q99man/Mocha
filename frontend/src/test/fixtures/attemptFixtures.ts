@@ -15,6 +15,7 @@ export function buildAttemptSummary(overrides: Partial<AttemptSummary> = {}): At
     scoreAvailable: false,
     resultHeadline: 'Attempt pending',
     resultSummary: 'Waiting for analysis.',
+    finalFeedback: null,
     judgementTimeline: [],
     processingMode: 'ASYNC_JOB_PENDING',
     processingComplete: false,

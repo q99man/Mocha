@@ -36,9 +36,7 @@ export function buildAttemptJudgementInsights(cues: AttemptJudgementCue[]): Atte
   const stableCount = cues.filter((cue) => cue.verdict === 'PERFECT' || cue.verdict === 'GOOD' || cue.verdict === 'HOLD').length;
   const perfectCount = cues.filter((cue) => cue.verdict === 'PERFECT').length;
   const missCount = cues.filter((cue) => cue.verdict === 'MISS').length;
-  const averageOffset = Math.round(
-    cues.reduce((sum, cue) => sum + cue.offsetMs, 0) / Math.max(1, cues.length),
-  );
+  const averageOffset = Math.round(cues.reduce((sum, cue) => sum + cue.offsetMs, 0) / Math.max(1, cues.length));
   const lateCount = cues.filter((cue) => cue.verdict === 'LATE' || cue.offsetMs >= 18).length;
   const earlyCount = cues.filter((cue) => cue.verdict === 'EARLY' || cue.offsetMs <= -18).length;
   const maxComboCue = cues.reduce((best, cue) => {
@@ -55,45 +53,45 @@ export function buildAttemptJudgementInsights(cues: AttemptJudgementCue[]): Atte
   const weakSectionValue =
     weakestBucket != null
       ? weakestBucket.startSecond === weakestBucket.endSecond
-        ? `${padSecond(weakestBucket.startSecond)} sec`
-        : `${padSecond(weakestBucket.startSecond)}-${padSecond(weakestBucket.endSecond)} sec`
-      : 'Balanced';
+        ? `${padSecond(weakestBucket.startSecond)}초`
+        : `${padSecond(weakestBucket.startSecond)}-${padSecond(weakestBucket.endSecond)}초`
+      : '균형';
   const weakSectionDescription =
     weakestBucket != null
-      ? `${countIssueCues(weakestBucket.cues)} unstable cues, ${countMissCues(weakestBucket.cues)} misses in the roughest window.`
-      : 'No unstable window was detected.';
-  const bestRunValue = maxComboCue && maxComboCue.combo > 0 ? `${maxComboCue.combo} combo` : 'Short chains';
+      ? `흔들림 ${countIssueCues(weakestBucket.cues)} / 미스 ${countMissCues(weakestBucket.cues)}`
+      : '안정';
+  const bestRunValue = maxComboCue && maxComboCue.combo > 0 ? `${maxComboCue.combo} 콤보` : '짧음';
   const bestRunDescription =
     maxComboCue && maxComboCue.combo > 0
-      ? `Peak flow arrived near ${padSecond(maxComboCue.second)} sec with ${maxComboCue.verdict.toLowerCase()} timing.`
-      : 'No long stable combo formed yet.';
+      ? `${padSecond(maxComboCue.second)}초 부근 · ${maxComboCue.verdict.toLowerCase()}`
+      : '아직 긴 안정 구간이 없습니다.';
 
   return {
     cards: [
       {
         id: 'flow-stability',
-        title: 'Flow stability',
+        title: '흐름',
         value: `${stableRate}%`,
-        description: `${perfectCount} perfect cues kept, ${missCount} misses broke the run.`,
+        description: `퍼펙트 ${perfectCount} · 미스 ${missCount}`,
         tone: stableRate >= 80 ? 'good' : stableRate >= 60 ? 'accent' : 'warning',
       },
       {
         id: 'timing-drift',
-        title: 'Timing drift',
+        title: '타이밍',
         value: timingInsight.value,
         description: timingInsight.description,
         tone: timingInsight.tone,
       },
       {
         id: 'weak-section',
-        title: 'Weak section',
+        title: '약한 구간',
         value: weakSectionValue,
         description: weakSectionDescription,
         tone: weakestBucket && weakestBucket.penalty >= 6 ? 'danger' : 'warning',
       },
       {
         id: 'retry-focus',
-        title: 'Retry focus',
+        title: '재도전',
         value: bestRunValue,
         description: buildRetryFocusDescription(timingInsight.value, weakSectionValue, bestRunDescription),
         tone: 'accent',
@@ -106,23 +104,23 @@ export function buildAttemptJudgementInsights(cues: AttemptJudgementCue[]): Atte
 function buildTimingInsight(averageOffset: number, earlyCount: number, lateCount: number, cueCount: number) {
   if (Math.abs(averageOffset) <= 12 && Math.abs(lateCount - earlyCount) <= 1) {
     return {
-      value: 'Balanced',
-      description: `Average drift stayed near center at ${formatOffset(averageOffset)} across ${cueCount} cues.`,
+      value: '균형',
+      description: `평균 ${formatOffset(averageOffset)} · ${cueCount}큐`,
       tone: 'good' as const,
     };
   }
 
   if (averageOffset > 0 || lateCount > earlyCount) {
     return {
-      value: 'Mostly late',
-      description: `${lateCount} cues landed behind the beat. Average drift was ${formatOffset(averageOffset)}.`,
+      value: '주로 늦음',
+      description: `늦음 ${lateCount} · 평균 ${formatOffset(averageOffset)}`,
       tone: lateCount >= Math.ceil(cueCount / 3) ? ('warning' as const) : ('accent' as const),
     };
   }
 
   return {
-    value: 'Mostly early',
-    description: `${earlyCount} cues fired ahead of the beat. Average drift was ${formatOffset(averageOffset)}.`,
+    value: '주로 빠름',
+    description: `빠름 ${earlyCount} · 평균 ${formatOffset(averageOffset)}`,
     tone: earlyCount >= Math.ceil(cueCount / 3) ? ('warning' as const) : ('accent' as const),
   };
 }
@@ -186,15 +184,15 @@ function buildHighlightCueIds(cues: AttemptJudgementCue[], weakestBucket: CueBuc
 }
 
 function buildRetryFocusDescription(timingValue: string, weakSectionValue: string, bestRunDescription: string) {
-  if (timingValue === 'Mostly late') {
-    return `Start the move a touch earlier and rehearse the ${weakSectionValue} window first. ${bestRunDescription}`;
+  if (timingValue === '주로 늦음') {
+    return `조금 더 일찍. ${weakSectionValue}부터. ${bestRunDescription}`;
   }
 
-  if (timingValue === 'Mostly early') {
-    return `Hold the pose a fraction longer and rebuild consistency around ${weakSectionValue}. ${bestRunDescription}`;
+  if (timingValue === '주로 빠름') {
+    return `조금 더 길게. ${weakSectionValue}부터. ${bestRunDescription}`;
   }
 
-  return `Keep the current timing center and clean up the ${weakSectionValue} window. ${bestRunDescription}`;
+  return `현재 중심 유지. ${weakSectionValue} 정리. ${bestRunDescription}`;
 }
 
 function buildPenalty(cue: AttemptJudgementCue) {

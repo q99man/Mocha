@@ -63,6 +63,7 @@ export function ChallengesPage() {
   const fadeTimerRef = useRef<number | null>(null);
   const selectDebounceRef = useRef<number | null>(null);
   const firstPreviewStartedRef = useRef(false);
+  const challengeItemRefs = useRef<Record<number, HTMLDivElement | null>>({});
 
   const selectedChallengeIdFromQuery = Number(searchParams.get('challengeId') ?? '');
   const modalChallenge = useMemo(
@@ -177,6 +178,22 @@ export function ChallengesPage() {
     () => challenges.find((challenge) => challenge.id === selectedId) ?? null,
     [challenges, selectedId],
   );
+
+  useEffect(() => {
+    if (activePanel !== 'list' || selectedId == null) {
+      return;
+    }
+
+    const selectedItem = challengeItemRefs.current[selectedId];
+    if (!selectedItem) {
+      return;
+    }
+
+    window.requestAnimationFrame(() => {
+      selectedItem.focus({ preventScroll: true });
+      selectedItem.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    });
+  }, [activePanel, selectedId]);
 
   useEffect(() => {
     setReviewFormOpen(false);
@@ -376,9 +393,33 @@ export function ChallengesPage() {
   );
 
   function handleItemKeyDown(event: KeyboardEvent<HTMLElement>, challengeId: number) {
+    const currentIndex = filteredChallenges.findIndex((challenge) => challenge.id === challengeId);
+
+    if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
+      event.preventDefault();
+
+      if (currentIndex < 0 || filteredChallenges.length === 0) {
+        return;
+      }
+
+      const nextIndex =
+        event.key === 'ArrowDown'
+          ? Math.min(filteredChallenges.length - 1, currentIndex + 1)
+          : Math.max(0, currentIndex - 1);
+      const nextChallenge = filteredChallenges[nextIndex];
+
+      if (!nextChallenge || nextChallenge.id === challengeId) {
+        return;
+      }
+
+      handleItemClick(nextChallenge.id);
+      return;
+    }
+
     if (event.key === 'Enter' || event.key === ' ') {
       event.preventDefault();
-      handleItemClick(challengeId);
+      setSelectedId(challengeId);
+      setModalChallengeId(challengeId);
     }
   }
 
@@ -656,11 +697,17 @@ export function ChallengesPage() {
                 filteredChallenges.map((challenge) => (
                   <div
                     key={challenge.id}
+                    ref={(node) => {
+                      challengeItemRefs.current[challenge.id] = node;
+                    }}
                     className={`song-select__item${selectedId === challenge.id ? ' song-select__item--active' : ''}`}
                     role="button"
-                    tabIndex={0}
+                    tabIndex={selectedId === challenge.id ? 0 : -1}
                     onClick={() => handleItemClick(challenge.id)}
                     onKeyDown={(event) => handleItemKeyDown(event, challenge.id)}
+                    onFocus={() => {
+                      setSelectedId(challenge.id);
+                    }}
                     onDoubleClick={() => {
                       setSelectedId(challenge.id);
                       setModalChallengeId(challenge.id);

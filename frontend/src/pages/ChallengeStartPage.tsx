@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+﻿import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 
 import '../features/challenges/challenge-play.css';
@@ -788,33 +788,38 @@ export function ChallengeStartPage() {
         ) : null}
       </div>
 
-      {playState === 'clear' ? (
-        <div className="play-stage__clear-overlay">
-          <span className="play-stage__clear-text">Challenge Clear</span>
-        </div>
-      ) : null}
-
-      {playState === 'analyzing' ? (
-        <div className="play-stage__analyzing-overlay">
-          <div className="play-stage__analyzing-panel">
-            <span className="play-stage__analyzing-eyebrow">Analyzing</span>
-            <h2>{flowMode === 'test' ? '테스트 결과를 정리하고 있습니다.' : '실제 플레이 영상을 업로드하고 분석하고 있습니다.'}</h2>
-            <p>
-              {flowMode === 'test'
-                ? '카메라 없이 플레이 흐름만 확인한 테스트 결과입니다.'
-                : '업로드가 끝나면 자동채점 결과 페이지로 바로 이동합니다.'}
-            </p>
-
-            <div className="play-stage__analysis-list">
-              {analysisSteps.map((step) => (
-                <div className="play-stage__analysis-item" key={step}>
-                  <span className="play-stage__analysis-dot" />
-                  <span>{step}</span>
-                </div>
-              ))}
+      {playState === 'clear' || playState === 'analyzing' ? (
+        <div className={`play-stage__transition-overlay play-stage__transition-overlay--${playState}`}>
+          <div className="play-stage__transition-body">
+            <div className="play-stage__transition-clear" aria-hidden={playState !== 'clear'}>
+              <span className="play-stage__clear-text">Challenge Clear</span>
+              <span className="play-stage__clear-note">
+                {flowMode === 'test' ? '테스트 결과를 정리하고 있습니다.' : '분석을 이어서 준비하고 있습니다.'}
+              </span>
             </div>
 
-            {resultError ? <p className="play-stage__analysis-error">{resultError}</p> : null}
+            <div className="play-stage__transition-analysis" aria-hidden={playState !== 'analyzing'}>
+              <div className="play-stage__analyzing-panel">
+                <span className="play-stage__analyzing-eyebrow">Analyzing</span>
+                <h2>{flowMode === 'test' ? '테스트 결과를 정리하고 있습니다.' : '실제 플레이 영상을 업로드하고 분석하고 있습니다.'}</h2>
+                <p>
+                  {flowMode === 'test'
+                    ? '카메라 없이 플레이 흐름만 확인한 테스트 결과입니다.'
+                    : '업로드가 끝나면 자동채점 결과 페이지로 바로 이동합니다.'}
+                </p>
+
+                <div className="play-stage__analysis-list">
+                  {analysisSteps.map((step) => (
+                    <div className="play-stage__analysis-item" key={step}>
+                      <span className="play-stage__analysis-dot" />
+                      <span>{step}</span>
+                    </div>
+                  ))}
+                </div>
+
+                {resultError ? <p className="play-stage__analysis-error">{resultError}</p> : null}
+              </div>
+            </div>
           </div>
         </div>
       ) : null}

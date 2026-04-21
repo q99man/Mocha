@@ -54,6 +54,9 @@ public class DefaultScoringService implements ScoringService {
         int score = clamp((int) Math.round(weightedScore), 0, 100);
         score = applyPrimaryAxisCap(score, poseSimilarity, timingSimilarity);
         score = applyDiscriminationCurve(score, poseSimilarity, timingSimilarity);
+        if (reference.hasAnalysisSummary() && attempt.hasAnalysisSummary()) {
+            score = applyStabilityTieBreaker(score, stabilitySimilarity);
+        }
         String strongestArea = resolveStrongestArea(poseSimilarity, timingSimilarity, stabilitySimilarity);
         String weakestArea = resolveWeakestArea(poseSimilarity, timingSimilarity, stabilitySimilarity);
         String summary = buildSummary(
@@ -271,8 +274,9 @@ public class DefaultScoringService implements ScoringService {
                 Math.abs(reference.signals().jointRangePeak() - attempt.signals().jointRangePeak()),
                 compareSharedJointMetric(reference.signals().joints(), attempt.signals().joints(), JointSignal::mean, focusJointWeights),
                 compareSharedJointMetric(reference.signals().joints(), attempt.signals().joints(), JointSignal::range, focusJointWeights));
+        double focusProfileGap = compareFocusProfiles(reference.focusProfile(), attempt.focusProfile());
         double summaryDifference = average(symmetryGap, jointShapeGap);
-        return landmarkDifference * 0.70 + summaryDifference * 0.30;
+        return landmarkDifference * 0.52 + summaryDifference * 0.20 + focusProfileGap * 0.28;
     }
 
     private double calculateTimingDifference(ParsedMotionProfile reference, ParsedMotionProfile attempt) {
@@ -280,7 +284,7 @@ public class DefaultScoringService implements ScoringService {
         double frameSpanGap = ratioGap(reference.frameSpan(), attempt.frameSpan());
 
         List<PoseDescriptor> referenceDescriptors = buildNormalizedPoseDescriptors(reference.frames(), 14, reference.focusProfile(), true);
-        List<PoseDescriptor> attemptDescriptors = buildNormalizedPoseDescriptors(attempt.frames(), 14, FocusProfile.empty(), false);
+        List<PoseDescriptor> attemptDescriptors = buildNormalizedPoseDescriptors(attempt.frames(), 14, reference.focusProfile(), true);
 
         if (referenceDescriptors.size() < 2 || attemptDescriptors.size() < 2) {
             double sampleGap = ratioGap(reference.sampleCount(), attempt.sampleCount());
@@ -539,6 +543,22 @@ public class DefaultScoringService implements ScoringService {
         return clamp(score, 0, 100);
     }
 
+    private int applyStabilityTieBreaker(int score, int stabilitySimilarity) {
+        if (stabilitySimilarity >= 95) {
+            return clamp(score + 2, 0, 100);
+        }
+        if (stabilitySimilarity >= 90) {
+            return clamp(score + 1, 0, 100);
+        }
+        if (stabilitySimilarity <= 80) {
+            return clamp(score - 2, 0, 100);
+        }
+        if (stabilitySimilarity <= 86) {
+            return clamp(score - 1, 0, 100);
+        }
+        return score;
+    }
+
     private String buildSummary(
             int score,
             String strongestArea,
@@ -770,6 +790,59 @@ public class DefaultScoringService implements ScoringService {
             weightTotal += weight;
         }
         return weightTotal > 0.0 ? weightedTotal / weightTotal : 0.0;
+    }
+
+    private double compareFocusProfiles(FocusProfile reference, FocusProfile attempt) {
+        if ((reference == null || (reference.primaryJoints().isEmpty() && reference.segments().isEmpty()))
+                || (attempt == null || (attempt.primaryJoints().isEmpty() && attempt.segments().isEmpty()))) {
+            return 0.0;
+        }
+
+        double primaryGap = compareWeightedTargets(reference.primaryJoints(), attempt.primaryJoints());
+        int segmentComparisons = Math.max(1, Math.min(reference.segments().size(), attempt.segments().size()));
+        double segmentGapTotal = 0.0;
+        for (int index = 0; index < segmentComparisons; index++) {
+            FocusSegment referenceSegment = reference.segments().get(index);
+            FocusSegment attemptSegment = attempt.segments().get(index);
+            double dominantRegionGap = referenceSegment.dominantRegion().equalsIgnoreCase(attemptSegment.dominantRegion()) ? 0.0 : 0.35;
+            double poseWeightGap = Math.abs(referenceSegment.poseWeight() - attemptSegment.poseWeight());
+            double timingWeightGap = Math.abs(referenceSegment.timingWeight() - attemptSegment.timingWeight());
+            double jointWeightGap = compareJointWeightMaps(referenceSegment.jointWeights(), attemptSegment.jointWeights());
+            segmentGapTotal += average(dominantRegionGap, poseWeightGap, timingWeightGap, jointWeightGap);
+        }
+
+        double segmentGap = segmentGapTotal / segmentComparisons;
+        return average(primaryGap, segmentGap);
+    }
+
+    private double compareWeightedTargets(List<WeightedFocusTarget> referenceTargets, List<WeightedFocusTarget> attemptTargets) {
+        Map<String, Double> referenceWeights = new LinkedHashMap<>();
+        for (WeightedFocusTarget target : referenceTargets) {
+            referenceWeights.put(target.name(), target.weight());
+        }
+
+        Map<String, Double> attemptWeights = new LinkedHashMap<>();
+        for (WeightedFocusTarget target : attemptTargets) {
+            attemptWeights.put(target.name(), target.weight());
+        }
+        return compareJointWeightMaps(referenceWeights, attemptWeights);
+    }
+
+    private double compareJointWeightMaps(Map<String, Double> referenceWeights, Map<String, Double> attemptWeights) {
+        if (referenceWeights.isEmpty() || attemptWeights.isEmpty()) {
+            return 0.0;
+        }
+
+        double weightedGapTotal = 0.0;
+        double weightTotal = 0.0;
+        for (Map.Entry<String, Double> entry : referenceWeights.entrySet()) {
+            double referenceWeight = entry.getValue();
+            double attemptWeight = attemptWeights.getOrDefault(entry.getKey(), 0.0);
+            double weight = Math.max(0.35, referenceWeight);
+            weightedGapTotal += Math.abs(referenceWeight - attemptWeight) * weight;
+            weightTotal += weight;
+        }
+        return weightTotal > 0.0 ? weightedGapTotal / weightTotal : 0.0;
     }
 
     private double relativePointGap(List<FrameLandmarkSet> referenceFrames, List<FrameLandmarkSet> attemptFrames, String pointName) {

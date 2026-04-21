@@ -36,6 +36,7 @@ public class AttemptVideoProcessingService {
     private final ScoringService scoringService;
     private final SimpleScoringPreviewService simpleScoringPreviewService;
     private final AttemptJudgementTimelineService attemptJudgementTimelineService;
+    private final AttemptFinalFeedbackService attemptFinalFeedbackService;
     private final VideoStorageService videoStorageService;
 
     public AttemptVideoProcessingService(
@@ -46,6 +47,7 @@ public class AttemptVideoProcessingService {
             ScoringService scoringService,
             SimpleScoringPreviewService simpleScoringPreviewService,
             AttemptJudgementTimelineService attemptJudgementTimelineService,
+            AttemptFinalFeedbackService attemptFinalFeedbackService,
             VideoStorageService videoStorageService) {
         this.attemptRepository = attemptRepository;
         this.attemptProcessingJobRepository = attemptProcessingJobRepository;
@@ -54,6 +56,7 @@ public class AttemptVideoProcessingService {
         this.scoringService = scoringService;
         this.simpleScoringPreviewService = simpleScoringPreviewService;
         this.attemptJudgementTimelineService = attemptJudgementTimelineService;
+        this.attemptFinalFeedbackService = attemptFinalFeedbackService;
         this.videoStorageService = videoStorageService;
     }
 
@@ -113,6 +116,12 @@ public class AttemptVideoProcessingService {
         SimpleScoringResult previewResult = simpleScoringPreviewService.buildResult(
                 attempt.getStatus(),
                 scoringResult.score());
+        AttemptFinalFeedbackResponse finalFeedback = attemptFinalFeedbackService.build(
+                previewResult.scoreAvailable(),
+                scoringResult.score(),
+                scoringResult.strongestArea(),
+                scoringResult.weakestArea(),
+                judgementTimeline);
 
         return new AttemptResultResponse(
                 attempt.getId(),
@@ -125,6 +134,7 @@ public class AttemptVideoProcessingService {
                 previewResult.scoreAvailable(),
                 previewResult.resultHeadline(),
                 scoringResult.summary(),
+                finalFeedback,
                 judgementTimeline,
                 attemptAnalysis.analyzerName(),
                 attempt.getProcessingMode(),
