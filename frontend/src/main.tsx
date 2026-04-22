@@ -3,7 +3,9 @@ import ReactDOM from 'react-dom/client';
 import { RouterProvider } from 'react-router-dom';
 import { router } from './app/router';
 import { AuthProvider } from './shared/auth/AuthProvider';
+import './app/overlays.css';
 import './app/styles.css';
+import './app/admin.css';
 import './app/landing.css';
 
 ReactDOM.createRoot(document.getElementById('root')!).render(

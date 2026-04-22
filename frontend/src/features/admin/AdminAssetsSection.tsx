@@ -84,7 +84,7 @@ export function AdminAssetsSection({
           label="모델 파일"
           accept=".task"
           buttonLabel="모델 선택"
-          emptyLabel=".task 모델 파일을 선택해 주세요."
+          emptyLabel="task 모델 파일을 선택해 주세요."
           selectedFileName={selectedModelFile?.name ?? null}
           disabled={uploading}
           onSelect={onSelectModelFile}

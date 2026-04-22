@@ -59,7 +59,10 @@ public class AttemptController {
         return attemptService.createPrototypeAttempt(request);
     }
 
-    @PostMapping(value = "/video", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PostMapping(
+            value = "/video",
+            consumes = MediaType.MULTIPART_FORM_DATA_VALUE,
+            produces = "application/json;charset=UTF-8")
     @ResponseStatus(HttpStatus.CREATED)
     public AttemptResultResponse submitAttemptVideo(@Valid @ModelAttribute AttemptVideoUploadRequest request) {
         return attemptService.submitAttemptVideo(request);

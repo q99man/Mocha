@@ -30,11 +30,19 @@ export function CompactFileField({
     inputRef.current?.click();
   }
 
-  function handleClear() {
+  function handleClear(event: React.MouseEvent) {
+    event.stopPropagation();
     if (inputRef.current) {
       inputRef.current.value = '';
     }
     onSelect(null);
+  }
+
+  function handleKeyDown(event: React.KeyboardEvent) {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      handleOpenPicker();
+    }
   }
 
   return (
@@ -49,13 +57,16 @@ export function CompactFileField({
         disabled={disabled}
         onChange={(event) => onSelect(event.target.files?.[0] ?? null)}
       />
-      <div className="compact-file">
-        <button type="button" className="compact-file__button" onClick={handleOpenPicker} disabled={disabled}>
-          {buttonLabel}
-        </button>
+      <div
+        className={`compact-file${disabled ? ' is-disabled' : ''}`}
+        role="button"
+        tabIndex={disabled ? -1 : 0}
+        onClick={handleOpenPicker}
+        onKeyDown={handleKeyDown}
+        aria-disabled={disabled}
+      >
         <div className="compact-file__summary">
           <strong>{selectedFileName ?? emptyLabel}</strong>
-          <span>{selectedFileName ? '선택 완료' : '파일을 고르면 바로 반영됩니다.'}</span>
         </div>
         {selectedFileName ? (
           <button

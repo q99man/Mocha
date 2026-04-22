@@ -160,6 +160,95 @@ describe('AttemptResultPage', () => {
     await waitFor(() => expect(mockedGetAttemptById).toHaveBeenCalledTimes(2));
     expect(screen.queryByRole('button', { name: '갱신' })).not.toBeInTheDocument();
   });
+
+  it('renders score spot insights and timeline cards for auto-scored attempts', async () => {
+    mockedGetAttemptById.mockResolvedValue(
+      buildAttemptSummary({
+        id: 31,
+        challengeId: 42,
+        challengeTitle: 'Wave Combo',
+        score: 89,
+        status: 'Completed',
+        resultSource: 'VIDEO_UPLOAD_AUTOSCORED',
+        scoreAvailable: true,
+        resultHeadline: 'Wave result ready',
+        resultSummary: 'Auto-scored result summary.',
+        processingMode: 'SYNC_INLINE',
+        processingComplete: true,
+        processingNotice: null,
+        pendingTrackingId: null,
+        durableProgressStatus: 'COMPLETED',
+        completionStrategy: 'INLINE_FLOW',
+        poseSimilarity: 92,
+        timingSimilarity: 86,
+        stabilitySimilarity: 81,
+        strongestArea: 'pose shape',
+        weakestArea: 'pose timing',
+        retryFocus: 'Keep the next retry tighter on pose timing first.',
+        keepStableFocus: 'Keep pose shape stable on the next retry.',
+        judgementTimeline: [
+          {
+            id: 1,
+            beatIndex: 0,
+            second: 0,
+            triggerMs: 0,
+            windowMs: 180,
+            lane: 1,
+            accent: true,
+            combo: 1,
+            verdict: 'PERFECT',
+            source: 'motion-analysis',
+            offsetMs: 4,
+            confidence: 0.96,
+          },
+          {
+            id: 2,
+            beatIndex: 1,
+            second: 1,
+            triggerMs: 1000,
+            windowMs: 180,
+            lane: 2,
+            accent: false,
+            combo: 0,
+            verdict: 'LATE',
+            source: 'motion-analysis',
+            offsetMs: 28,
+            confidence: 0.74,
+          },
+          {
+            id: 3,
+            beatIndex: 2,
+            second: 2,
+            triggerMs: 2000,
+            windowMs: 180,
+            lane: 4,
+            accent: false,
+            combo: 0,
+            verdict: 'MISS',
+            source: 'motion-analysis',
+            offsetMs: -64,
+            confidence: 0.41,
+          },
+        ],
+      }),
+    );
+
+    render(
+      <MemoryRouter initialEntries={['/attempts/31/result']}>
+        <Routes>
+          <Route path="/attempts/:id/result" element={<AttemptResultPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText('초당 Spot 분석')).toBeInTheDocument();
+    expect(screen.getByText('구간 인사이트')).toBeInTheDocument();
+    expect(screen.getByText('Spot 목록')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '하이라이트 보기' })).toBeInTheDocument();
+    expect(screen.getAllByText('PERFECT').length).toBeGreaterThan(0);
+    expect(screen.getByText('LATE')).toBeInTheDocument();
+    expect(screen.getByText('MISS')).toBeInTheDocument();
+  });
 });
 
 function buildChallenge() {

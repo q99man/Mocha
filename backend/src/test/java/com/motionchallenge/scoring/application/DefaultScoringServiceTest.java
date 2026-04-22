@@ -447,6 +447,161 @@ class DefaultScoringServiceTest {
         assertThat(legFocusedResult.poseSimilarity()).isLessThan(armFocusedResult.poseSimilarity());
     }
 
+    @Test
+    void bodyScoreSpotsPreferBodyFocusedAttemptProfileOverArmFocusedAttemptProfile() {
+        String scoreSpotsJson = buildScoreSpotsJson(
+                new ScoreSpotSpec(0, 0, 0, 0.9, 0.8),
+                new ScoreSpotSpec(1, 1, 1000, 0.9, 0.8),
+                new ScoreSpotSpec(2, 2, 2000, 0.9, 0.8));
+        FramePose firstPose = new FramePose(0.98, 0.42, 0.58, 0.40, 0.60, 0.45, 0.55, 0.32, 0.68);
+        FramePose secondPose = new FramePose(0.98, 0.40, 0.60, 0.39, 0.61, 0.48, 0.52, 0.31, 0.69);
+        FramePose thirdPose = new FramePose(0.98, 0.43, 0.57, 0.41, 0.59, 0.46, 0.54, 0.33, 0.67);
+
+        String referenceProfileData = buildTimedSequenceProfileJson(
+                "reference",
+                buildFocusProfileJson("body"),
+                scoreSpotsJson,
+                new int[] {0, 1000, 2000},
+                firstPose,
+                secondPose,
+                thirdPose);
+        String bodyFocusedAttemptProfileData = buildTimedSequenceProfileJson(
+                "attempt",
+                buildFocusProfileJson("body"),
+                null,
+                new int[] {0, 1000, 2000},
+                firstPose,
+                secondPose,
+                thirdPose);
+        String armFocusedAttemptProfileData = buildTimedSequenceProfileJson(
+                "attempt",
+                buildFocusProfileJson("arm"),
+                null,
+                new int[] {0, 1000, 2000},
+                firstPose,
+                secondPose,
+                thirdPose);
+
+        ChallengeMotionProfile referenceProfile = new ChallengeMotionProfile(
+                new Challenge("title", "desc", "cat", "medium", null, null, 10, true),
+                referenceProfileData,
+                11125,
+                3,
+                3000,
+                "mediapipe-fastapi-pose-v1",
+                LocalDateTime.now());
+
+        ScoringResult bodyFocusedResult = scoringService.calculateScore(referenceProfile, new MotionAnalysisResult(
+                bodyFocusedAttemptProfileData,
+                22225,
+                3,
+                3000,
+                "mediapipe-fastapi-pose-v1"));
+        ScoringResult armFocusedResult = scoringService.calculateScore(referenceProfile, new MotionAnalysisResult(
+                armFocusedAttemptProfileData,
+                33325,
+                3,
+                3000,
+                "mediapipe-fastapi-pose-v1"));
+
+        assertThat(armFocusedResult.poseSimilarity()).isLessThan(bodyFocusedResult.poseSimilarity());
+    }
+
+    @Test
+    void scoreSpotsReduceTimingWhenCueTimestampsDrift() {
+        String scoreSpotsJson = buildScoreSpotsJson(
+                new ScoreSpotSpec(0, 0, 0, 0.8, 1.0),
+                new ScoreSpotSpec(1, 1, 1000, 0.8, 1.0),
+                new ScoreSpotSpec(2, 2, 2000, 0.8, 1.0));
+        FramePose firstPose = new FramePose(0.98, 0.42, 0.58, 0.40, 0.60, 0.45, 0.55, 0.32, 0.68);
+        FramePose secondPose = new FramePose(0.98, 0.39, 0.61, 0.37, 0.63, 0.35, 0.65, 0.28, 0.72);
+        FramePose thirdPose = new FramePose(0.98, 0.44, 0.56, 0.41, 0.59, 0.52, 0.48, 0.34, 0.66);
+
+        String referenceProfileData = buildTimedSequenceProfileJson(
+                "reference",
+                null,
+                scoreSpotsJson,
+                new int[] {0, 1000, 2000},
+                firstPose,
+                secondPose,
+                thirdPose);
+        String attemptProfileData = buildTimedSequenceProfileJson(
+                "attempt",
+                null,
+                null,
+                new int[] {400, 1400, 2400},
+                firstPose,
+                secondPose,
+                thirdPose);
+
+        ChallengeMotionProfile referenceProfile = new ChallengeMotionProfile(
+                new Challenge("title", "desc", "cat", "medium", null, null, 10, true),
+                referenceProfileData,
+                1113,
+                3,
+                3000,
+                "mediapipe-fastapi-pose-v1",
+                LocalDateTime.now());
+        MotionAnalysisResult attemptAnalysis = new MotionAnalysisResult(
+                attemptProfileData,
+                2223,
+                3,
+                3000,
+                "mediapipe-fastapi-pose-v1");
+
+        ScoringResult result = scoringService.calculateScore(referenceProfile, attemptAnalysis);
+
+        assertThat(result.poseSimilarity()).isGreaterThanOrEqualTo(99);
+        assertThat(result.timingSimilarity()).isLessThan(85);
+        assertThat(result.weakestArea()).isEqualTo("pose timing");
+    }
+
+    @Test
+    void scoreSpotsUseMotionNinetyCompositionTenWeighting() {
+        String scoreSpotsJson = buildScoreSpotsJson(
+                new ScoreSpotSpec(0, 0, 0, 1.0, 0.8),
+                new ScoreSpotSpec(1, 1, 1000, 1.0, 0.8),
+                new ScoreSpotSpec(2, 2, 2000, 1.0, 0.8));
+        String referenceProfileData = buildTimedSequenceProfileJson(
+                "reference",
+                null,
+                scoreSpotsJson,
+                new int[] {0, 1000, 2000},
+                new FramePose(0.98, 0.42, 0.58, 0.40, 0.60, 0.45, 0.55, 0.32, 0.68),
+                new FramePose(0.98, 0.39, 0.61, 0.37, 0.63, 0.35, 0.65, 0.28, 0.72),
+                new FramePose(0.98, 0.44, 0.56, 0.41, 0.59, 0.52, 0.48, 0.34, 0.66));
+        String attemptProfileData = buildTimedSequenceProfileJson(
+                "attempt",
+                null,
+                null,
+                new int[] {0, 1000, 2000},
+                new FramePose(0.08, 0.42, 0.58, 0.40, 0.60, 0.45, 0.55, 0.32, 0.68),
+                new FramePose(0.08, 0.39, 0.61, 0.37, 0.63, 0.35, 0.65, 0.28, 0.72),
+                new FramePose(0.08, 0.44, 0.56, 0.41, 0.59, 0.52, 0.48, 0.34, 0.66));
+
+        ChallengeMotionProfile referenceProfile = new ChallengeMotionProfile(
+                new Challenge("title", "desc", "cat", "medium", null, null, 10, true),
+                referenceProfileData,
+                1114,
+                3,
+                3000,
+                "mediapipe-fastapi-pose-v1",
+                LocalDateTime.now());
+        MotionAnalysisResult attemptAnalysis = new MotionAnalysisResult(
+                attemptProfileData,
+                2224,
+                3,
+                3000,
+                "mediapipe-fastapi-pose-v1");
+
+        ScoringResult result = scoringService.calculateScore(referenceProfile, attemptAnalysis);
+
+        assertThat(result.poseSimilarity()).isGreaterThanOrEqualTo(99);
+        assertThat(result.timingSimilarity()).isGreaterThanOrEqualTo(99);
+        assertThat(result.stabilitySimilarity()).isLessThan(60);
+        assertThat(result.score()).isGreaterThanOrEqualTo(93);
+    }
+
     private String buildProfileJson(
             String originalFileName,
             String storagePath,
@@ -618,7 +773,167 @@ class DefaultScoringServiceTest {
                 focusProfileBlock);
     }
 
+    private String buildTimedSequenceProfileJson(
+            String phase,
+            String focusProfileJson,
+            String scoreSpotsJson,
+            int[] timestamps,
+            FramePose... frames) {
+        StringBuilder landmarkFrames = new StringBuilder();
+        for (int index = 0; index < frames.length; index++) {
+            if (index > 0) {
+                landmarkFrames.append(",\n");
+            }
+            landmarkFrames.append(buildFrameJson(index, timestamps[index], phase, frames[index]));
+        }
+
+        String focusProfileBlock = focusProfileJson == null || focusProfileJson.isBlank()
+                ? ""
+                : ",\n                      \"focusProfile\": " + focusProfileJson;
+        String scoreSpotsBlock = scoreSpotsJson == null || scoreSpotsJson.isBlank()
+                ? ""
+                : ",\n                      \"scoreSpots\": " + scoreSpotsJson;
+        int durationMs = timestamps.length == 0 ? 12000 : timestamps[timestamps.length - 1] + 1000;
+
+        return """
+                {
+                  "schemaVersion": "v1",
+                  "provider": "mediapipe",
+                  "analyzerName": "mediapipe-fastapi-pose-v1",
+                  "analysisPhase": "%s",
+                  "sourceVideo": {
+                    "originalFileName": "%s.mp4",
+                    "storagePath": "uploads/%s.mp4",
+                    "contentType": "video/mp4",
+                    "size": 1024
+                  },
+                  "metrics": {
+                    "signature": 1280,
+                    "sampleCount": %d,
+                    "durationMs": %d
+                  },
+                  "landmarks": [
+                %s
+                  ],
+                  "notes": [],
+                  "extras": {
+                    "processedFrames": %d,
+                    "framesWithPose": %d,
+                    "analysisSummary": {
+                      "quality": {
+                        "detectionCoverage": 1.0,
+                        "averageVisibility": %.4f,
+                        "visibilitySpread": %.4f,
+                        "torsoScaleStdDev": 0.04,
+                        "centerLineOffsetMean": 0.06,
+                        "centerDriftMean": 0.08,
+                        "centerDriftPeak": 0.12
+                      },
+                      "rhythm": {
+                        "motionEnergyMean": 0.40,
+                        "motionEnergyStdDev": 0.14,
+                        "motionEnergyPeak": 0.62,
+                        "motionBurstCount": 2
+                      },
+                      "symmetry": {
+                        "upperBodyMean": 0.93,
+                        "lowerBodyMean": 0.92,
+                        "fullBodyMean": 0.925
+                      },
+                      "kinematics": {
+                        "jointRangeMean": 0.36,
+                        "jointRangePeak": 0.50,
+                        "jointStabilityMean": 0.88,
+                        "joints": {
+                          "leftElbow": {"mean": 0.58, "range": 0.36, "stdDev": 0.09},
+                          "rightElbow": {"mean": 0.57, "range": 0.35, "stdDev": 0.10},
+                          "leftKnee": {"mean": 0.61, "range": 0.30, "stdDev": 0.08},
+                          "rightKnee": {"mean": 0.60, "range": 0.31, "stdDev": 0.08}
+                        }
+                      }%s%s
+                    }
+                  }
+                }
+                """.formatted(
+                phase,
+                phase,
+                phase,
+                frames.length,
+                durationMs,
+                landmarkFrames,
+                frames.length,
+                frames.length,
+                averageVisibility(frames),
+                visibilitySpread(frames),
+                focusProfileBlock,
+                scoreSpotsBlock);
+    }
+
+    private String buildScoreSpotsJson(ScoreSpotSpec... scoreSpots) {
+        StringBuilder builder = new StringBuilder("[\n");
+        for (int index = 0; index < scoreSpots.length; index++) {
+            if (index > 0) {
+                builder.append(",\n");
+            }
+            ScoreSpotSpec scoreSpot = scoreSpots[index];
+            int cueMs = scoreSpot.cueMs();
+            int windowStartMs = Math.max(0, cueMs - 500);
+            int windowEndMs = cueMs + 500;
+            builder.append("""
+                        {
+                          "secondIndex": %d,
+                          "frameIndex": %d,
+                          "cueMs": %d,
+                          "windowStartMs": %d,
+                          "windowEndMs": %d,
+                          "focusRegion": "body",
+                          "poseWeight": %.2f,
+                          "timingWeight": %.2f
+                        }""".formatted(
+                    scoreSpot.secondIndex(),
+                    scoreSpot.frameIndex(),
+                    cueMs,
+                    windowStartMs,
+                    windowEndMs,
+                    scoreSpot.poseWeight(),
+                    scoreSpot.timingWeight()));
+        }
+        builder.append("\n                    ]");
+        return builder.toString();
+    }
+
     private String buildFocusProfileJson(String dominantRegion) {
+        if ("body".equals(dominantRegion)) {
+            return """
+                    {
+                      "version": "v1",
+                      "primaryJoints": [
+                        {"name": "leftHip", "weight": 1.0},
+                        {"name": "rightHip", "weight": 1.0},
+                        {"name": "leftAnkle", "weight": 0.92},
+                        {"name": "rightAnkle", "weight": 0.92}
+                      ],
+                      "segments": [
+                        {
+                          "key": "impact",
+                          "label": "impact body focus",
+                          "startRatio": 0.0,
+                          "endRatio": 1.0,
+                          "poseWeight": 1.0,
+                          "timingWeight": 0.7,
+                          "dominantRegion": "body",
+                          "jointWeights": {
+                            "leftHip": 1.0,
+                            "rightHip": 1.0,
+                            "leftAnkle": 0.92,
+                            "rightAnkle": 0.92
+                          }
+                        }
+                      ]
+                    }
+                    """;
+        }
+
         if ("leg".equals(dominantRegion)) {
             return """
                     {
@@ -681,11 +996,18 @@ class DefaultScoringServiceTest {
     }
 
     private String buildFrameJson(int frameIndex, String phase, FramePose framePose) {
+        return buildFrameJson(frameIndex, null, phase, framePose);
+    }
+
+    private String buildFrameJson(int frameIndex, Integer timestampMs, String phase, FramePose framePose) {
         double visibility = framePose.visibility();
+        String timestampBlock = timestampMs == null ? "" : """
+                      "timestampMs": %d,
+                """.formatted(timestampMs);
         return """
                     {
                       "frameIndex": %d,
-                      "phase": "%s",
+                %s      "phase": "%s",
                       "points": [
                         {"name": "nose", "x": 0.50, "y": 0.18, "z": -0.04, "visibility": %.2f},
                         {"name": "left_shoulder", "x": %.2f, "y": 0.30, "z": -0.08, "visibility": %.2f},
@@ -703,6 +1025,7 @@ class DefaultScoringServiceTest {
                       ]
                     }""".formatted(
                 frameIndex,
+                timestampBlock,
                 phase,
                 visibility,
                 framePose.leftShoulderX(),
@@ -762,5 +1085,13 @@ class DefaultScoringServiceTest {
             double rightWristX,
             double leftAnkleX,
             double rightAnkleX) {
+    }
+
+    private record ScoreSpotSpec(
+            int secondIndex,
+            int frameIndex,
+            int cueMs,
+            double poseWeight,
+            double timingWeight) {
     }
 }

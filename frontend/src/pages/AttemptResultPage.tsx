@@ -190,6 +190,47 @@ export function AttemptResultPage() {
     return attempt.coachingTeaser || attempt.keepStableFocus || attempt.retryFocus || '다음에는 더 좋아질 수 있습니다.';
   }, [attempt, finalFeedback, pending]);
 
+  const replayCues = useMemo(
+    () => (attempt ? attempt.judgementTimeline.map((cue) => buildMotionAnalysisJudgementCue(cue)) : []),
+    [attempt],
+  );
+  const judgementInsights = useMemo(
+    () => buildAttemptJudgementInsights(attempt?.judgementTimeline ?? []),
+    [attempt?.judgementTimeline],
+  );
+  const highlightCueIds = useMemo(() => new Set(judgementInsights.highlightCueIds), [judgementInsights.highlightCueIds]);
+  const filteredReplayCues = useMemo(
+    () => filterAttemptReplayCues(replayCues, replayFilter, highlightCueIds),
+    [highlightCueIds, replayCues, replayFilter],
+  );
+  const selectedReplayCue = useMemo(
+    () =>
+      filteredReplayCues.find((cue) => cue.id === selectedCueId) ??
+      replayCues.find((cue) => cue.id === selectedCueId) ??
+      filteredReplayCues[0] ??
+      replayCues[0] ??
+      null,
+    [filteredReplayCues, replayCues, selectedCueId],
+  );
+  const replayHud = useMemo(
+    () => buildAttemptReplayHud(selectedReplayCue, attempt ?? { retryFocus: null, keepStableFocus: null, strongestArea: null, weakestArea: null }),
+    [attempt, selectedReplayCue],
+  );
+  const replayTimeline = useMemo(
+    () =>
+      buildAttemptReplayTimeline(
+        filteredReplayCues.map((cue) => ({
+          id: cue.id,
+          triggerMs: cue.triggerMs,
+          windowMs: cue.windowMs,
+          tone: cue.tone,
+        })),
+        currentPlaybackMs,
+        replayDurationMs,
+      ),
+    [currentPlaybackMs, filteredReplayCues, replayDurationMs],
+  );
+
   useEffect(() => {
     setCurrentPlaybackMs(0);
     setReplayDurationMs(null);
@@ -197,6 +238,57 @@ export function AttemptResultPage() {
     setFilterMenuOpen(false);
     setSelectedCueId(null);
   }, [attempt?.id]);
+
+  useEffect(() => {
+    if (filteredReplayCues.length > 0) {
+      if (!filteredReplayCues.some((cue) => cue.id === selectedCueId)) {
+        setSelectedCueId(filteredReplayCues[0].id);
+      }
+      return;
+    }
+
+    if (replayCues.length > 0 && !replayCues.some((cue) => cue.id === selectedCueId)) {
+      setSelectedCueId(replayCues[0].id);
+    }
+  }, [filteredReplayCues, replayCues, selectedCueId]);
+
+  useEffect(() => {
+    if (!selectedReplayCue) {
+      return;
+    }
+    setCurrentPlaybackMs(selectedReplayCue.triggerMs);
+  }, [selectedReplayCue]);
+
+  useEffect(() => {
+    const challengeDurationMs = challenge?.durationSec ? challenge.durationSec * 1000 : null;
+    if (challengeDurationMs != null) {
+      setReplayDurationMs(challengeDurationMs);
+      return;
+    }
+    if (replayCues.length === 0) {
+      setReplayDurationMs(null);
+      return;
+    }
+    const lastCue = replayCues[replayCues.length - 1];
+    setReplayDurationMs(lastCue.triggerMs + lastCue.windowMs + 400);
+  }, [challenge?.durationSec, replayCues]);
+
+  useEffect(() => {
+    if (!filterMenuOpen) {
+      return;
+    }
+
+    function handlePointerDown(event: MouseEvent) {
+      if (!replayFilterMenuRef.current?.contains(event.target as Node)) {
+        setFilterMenuOpen(false);
+      }
+    }
+
+    window.addEventListener('mousedown', handlePointerDown);
+    return () => {
+      window.removeEventListener('mousedown', handlePointerDown);
+    };
+  }, [filterMenuOpen]);
 
   if (loading) {
     return (
@@ -283,6 +375,194 @@ export function AttemptResultPage() {
           <span>한줄 코멘트</span>
           <strong>{briefComment}</strong>
         </div>
+
+        {!pending && judgementInsights.cards.length > 0 ? (
+          <section className="play-result__insight-section" aria-label="구간 인사이트">
+            <h4 className="play-result__meta-title">구간 인사이트</h4>
+            <div className="play-result__insight-grid">
+              {judgementInsights.cards.map((card) => (
+                <article
+                  key={card.id}
+                  className={`play-result__insight-card play-result__insight-card--${card.tone}`}
+                >
+                  <span className="play-result__insight-label">{card.title}</span>
+                  <strong>{card.value}</strong>
+                  <p>{card.description}</p>
+                </article>
+              ))}
+            </div>
+          </section>
+        ) : null}
+
+        {!pending && replayCues.length > 0 ? (
+          <>
+            <section className="play-result__replay-section" aria-label="초당 spot 분석">
+              <div className="play-result__replay-header">
+                <div>
+                  <h4 className="play-result__meta-title">초당 Spot 분석</h4>
+                  <p className="play-result__replay-copy">
+                    자동 채점 cue를 초 단위로 펼쳐서, 어느 구간이 안정적이었는지 바로 확인할 수 있습니다.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  className="play-result__replay-jump-btn"
+                  onClick={() => {
+                    setReplayFilter('highlights');
+                    setFilterMenuOpen(false);
+                  }}
+                >
+                  하이라이트 보기
+                </button>
+              </div>
+
+              <div className="play-result__filter-row">
+                <div ref={replayFilterMenuRef} className="play-result__filter-select">
+                  <span>필터</span>
+                  <button
+                    type="button"
+                    className="play-result__filter-select-btn"
+                    aria-expanded={filterMenuOpen}
+                    onClick={() => setFilterMenuOpen((open) => !open)}
+                  >
+                    <strong>{getAttemptReplayFilterLabel(replayFilter)}</strong>
+                    <span>{filteredReplayCues.length} SPOTS</span>
+                  </button>
+                  {filterMenuOpen ? (
+                    <div className="play-result__filter-select-menu" role="menu">
+                      {ATTEMPT_REPLAY_FILTERS.map((option) => (
+                        <button
+                          key={option.key}
+                          type="button"
+                          role="menuitemradio"
+                          aria-checked={replayFilter === option.key}
+                          className={`play-result__filter-select-item ${
+                            replayFilter === option.key ? 'play-result__filter-select-item--active' : ''
+                          }`}
+                          onClick={() => {
+                            setReplayFilter(option.key);
+                            setFilterMenuOpen(false);
+                          }}
+                        >
+                          {option.label}
+                          <span>{option.key === 'highlights' ? 'TOP' : 'VIEW'}</span>
+                        </button>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
+
+                <span className="play-result__filter-meta">
+                  {filteredReplayCues.length} / {replayCues.length} 표시
+                </span>
+              </div>
+
+              {replayHud ? (
+                <div className="play-result__replay-stage">
+                  <div className={`play-result__replay-hud play-result__replay-hud--${replayHud.tone}`}>
+                    <div className="play-result__replay-hud-head">
+                      <span className="play-result__replay-hud-kicker">{replayHud.cueLabel}</span>
+                      <strong>{replayHud.headline}</strong>
+                      <p>{replayHud.subline}</p>
+                    </div>
+                    <div className="play-result__replay-hud-chip-row">
+                      {replayHud.chips.map((chip) => (
+                        <div key={chip.id} className="play-result__replay-hud-chip">
+                          <span>{chip.label}</span>
+                          <strong>{chip.value}</strong>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="play-result__replay-hud-focus">
+                      <span>{replayHud.recommendationTitle}</span>
+                      <strong>{replayHud.recommendationBody}</strong>
+                    </div>
+                  </div>
+
+                  {replayTimeline ? (
+                    <div className="play-result__scrub-section">
+                      <div className="play-result__scrub-summary">
+                        <span>현재 선택</span>
+                        <strong>
+                          {buildReplayStatusLabel(
+                            selectedReplayCue
+                              ? {
+                                  label: selectedReplayCue.label,
+                                  second: selectedReplayCue.second,
+                                  offsetMs: selectedReplayCue.offsetMs,
+                                }
+                              : null,
+                          )}
+                        </strong>
+                        <strong>
+                          {formatPlaybackClock(currentPlaybackMs)} / {formatPlaybackClock(replayTimeline.durationMs)}
+                        </strong>
+                      </div>
+                      <div className="play-result__scrub-track" ref={replayScrubberRef}>
+                        <div
+                          className="play-result__scrub-fill"
+                          style={{ width: `${replayTimeline.playheadPercent}%` }}
+                        />
+                        <div
+                          className="play-result__scrub-playhead"
+                          style={{ left: `${replayTimeline.playheadPercent}%` }}
+                        />
+                        {replayTimeline.markers.map((marker) => (
+                          <button
+                            key={marker.id}
+                            type="button"
+                            className={`play-result__scrub-marker play-result__scrub-marker--${marker.tone} ${
+                              marker.id === selectedReplayCue?.id ? 'play-result__scrub-marker--active' : ''
+                            }`}
+                            style={{
+                              left: `${marker.leftPercent}%`,
+                              width: `${marker.widthPercent}%`,
+                            }}
+                            onClick={() => setSelectedCueId(marker.id)}
+                            aria-label={`spot ${marker.id}`}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
+            </section>
+
+            <section className="play-result__timeline-section" aria-label="spot 목록">
+              <h4 className="play-result__meta-title">Spot 목록</h4>
+              {filteredReplayCues.length === 0 ? (
+                <div className="play-result__timeline-empty">
+                  <strong>선택한 필터에 해당하는 spot이 없습니다.</strong>
+                  <p>다른 필터로 전환하면 전체 cue 흐름을 다시 볼 수 있습니다.</p>
+                </div>
+              ) : (
+                <div className="play-result__timeline-list">
+                  {filteredReplayCues.map((cue) => {
+                    const highlighted = highlightCueIds.has(cue.id);
+                    return (
+                      <button
+                        key={cue.id}
+                        type="button"
+                        className={`play-result__timeline-card play-result__timeline-card--${cue.tone} ${
+                          highlighted ? 'play-result__timeline-card--highlighted' : ''
+                        } ${cue.id === selectedReplayCue?.id ? 'play-result__timeline-card--active' : ''}`}
+                        onClick={() => setSelectedCueId(cue.id)}
+                      >
+                        <span className="play-result__timeline-time">
+                          {String(cue.second + 1).padStart(2, '0')}초 · {formatOffsetLabel(cue.offsetMs)}
+                        </span>
+                        <strong>{cue.label}</strong>
+                        <span>{cue.guide}</span>
+                        <span>확신도 {Math.round(cue.confidence * 100)}% · 콤보 {cue.combo}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </section>
+          </>
+        ) : null}
       </div>
 
       <div className="play-result__right">

@@ -42,6 +42,13 @@ public class DefaultScoringService implements ScoringService {
     }
 
     private ScoringResult calculateLandmarkScore(ParsedMotionProfile reference, ParsedMotionProfile attempt) {
+        if (!reference.scoreSpots().isEmpty()) {
+            Optional<ScoringResult> scoreSpotResult = calculateScoreSpotLandmarkScore(reference, attempt);
+            if (scoreSpotResult.isPresent()) {
+                return scoreSpotResult.get();
+            }
+        }
+
         double poseDifference = calculatePoseShapeDifference(reference, attempt);
         double timingDifference = calculateTimingDifference(reference, attempt);
         double stabilityDifference = calculateDetectionQualityDifference(reference, attempt);
@@ -77,6 +84,79 @@ public class DefaultScoringService implements ScoringService {
                 stabilitySimilarity,
                 strongestArea,
                 weakestArea);
+    }
+
+    private Optional<ScoringResult> calculateScoreSpotLandmarkScore(ParsedMotionProfile reference, ParsedMotionProfile attempt) {
+        List<ScoreSpotMatch> matches = alignScoreSpots(reference, attempt);
+        if (matches.isEmpty()) {
+            return Optional.empty();
+        }
+
+        double poseDifferenceTotal = 0.0;
+        double poseWeightTotal = 0.0;
+        double timingDifferenceTotal = 0.0;
+        double timingWeightTotal = 0.0;
+        for (ScoreSpotMatch match : matches) {
+            double poseDifference = comparePoseShape(
+                    match.referenceFrame(),
+                    match.attemptFrame(),
+                    reference.focusProfile(),
+                    match.ratio(),
+                    match.scoreSpot().focusRegion());
+            poseDifference += calculateScoreSpotFocusMismatchPenalty(attempt, match);
+            double timingDifference = calculateScoreSpotTimingDifference(reference, attempt, match);
+
+            double qualityWeight = combinedFrameWeight(match.referenceFrame(), match.attemptFrame());
+            double poseWeight = qualityWeight * (0.82 + (match.scoreSpot().poseWeight() * 0.58));
+            double timingWeight = qualityWeight * (0.82 + (match.scoreSpot().timingWeight() * 0.58));
+
+            poseDifferenceTotal += poseDifference * poseWeight;
+            poseWeightTotal += poseWeight;
+            timingDifferenceTotal += timingDifference * timingWeight;
+            timingWeightTotal += timingWeight;
+        }
+
+        double poseDifference = poseWeightTotal > 0.0 ? poseDifferenceTotal / poseWeightTotal : 1.0;
+        poseDifference = clampDouble(
+                poseDifference + (calculateScoreSpotPoseSummaryDifference(reference, attempt) * 0.58),
+                0.0,
+                1.0);
+        double timingDifference = timingWeightTotal > 0.0 ? timingDifferenceTotal / timingWeightTotal : 1.0;
+        double stabilityDifference = calculateScoreSpotCompositionDifference(reference, attempt, matches);
+
+        int poseSimilarity = convertDifferenceToSimilarity(poseDifference, 130.0, 100);
+        int timingSimilarity = convertDifferenceToSimilarity(timingDifference, 140.0, 100);
+        int stabilitySimilarity = convertDifferenceToSimilarity(stabilityDifference, 135.0, 100);
+
+        double weightedScore = poseSimilarity * 0.63 + timingSimilarity * 0.27 + stabilitySimilarity * 0.10;
+        int score = clamp((int) Math.round(weightedScore), 0, 100);
+        score = applyPrimaryAxisCap(score, poseSimilarity, timingSimilarity);
+        score = applyDiscriminationCurve(score, poseSimilarity, timingSimilarity);
+        score = applyScoreSpotBalancePenalty(score, poseSimilarity, timingSimilarity);
+        if (reference.hasAnalysisSummary() && attempt.hasAnalysisSummary()) {
+            score = applyStabilityTieBreaker(score, stabilitySimilarity);
+        }
+
+        String strongestArea = resolveStrongestArea(poseSimilarity, timingSimilarity, stabilitySimilarity);
+        String weakestArea = resolveWeakestArea(poseSimilarity, timingSimilarity, stabilitySimilarity);
+        String summary = buildSummary(
+                score,
+                strongestArea,
+                weakestArea,
+                poseSimilarity,
+                timingSimilarity,
+                stabilitySimilarity,
+                reference,
+                attempt);
+
+        return Optional.of(new ScoringResult(
+                score,
+                summary,
+                poseSimilarity,
+                timingSimilarity,
+                stabilitySimilarity,
+                strongestArea,
+                weakestArea));
     }
 
     private ScoringResult calculateFallbackScore(ChallengeMotionProfile referenceProfile, MotionAnalysisResult attemptAnalysis) {
@@ -115,6 +195,7 @@ public class DefaultScoringService implements ScoringService {
             List<FrameLandmarkSet> frames = new ArrayList<>();
             for (JsonNode frameNode : root.path("landmarks")) {
                 int frameIndex = frameNode.path("frameIndex").asInt(frames.size());
+                int timestampMs = frameNode.path("timestampMs").asInt(frameIndex * 33);
                 Map<String, LandmarkPoint> points = new HashMap<>();
                 for (JsonNode pointNode : frameNode.path("points")) {
                     String name = pointNode.path("name").asText();
@@ -128,7 +209,7 @@ public class DefaultScoringService implements ScoringService {
                             pointNode.path("visibility").asDouble(0.0)));
                 }
                 if (!points.isEmpty()) {
-                    frames.add(new FrameLandmarkSet(frameIndex, points, calculateFrameQuality(points)));
+                    frames.add(new FrameLandmarkSet(frameIndex, timestampMs, points, calculateFrameQuality(points)));
                 }
             }
 
@@ -146,6 +227,7 @@ public class DefaultScoringService implements ScoringService {
             JsonNode symmetry = analysisSummary.path("symmetry");
             JsonNode kinematics = analysisSummary.path("kinematics");
             FocusProfile focusProfile = parseFocusProfile(analysisSummary.path("focusProfile"));
+            List<ScoreSpot> scoreSpots = parseScoreSpots(analysisSummary.path("scoreSpots"));
 
             Map<String, JointSignal> joints = new HashMap<>();
             JsonNode jointsNode = kinematics.path("joints");
@@ -190,7 +272,8 @@ public class DefaultScoringService implements ScoringService {
                     averageVisibility,
                     signals,
                     hasAnalysisSummary,
-                    focusProfile);
+                    focusProfile,
+                    scoreSpots);
         } catch (IOException exception) {
             return ParsedMotionProfile.empty();
         }
@@ -243,6 +326,26 @@ public class DefaultScoringService implements ScoringService {
                 version,
                 List.copyOf(primaryJoints),
                 List.copyOf(segments));
+    }
+
+    private List<ScoreSpot> parseScoreSpots(JsonNode scoreSpotsNode) {
+        if (!scoreSpotsNode.isArray()) {
+            return List.of();
+        }
+
+        List<ScoreSpot> scoreSpots = new ArrayList<>();
+        for (JsonNode scoreSpotNode : scoreSpotsNode) {
+            scoreSpots.add(new ScoreSpot(
+                    scoreSpotNode.path("secondIndex").asInt(scoreSpots.size()),
+                    scoreSpotNode.path("frameIndex").asInt(-1),
+                    scoreSpotNode.path("cueMs").asInt(0),
+                    Math.max(0, scoreSpotNode.path("windowStartMs").asInt(0)),
+                    Math.max(0, scoreSpotNode.path("windowEndMs").asInt(0)),
+                    clampDouble(readDouble(scoreSpotNode.path("poseWeight"), 0.7), 0.0, 1.0),
+                    clampDouble(readDouble(scoreSpotNode.path("timingWeight"), 0.7), 0.0, 1.0),
+                    scoreSpotNode.path("focusRegion").asText("body")));
+        }
+        return List.copyOf(scoreSpots);
     }
 
     private double calculatePoseShapeDifference(ParsedMotionProfile reference, ParsedMotionProfile attempt) {
@@ -338,6 +441,368 @@ public class DefaultScoringService implements ScoringService {
                 + sampleGap * 0.06;
     }
 
+    private List<ScoreSpotMatch> alignScoreSpots(ParsedMotionProfile reference, ParsedMotionProfile attempt) {
+        if (reference.scoreSpots().isEmpty() || reference.frames().isEmpty() || attempt.frames().isEmpty()) {
+            return List.of();
+        }
+
+        List<ScoreSpotMatch> matches = new ArrayList<>();
+        int minimumAttemptFramePosition = 0;
+        for (int index = 0; index < reference.scoreSpots().size(); index++) {
+            ScoreSpot scoreSpot = reference.scoreSpots().get(index);
+            int referenceFramePosition = findFramePositionForScoreSpot(reference, scoreSpot);
+            if (referenceFramePosition < 0) {
+                continue;
+            }
+
+            double ratio = resolveScoreSpotRatio(reference, scoreSpot, referenceFramePosition);
+            int cueMs = resolveReferenceCueMs(reference, scoreSpot, referenceFramePosition, ratio);
+            int expectedAttemptMs = resolveExpectedAttemptCueMs(cueMs, ratio, reference.durationMs(), attempt.durationMs());
+            int windowMs = resolveScoreSpotWindowMs(reference, scoreSpot);
+            int remainingScoreSpots = reference.scoreSpots().size() - index - 1;
+            int maximumAttemptFramePosition = Math.max(
+                    minimumAttemptFramePosition,
+                    attempt.frames().size() - 1 - remainingScoreSpots);
+
+            FrameLandmarkSet referenceFrame = reference.frames().get(referenceFramePosition);
+            int attemptFramePosition = findBestAttemptFramePositionForScoreSpot(
+                    attempt.frames(),
+                    referenceFrame,
+                    reference.focusProfile(),
+                    ratio,
+                    scoreSpot.focusRegion(),
+                    expectedAttemptMs,
+                    windowMs,
+                    minimumAttemptFramePosition,
+                    maximumAttemptFramePosition);
+            if (attemptFramePosition < 0) {
+                continue;
+            }
+
+            matches.add(new ScoreSpotMatch(
+                    scoreSpot,
+                    referenceFramePosition,
+                    attemptFramePosition,
+                    ratio,
+                    cueMs,
+                    expectedAttemptMs,
+                    windowMs,
+                    referenceFrame,
+                    attempt.frames().get(attemptFramePosition)));
+            minimumAttemptFramePosition = Math.min(attempt.frames().size() - 1, attemptFramePosition + 1);
+        }
+        return List.copyOf(matches);
+    }
+
+    private int findFramePositionForScoreSpot(ParsedMotionProfile profile, ScoreSpot scoreSpot) {
+        List<FrameLandmarkSet> frames = profile.frames();
+        if (frames.isEmpty()) {
+            return -1;
+        }
+
+        if (scoreSpot.frameIndex() >= 0) {
+            for (int index = 0; index < frames.size(); index++) {
+                if (frames.get(index).frameIndex() == scoreSpot.frameIndex()) {
+                    return index;
+                }
+            }
+        }
+
+        int cueMs = scoreSpot.cueMs();
+        if (cueMs > 0) {
+            return findNearestFramePositionByTimestamp(frames, cueMs);
+        }
+
+        double ratio = resolveScoreSpotRatio(profile, scoreSpot, -1);
+        int targetIndex = (int) Math.round(clampDouble(ratio, 0.0, 1.0) * (frames.size() - 1));
+        return clamp(targetIndex, 0, frames.size() - 1);
+    }
+
+    private double calculateScoreSpotTimingDifference(
+            ParsedMotionProfile reference,
+            ParsedMotionProfile attempt,
+            ScoreSpotMatch match) {
+        double offsetDifference = clampDouble(
+                Math.abs(match.attemptFrame().timestampMs() - match.expectedAttemptMs()) / (double) Math.max(match.windowMs(), 1),
+                0.0,
+                1.0);
+        double motionContextGap = calculateMotionContextGap(reference, attempt, match);
+        double durationGap = ratioGap(reference.durationMs(), attempt.durationMs());
+
+        if (!reference.hasAnalysisSummary() || !attempt.hasAnalysisSummary()) {
+            return offsetDifference * 0.72 + motionContextGap * 0.28;
+        }
+
+        double rhythmGap = calculateRhythmSignalDifference(reference, attempt);
+        return offsetDifference * 0.58
+                + motionContextGap * 0.22
+                + rhythmGap * 0.15
+                + durationGap * 0.05;
+    }
+
+    private double calculateMotionContextGap(
+            ParsedMotionProfile reference,
+            ParsedMotionProfile attempt,
+            ScoreSpotMatch match) {
+        List<Double> gaps = new ArrayList<>();
+        int referencePosition = match.referenceFramePosition();
+        int attemptPosition = match.attemptFramePosition();
+        double ratio = match.ratio();
+
+        if (referencePosition > 0 && attemptPosition > 0) {
+            double referenceLead = comparePoseShape(
+                    reference.frames().get(referencePosition - 1),
+                    reference.frames().get(referencePosition),
+                    reference.focusProfile(),
+                    ratio,
+                    match.scoreSpot().focusRegion());
+            double attemptLead = comparePoseShape(
+                    attempt.frames().get(attemptPosition - 1),
+                    attempt.frames().get(attemptPosition),
+                    reference.focusProfile(),
+                    ratio,
+                    match.scoreSpot().focusRegion());
+            gaps.add(Math.abs(referenceLead - attemptLead));
+        }
+
+        if (referencePosition + 1 < reference.frames().size() && attemptPosition + 1 < attempt.frames().size()) {
+            double referenceTail = comparePoseShape(
+                    reference.frames().get(referencePosition),
+                    reference.frames().get(referencePosition + 1),
+                    reference.focusProfile(),
+                    ratio,
+                    match.scoreSpot().focusRegion());
+            double attemptTail = comparePoseShape(
+                    attempt.frames().get(attemptPosition),
+                    attempt.frames().get(attemptPosition + 1),
+                    reference.focusProfile(),
+                    ratio,
+                    match.scoreSpot().focusRegion());
+            gaps.add(Math.abs(referenceTail - attemptTail));
+        }
+
+        return gaps.isEmpty() ? 0.0 : gaps.stream().mapToDouble(Double::doubleValue).average().orElse(0.0);
+    }
+
+    private double calculateScoreSpotCompositionDifference(
+            ParsedMotionProfile reference,
+            ParsedMotionProfile attempt,
+            List<ScoreSpotMatch> matches) {
+        double weightedGapTotal = 0.0;
+        double weightTotal = 0.0;
+        for (ScoreSpotMatch match : matches) {
+            double visibilityGap = Math.abs(frameVisibility(match.referenceFrame()) - frameVisibility(match.attemptFrame()));
+            double qualityGap = Math.abs(match.referenceFrame().qualityScore() - match.attemptFrame().qualityScore());
+            double centerGap = compareFrameCentering(match.referenceFrame(), match.attemptFrame());
+            double weight = Math.max(0.10, combinedFrameWeight(match.referenceFrame(), match.attemptFrame()));
+
+            weightedGapTotal += average(visibilityGap, qualityGap, centerGap) * weight;
+            weightTotal += weight;
+        }
+
+        double spotGap = weightTotal > 0.0 ? weightedGapTotal / weightTotal : 1.0;
+        double overallGap = calculateDetectionQualityDifference(reference, attempt);
+        return spotGap * 0.42 + overallGap * 0.58;
+    }
+
+    private double calculateScoreSpotPoseSummaryDifference(ParsedMotionProfile reference, ParsedMotionProfile attempt) {
+        if (!reference.hasAnalysisSummary() || !attempt.hasAnalysisSummary()) {
+            return 0.0;
+        }
+
+        double symmetryGap = average(
+                Math.abs(reference.signals().upperBodySymmetry() - attempt.signals().upperBodySymmetry()),
+                Math.abs(reference.signals().lowerBodySymmetry() - attempt.signals().lowerBodySymmetry()),
+                Math.abs(reference.signals().fullBodySymmetry() - attempt.signals().fullBodySymmetry()));
+        double jointShapeGap = average(
+                Math.abs(reference.signals().jointRangeMean() - attempt.signals().jointRangeMean()),
+                Math.abs(reference.signals().jointRangePeak() - attempt.signals().jointRangePeak()),
+                compareSharedJointMetric(reference.signals().joints(), attempt.signals().joints(), JointSignal::mean),
+                compareSharedJointMetric(reference.signals().joints(), attempt.signals().joints(), JointSignal::range));
+        double focusProfileGap = compareFocusProfiles(reference.focusProfile(), attempt.focusProfile());
+        double asymmetryPenalty = Math.max(0.0, symmetryGap - 0.07) * 2.70;
+
+        return symmetryGap * 0.64
+                + jointShapeGap * 0.26
+                + focusProfileGap * 0.10
+                + asymmetryPenalty;
+    }
+
+    private double calculateScoreSpotFocusMismatchPenalty(ParsedMotionProfile attempt, ScoreSpotMatch match) {
+        if (match.ratio() < 0.70) {
+            return 0.0;
+        }
+
+        FocusSegment attemptSegment = resolveFocusSegment(attempt.focusProfile(), match.ratio());
+        if (attemptSegment == null) {
+            return 0.0;
+        }
+
+        if (normalizeFocusRegion(match.scoreSpot().focusRegion()).equals(normalizeFocusRegion(attemptSegment.dominantRegion()))) {
+            return 0.0;
+        }
+
+        double normalizedOffset = Math.abs(match.attemptFrame().timestampMs() - match.expectedAttemptMs())
+                / (double) Math.max(match.windowMs(), 1);
+        double timingConfidence = clampDouble(1.0 - Math.min(1.0, normalizedOffset), 0.0, 1.0);
+        return 0.115 * timingConfidence;
+    }
+
+    private double compareFrameCentering(FrameLandmarkSet referenceFrame, FrameLandmarkSet attemptFrame) {
+        LandmarkAnchor referenceAnchor = buildAnchor(referenceFrame.points());
+        LandmarkAnchor attemptAnchor = buildAnchor(attemptFrame.points());
+        double averageScale = Math.max(0.08, average(referenceAnchor.scale(), attemptAnchor.scale()));
+        return clampDouble(
+                Math.hypot(referenceAnchor.centerX() - attemptAnchor.centerX(), referenceAnchor.centerY() - attemptAnchor.centerY())
+                        / averageScale,
+                0.0,
+                1.0);
+    }
+
+    private double frameVisibility(FrameLandmarkSet frame) {
+        return frame.points().values().stream().mapToDouble(LandmarkPoint::visibility).average().orElse(0.0);
+    }
+
+    private int findBestAttemptFramePositionForScoreSpot(
+            List<FrameLandmarkSet> frames,
+            FrameLandmarkSet referenceFrame,
+            FocusProfile focusProfile,
+            double ratio,
+            String focusRegion,
+            int expectedTimestampMs,
+            int windowMs,
+            int minimumFramePosition,
+            int maximumFramePosition) {
+        if (frames.isEmpty()) {
+            return -1;
+        }
+
+        int safeMinimumFramePosition = clamp(minimumFramePosition, 0, frames.size() - 1);
+        int safeMaximumFramePosition = clamp(Math.max(safeMinimumFramePosition, maximumFramePosition), 0, frames.size() - 1);
+        int targetIndex = clamp(
+                findNearestFramePositionByTimestamp(frames, expectedTimestampMs),
+                safeMinimumFramePosition,
+                safeMaximumFramePosition);
+        int searchRadius = Math.max(2, Math.min(18, (int) Math.round(frames.size() * 0.10)));
+        int startIndex = Math.max(safeMinimumFramePosition, targetIndex - searchRadius);
+        int endIndex = Math.min(safeMaximumFramePosition, targetIndex + searchRadius);
+
+        int bestIndex = targetIndex;
+        double bestScore = scoreSpotAlignmentScore(
+                referenceFrame,
+                frames.get(targetIndex),
+                focusProfile,
+                ratio,
+                focusRegion,
+                expectedTimestampMs,
+                windowMs);
+
+        for (int index = startIndex; index <= endIndex; index++) {
+            FrameLandmarkSet candidate = frames.get(index);
+            double candidateScore = scoreSpotAlignmentScore(
+                    referenceFrame,
+                    candidate,
+                    focusProfile,
+                    ratio,
+                    focusRegion,
+                    expectedTimestampMs,
+                    windowMs);
+            if (candidateScore < bestScore) {
+                bestScore = candidateScore;
+                bestIndex = index;
+            }
+        }
+
+        return bestIndex;
+    }
+
+    private double scoreSpotAlignmentScore(
+            FrameLandmarkSet referenceFrame,
+            FrameLandmarkSet candidate,
+            FocusProfile focusProfile,
+            double ratio,
+            String focusRegion,
+            int expectedTimestampMs,
+            int windowMs) {
+        double poseDifference = comparePoseShape(referenceFrame, candidate, focusProfile, ratio, focusRegion);
+        double offsetPenalty = clampDouble(
+                Math.abs(candidate.timestampMs() - expectedTimestampMs) / (double) Math.max(windowMs, 1),
+                0.0,
+                1.8);
+        double qualityPenalty = Math.max(0.0, 0.76 - candidate.qualityScore()) * 0.30;
+        return poseDifference * 0.78 + offsetPenalty * 0.18 + qualityPenalty * 0.04;
+    }
+
+    private int findNearestFramePositionByTimestamp(List<FrameLandmarkSet> frames, int targetTimestampMs) {
+        int bestIndex = 0;
+        int bestGap = Integer.MAX_VALUE;
+        for (int index = 0; index < frames.size(); index++) {
+            int gap = Math.abs(frames.get(index).timestampMs() - targetTimestampMs);
+            if (gap < bestGap) {
+                bestGap = gap;
+                bestIndex = index;
+            }
+        }
+        return bestIndex;
+    }
+
+    private double resolveScoreSpotRatio(ParsedMotionProfile profile, ScoreSpot scoreSpot, int referenceFramePosition) {
+        if (profile.durationMs() > 0 && scoreSpot.cueMs() > 0) {
+            return clampDouble(scoreSpot.cueMs() / (double) profile.durationMs(), 0.0, 1.0);
+        }
+        if (profile.durationMs() > 0 && scoreSpot.cueMs() == 0 && scoreSpot.secondIndex() == 0) {
+            return 0.0;
+        }
+        if (referenceFramePosition >= 0 && profile.frames().size() > 1) {
+            return referenceFramePosition / (double) (profile.frames().size() - 1);
+        }
+        if (profile.scoreSpots().size() > 1) {
+            return scoreSpot.secondIndex() / (double) (profile.scoreSpots().size() - 1);
+        }
+        return 0.0;
+    }
+
+    private int resolveReferenceCueMs(
+            ParsedMotionProfile reference,
+            ScoreSpot scoreSpot,
+            int referenceFramePosition,
+            double ratio) {
+        if (scoreSpot.cueMs() > 0) {
+            return scoreSpot.cueMs();
+        }
+        if (scoreSpot.cueMs() == 0 && scoreSpot.secondIndex() == 0) {
+            return 0;
+        }
+
+        FrameLandmarkSet frame = reference.frames().get(referenceFramePosition);
+        if (frame.timestampMs() > 0) {
+            return frame.timestampMs();
+        }
+        return (int) Math.round(clampDouble(ratio, 0.0, 1.0) * Math.max(reference.durationMs(), 1L));
+    }
+
+    private int resolveExpectedAttemptCueMs(
+            int referenceCueMs,
+            double ratio,
+            long referenceDurationMs,
+            long attemptDurationMs) {
+        if (referenceDurationMs > 0 && referenceCueMs > 0) {
+            return (int) Math.round((referenceCueMs / (double) referenceDurationMs) * Math.max(attemptDurationMs, 1L));
+        }
+        return (int) Math.round(clampDouble(ratio, 0.0, 1.0) * Math.max(attemptDurationMs, 1L));
+    }
+
+    private int resolveScoreSpotWindowMs(ParsedMotionProfile reference, ScoreSpot scoreSpot) {
+        int spanMs = Math.max(0, scoreSpot.windowEndMs() - scoreSpot.windowStartMs());
+        if (spanMs > 0) {
+            return clamp((int) Math.round(spanMs * 0.62), 120, 260);
+        }
+        if (reference.scoreSpots().size() <= 1) {
+            return clamp((int) Math.round(Math.max(reference.durationMs(), 420L) * 0.18), 120, 260);
+        }
+        return clamp((int) Math.round((reference.durationMs() / (double) reference.scoreSpots().size()) * 0.55), 120, 260);
+    }
+
     private FrameLandmarkSet selectAlignedFrame(List<FrameLandmarkSet> frames, int index, int totalComparisons) {
         if (frames.size() == 1 || totalComparisons == 1) {
             return frames.get(0);
@@ -368,6 +833,15 @@ public class DefaultScoringService implements ScoringService {
             FrameLandmarkSet attemptFrame,
             FocusProfile focusProfile,
             double ratio) {
+        return comparePoseShape(referenceFrame, attemptFrame, focusProfile, ratio, null);
+    }
+
+    private double comparePoseShape(
+            FrameLandmarkSet referenceFrame,
+            FrameLandmarkSet attemptFrame,
+            FocusProfile focusProfile,
+            double ratio,
+            String focusRegion) {
         LandmarkAnchor referenceAnchor = buildAnchor(referenceFrame.points());
         LandmarkAnchor attemptAnchor = buildAnchor(attemptFrame.points());
         PoseDescriptor referenceDescriptor = buildPoseDescriptor(
@@ -380,7 +854,7 @@ public class DefaultScoringService implements ScoringService {
                 attemptAnchor,
                 attemptFrame.qualityScore(),
                 1.0);
-        return comparePoseDescriptors(referenceDescriptor, attemptDescriptor, resolvePoseFeatureWeights(focusProfile, ratio));
+        return comparePoseDescriptors(referenceDescriptor, attemptDescriptor, resolvePoseFeatureWeights(focusProfile, ratio, focusRegion));
     }
 
     private LandmarkAnchor buildAnchor(Map<String, LandmarkPoint> points) {
@@ -554,6 +1028,16 @@ public class DefaultScoringService implements ScoringService {
             return clamp(score - 2, 0, 100);
         }
         if (stabilitySimilarity <= 86) {
+            return clamp(score - 1, 0, 100);
+        }
+        return score;
+    }
+
+    private int applyScoreSpotBalancePenalty(int score, int poseSimilarity, int timingSimilarity) {
+        if (poseSimilarity < 46 && timingSimilarity - poseSimilarity >= 35) {
+            return clamp(score - 2, 0, 100);
+        }
+        if (poseSimilarity < 52 && timingSimilarity - poseSimilarity >= 30) {
             return clamp(score - 1, 0, 100);
         }
         return score;
@@ -1037,6 +1521,10 @@ public class DefaultScoringService implements ScoringService {
     }
 
     private Map<Integer, Double> resolvePoseFeatureWeights(FocusProfile focusProfile, double ratio) {
+        return resolvePoseFeatureWeights(focusProfile, ratio, null);
+    }
+
+    private Map<Integer, Double> resolvePoseFeatureWeights(FocusProfile focusProfile, double ratio, String focusRegion) {
         Map<String, Double> jointWeights = aggregateFocusJointWeights(focusProfile);
         FocusSegment segment = resolveFocusSegment(focusProfile, ratio);
         if (segment != null) {
@@ -1045,9 +1533,52 @@ public class DefaultScoringService implements ScoringService {
 
         Map<Integer, Double> featureWeights = new HashMap<>();
         for (int index = 0; index < 12; index++) {
-            featureWeights.put(index, resolvePoseFeatureWeight(index, jointWeights));
+            double baseWeight = resolvePoseFeatureWeight(index, jointWeights);
+            featureWeights.put(index, clampDouble(baseWeight * resolveFocusRegionFeatureMultiplier(index, focusRegion), 0.55, 3.40));
         }
         return featureWeights;
+    }
+
+    private double resolveFocusRegionFeatureMultiplier(int featureIndex, String focusRegion) {
+        return switch (normalizeFocusRegion(focusRegion)) {
+            case "arm" -> switch (featureIndex) {
+                case 0, 1 -> 0.94;
+                case 2, 3, 6, 7, 10 -> 1.08;
+                case 4, 5, 8, 9, 11 -> 0.95;
+                default -> 1.0;
+            };
+            case "leg" -> switch (featureIndex) {
+                case 0, 1 -> 0.95;
+                case 2, 3, 6, 7, 10 -> 0.94;
+                case 4, 5, 8, 9, 11 -> 1.08;
+                default -> 1.0;
+            };
+            case "body" -> switch (featureIndex) {
+                case 0 -> 1.14;
+                case 1 -> 1.20;
+                case 2, 3 -> 0.95;
+                case 4, 5 -> 1.04;
+                case 6, 7 -> 0.93;
+                case 8, 9 -> 1.02;
+                case 10 -> 0.92;
+                case 11 -> 0.98;
+                default -> 1.0;
+            };
+            default -> 1.0;
+        };
+    }
+
+    private String normalizeFocusRegion(String focusRegion) {
+        if (focusRegion == null || focusRegion.isBlank()) {
+            return "body";
+        }
+        String normalized = focusRegion.trim().toLowerCase();
+        return switch (normalized) {
+            case "upper", "upper-body", "upper_body" -> "arm";
+            case "lower", "lower-body", "lower_body" -> "leg";
+            case "torso", "core", "full", "full-body", "full_body" -> "body";
+            default -> normalized;
+        };
     }
 
     private double resolvePoseFeatureWeight(int featureIndex, Map<String, Double> jointWeights) {
@@ -1269,10 +1800,22 @@ public class DefaultScoringService implements ScoringService {
             double averageVisibility,
             MotionSignals signals,
             boolean hasAnalysisSummary,
-            FocusProfile focusProfile) {
+            FocusProfile focusProfile,
+            List<ScoreSpot> scoreSpots) {
 
         static ParsedMotionProfile empty() {
-            return new ParsedMotionProfile(0, 0, 0L, List.of(), 0, 0, 0.0, MotionSignals.empty(), false, FocusProfile.empty());
+            return new ParsedMotionProfile(
+                    0,
+                    0,
+                    0L,
+                    List.of(),
+                    0,
+                    0,
+                    0.0,
+                    MotionSignals.empty(),
+                    false,
+                    FocusProfile.empty(),
+                    List.of());
         }
 
         boolean hasLandmarks() {
@@ -1299,7 +1842,7 @@ public class DefaultScoringService implements ScoringService {
         }
     }
 
-    private record FrameLandmarkSet(int frameIndex, Map<String, LandmarkPoint> points, double qualityScore) {
+    private record FrameLandmarkSet(int frameIndex, int timestampMs, Map<String, LandmarkPoint> points, double qualityScore) {
     }
 
     private record LandmarkPoint(double x, double y, double z, double visibility) {
@@ -1382,6 +1925,29 @@ public class DefaultScoringService implements ScoringService {
             double timingWeight,
             String dominantRegion,
             Map<String, Double> jointWeights) {
+    }
+
+    private record ScoreSpot(
+            int secondIndex,
+            int frameIndex,
+            int cueMs,
+            int windowStartMs,
+            int windowEndMs,
+            double poseWeight,
+            double timingWeight,
+            String focusRegion) {
+    }
+
+    private record ScoreSpotMatch(
+            ScoreSpot scoreSpot,
+            int referenceFramePosition,
+            int attemptFramePosition,
+            double ratio,
+            int cueMs,
+            int expectedAttemptMs,
+            int windowMs,
+            FrameLandmarkSet referenceFrame,
+            FrameLandmarkSet attemptFrame) {
     }
 
     private record PoseDescriptor(List<Double> features, double qualityScore, double focusWeight) {

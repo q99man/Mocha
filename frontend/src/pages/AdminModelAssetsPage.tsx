@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 
+import { CompactToast } from '../shared/components/CompactToast';
+
 import { formatDifficulty, parseDifficulty } from '../features/challenges/difficulty';
 import { AdminAssetsSection } from '../features/admin/AdminAssetsSection';
 import { AdminChallengeEditorModal } from '../features/admin/AdminChallengeEditorModal';
@@ -440,6 +442,18 @@ export function AdminModelAssetsPage() {
     }
   }
 
+  const clearAllMessages = () => {
+    setUploadSuccess(null);
+    setChallengeSuccess(null);
+    setAnalysisMessage(null);
+    setUploadError(null);
+    setAnalysisError(null);
+    setError(null);
+  };
+
+  const activeMessage = uploadSuccess || challengeSuccess || analysisMessage;
+  const activeError = uploadError || analysisError || error;
+
   return (
     <>
       <div className="glass-page board-page-compact">
@@ -466,17 +480,11 @@ export function AdminModelAssetsPage() {
             <span className="glass-chip">평가 준비 {evaluationReadyChallenges.length}</span>
             {createdChallengeId ? <span className="glass-chip">최근 생성 #{createdChallengeId}</span> : null}
           </div>
-
-          {uploadSuccess || uploadError || analysisMessage || analysisError || error || challengeSuccess ? (
-            <div className="glass-status-stack">
-              {uploadSuccess ? <p className="review-composer__message review-composer__message--success">{uploadSuccess}</p> : null}
-              {challengeSuccess ? <p className="review-composer__message review-composer__message--success">{challengeSuccess}</p> : null}
-              {analysisMessage ? <p className="review-composer__message review-composer__message--success">{analysisMessage}</p> : null}
-              {uploadError ? <p className="review-composer__message review-composer__message--error">{uploadError}</p> : null}
-              {analysisError ? <p className="review-composer__message review-composer__message--error">{analysisError}</p> : null}
-              {error ? <p className="review-composer__message review-composer__message--error">{error}</p> : null}
-            </div>
-          ) : null}
+          <CompactToast
+            message={activeMessage || activeError}
+            type={activeError ? 'error' : 'success'}
+            onClose={clearAllMessages}
+          />
 
           <AdminAssetsSection
             loading={loading}

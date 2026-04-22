@@ -57,6 +57,7 @@ public class AttemptJudgementTimelineService {
         }
 
         List<JudgementSample> samples = new ArrayList<>();
+        int minimumAttemptFramePosition = 0;
 
         for (int index = 0; index < cueAnchors.size(); index++) {
             CueAnchor cueAnchor = cueAnchors.get(index);
@@ -71,12 +72,21 @@ public class AttemptJudgementTimelineService {
                     : resolveTimestamp(referenceFrame.timestampMs(), ratio, reference.durationMs());
             int expectedAttemptMs = resolveExpectedAttemptTimestamp(ratio, attempt.durationMs());
             int windowMs = resolveCueWindowMs(cueAnchors, index, reference.durationMs());
-            FrameSnapshot attemptFrame = selectBestAlignedAttemptFrame(
+            int remainingCueCount = cueAnchors.size() - index - 1;
+            int maximumAttemptFramePosition = Math.max(
+                    minimumAttemptFramePosition,
+                    attempt.frames().size() - 1 - remainingCueCount);
+            int attemptFramePosition = selectBestAlignedAttemptFramePosition(
                     attempt.frames(),
                     referenceFrame,
                     reference.focusProfile(),
                     ratio,
-                    windowMs);
+                    expectedAttemptMs,
+                    windowMs,
+                    minimumAttemptFramePosition,
+                    maximumAttemptFramePosition);
+            FrameSnapshot attemptFrame = attempt.frames().get(attemptFramePosition);
+            minimumAttemptFramePosition = Math.min(attempt.frames().size() - 1, attemptFramePosition + 1);
             int actualAttemptMs = resolveTimestamp(attemptFrame.timestampMs(), ratio, attempt.durationMs());
             int offsetMs = clamp(actualAttemptMs - expectedAttemptMs, -220, 220);
 
@@ -289,23 +299,37 @@ public class AttemptJudgementTimelineService {
         return frames.get(clamp(targetIndex, 0, frames.size() - 1));
     }
 
-    private FrameSnapshot selectBestAlignedAttemptFrame(
+    private int selectBestAlignedAttemptFramePosition(
             List<FrameSnapshot> frames,
             FrameSnapshot referenceFrame,
             FocusProfile focusProfile,
             double ratio,
-            int windowMs) {
+            int expectedTimestampMs,
+            int windowMs,
+            int minimumFramePosition,
+            int maximumFramePosition) {
         if (frames.size() == 1) {
-            return frames.get(0);
+            return 0;
         }
 
-        int targetIndex = (int) Math.round(clampDouble(ratio, 0.0, 1.0) * (frames.size() - 1));
+        int safeMinimumFramePosition = clamp(minimumFramePosition, 0, frames.size() - 1);
+        int safeMaximumFramePosition = clamp(Math.max(safeMinimumFramePosition, maximumFramePosition), 0, frames.size() - 1);
+        int targetIndex = clamp(
+                findNearestFramePositionByTimestamp(frames, expectedTimestampMs),
+                safeMinimumFramePosition,
+                safeMaximumFramePosition);
         int frameRadius = Math.max(2, Math.min(18, (int) Math.round(frames.size() * 0.08)));
-        int startIndex = Math.max(0, targetIndex - frameRadius);
-        int endIndex = Math.min(frames.size() - 1, targetIndex + frameRadius);
+        int startIndex = Math.max(safeMinimumFramePosition, targetIndex - frameRadius);
+        int endIndex = Math.min(safeMaximumFramePosition, targetIndex + frameRadius);
 
-        FrameSnapshot bestFrame = frames.get(targetIndex);
-        double bestScore = alignmentScore(referenceFrame, bestFrame, focusProfile, ratio, targetIndex, targetIndex, windowMs);
+        int bestFramePosition = targetIndex;
+        double bestScore = alignmentScore(
+                referenceFrame,
+                frames.get(bestFramePosition),
+                focusProfile,
+                ratio,
+                expectedTimestampMs,
+                windowMs);
         for (int candidateIndex = startIndex; candidateIndex <= endIndex; candidateIndex++) {
             FrameSnapshot candidate = frames.get(candidateIndex);
             double candidateScore = alignmentScore(
@@ -313,15 +337,14 @@ public class AttemptJudgementTimelineService {
                     candidate,
                     focusProfile,
                     ratio,
-                    candidateIndex,
-                    targetIndex,
+                    expectedTimestampMs,
                     windowMs);
             if (candidateScore < bestScore) {
                 bestScore = candidateScore;
-                bestFrame = candidate;
+                bestFramePosition = candidateIndex;
             }
         }
-        return bestFrame;
+        return bestFramePosition;
     }
 
     private double alignmentScore(
@@ -329,14 +352,16 @@ public class AttemptJudgementTimelineService {
             FrameSnapshot attemptFrame,
             FocusProfile focusProfile,
             double ratio,
-            int candidateIndex,
-            int targetIndex,
+            int expectedTimestampMs,
             int windowMs) {
         double poseDifference = comparePoseShape(referenceFrame.points(), attemptFrame.points(), focusProfile, ratio);
         double visibilityPenalty = Math.max(0.0, 0.78 - calculateAverageVisibility(attemptFrame.points())) * 0.18;
-        double indexPenalty = Math.abs(candidateIndex - targetIndex) / (double) Math.max(1, Math.abs(targetIndex) + 3);
+        double timingPenalty = clampDouble(
+                Math.abs(attemptFrame.timestampMs() - expectedTimestampMs) / (double) Math.max(windowMs, 1),
+                0.0,
+                1.8);
         double windowPenalty = Math.max(0.0, 0.18 - (windowMs / 1000.0)) * 0.03;
-        return poseDifference + visibilityPenalty + (indexPenalty * 0.10) + windowPenalty;
+        return poseDifference + visibilityPenalty + (timingPenalty * 0.12) + windowPenalty;
     }
 
     private List<CueAnchor> buildCueAnchors(ParsedProfile reference, ParsedProfile attempt) {
@@ -539,6 +564,19 @@ public class AttemptJudgementTimelineService {
         int bestGap = Integer.MAX_VALUE;
         for (int index = 0; index < frames.size(); index++) {
             int gap = Math.abs(frames.get(index).frameIndex() - frameIndex);
+            if (gap < bestGap) {
+                bestGap = gap;
+                bestIndex = index;
+            }
+        }
+        return bestIndex;
+    }
+
+    private int findNearestFramePositionByTimestamp(List<FrameSnapshot> frames, int targetTimestampMs) {
+        int bestIndex = 0;
+        int bestGap = Integer.MAX_VALUE;
+        for (int index = 0; index < frames.size(); index++) {
+            int gap = Math.abs(frames.get(index).timestampMs() - targetTimestampMs);
             if (gap < bestGap) {
                 bestGap = gap;
                 bestIndex = index;

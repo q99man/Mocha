@@ -2,7 +2,6 @@ import { useMemo, useState } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 
 import { useAuth } from '../auth/AuthProvider';
-import { CompactConfirmDialog } from './CompactConfirmDialog';
 
 const ADMIN_NAV_ITEMS = [
   { tab: 'challenges', label: '챌린지' },
@@ -15,7 +14,6 @@ export function AdminLayout() {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, logout } = useAuth();
-  const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
   const [logoutBusy, setLogoutBusy] = useState(false);
 
   const activeTab = useMemo(() => {
@@ -27,15 +25,18 @@ export function AdminLayout() {
     return 'challenges';
   }, [location.search]);
 
-  async function handleConfirmLogout() {
+  async function handleLogout() {
+    if (logoutBusy) {
+      return;
+    }
+
     setLogoutBusy(true);
 
     try {
       await logout();
-      navigate('/');
+      navigate('/', { replace: true });
     } finally {
       setLogoutBusy(false);
-      setLogoutConfirmOpen(false);
     }
   }
 
@@ -66,7 +67,12 @@ export function AdminLayout() {
           <button className="stage-nav__utility" type="button" onClick={() => navigate('/')}>
             공개 화면
           </button>
-          <button className="stage-nav__utility" type="button" onClick={() => setLogoutConfirmOpen(true)}>
+          <button
+            className="stage-nav__utility"
+            type="button"
+            onClick={() => void handleLogout()}
+            disabled={logoutBusy}
+          >
             로그아웃
           </button>
         </div>
@@ -75,21 +81,6 @@ export function AdminLayout() {
       <main className="app-main-glass">
         <Outlet />
       </main>
-
-      <CompactConfirmDialog
-        open={logoutConfirmOpen}
-        title="로그아웃"
-        description="관리자 세션을 종료하고 홈 화면으로 이동합니다."
-        confirmLabel="로그아웃"
-        cancelLabel="취소"
-        busy={logoutBusy}
-        onConfirm={handleConfirmLogout}
-        onCancel={() => {
-          if (!logoutBusy) {
-            setLogoutConfirmOpen(false);
-          }
-        }}
-      />
     </div>
   );
 }
