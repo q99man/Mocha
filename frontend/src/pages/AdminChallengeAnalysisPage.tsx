@@ -113,7 +113,7 @@ export function AdminChallengeAnalysisPage() {
             <strong>분석 화면을 불러오지 못했습니다.</strong>
             <p>{error}</p>
             <div className="inline-actions">
-              <Link className="button-link button-link--compact" to="/admin/model-assets">
+              <Link className="button-link button-link--compact" to="/admin?tab=challenges">
                 운영 허브로
               </Link>
             </div>
@@ -131,7 +131,7 @@ export function AdminChallengeAnalysisPage() {
             <strong>챌린지를 찾을 수 없습니다.</strong>
             <p>선택한 분석 대상이 없거나 이미 정리되었습니다.</p>
             <div className="inline-actions">
-              <Link className="button-link button-link--compact" to="/admin/model-assets">
+              <Link className="button-link button-link--compact" to="/admin?tab=challenges">
                 운영 허브로
               </Link>
             </div>
@@ -157,7 +157,7 @@ export function AdminChallengeAnalysisPage() {
             >
               챌린지 보기
             </Link>
-            <Link className="button-link button-link--compact" to="/admin/model-assets">
+            <Link className="button-link button-link--compact" to="/admin?tab=challenges">
               운영 허브로
             </Link>
           </div>

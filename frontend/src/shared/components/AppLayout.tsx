@@ -2,6 +2,15 @@ import { useEffect, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 
 import { useAuth } from '../auth/AuthProvider';
+import { AuthModal } from '../auth/AuthModal';
+import {
+  buildAuthModalHref,
+  resolveAuthFeedback,
+  resolveAuthMode,
+  sanitizeAuthRedirectPath,
+  stripAuthModalSearch,
+  type AuthMode,
+} from '../auth/authModalUtils';
 import { CompactConfirmDialog } from './CompactConfirmDialog';
 
 const BASE_NAV_ITEMS = [
@@ -15,6 +24,10 @@ export function AppLayout() {
   const navigate = useNavigate();
   const { user, isAdmin, isAuthenticated, logout } = useAuth();
   const isLandingRoute = location.pathname === '/';
+  const authParams = new URLSearchParams(location.search);
+  const authMode = resolveAuthMode(authParams.get('auth'));
+  const authRedirect = sanitizeAuthRedirectPath(authParams.get('redirect'));
+  const authFeedback = resolveAuthFeedback(authParams);
   const isImmersivePlayRoute =
     (location.pathname.startsWith('/challenges/') && location.pathname.endsWith('/start')) ||
     (location.pathname.startsWith('/attempts/') && location.pathname.endsWith('/result'));
@@ -25,7 +38,7 @@ export function AppLayout() {
   const navItems = [
     ...BASE_NAV_ITEMS,
     ...(isAuthenticated && !isAdmin ? [{ to: '/mypage', label: '마이페이지' }] : []),
-    ...(isAdmin ? [{ to: '/admin/model-assets', label: '관리' }] : []),
+    ...(isAdmin ? [{ to: '/admin', label: '관리' }] : []),
   ];
 
   useEffect(() => {
@@ -63,6 +76,16 @@ export function AppLayout() {
     }
   }
 
+  function closeAuthModal() {
+    navigate(
+      {
+        pathname: location.pathname,
+        search: stripAuthModalSearch(location.search),
+      },
+      { replace: true },
+    );
+  }
+
   if (isLandingRoute) {
     return (
       <div className="stage-shell stage-shell--landing">
@@ -75,7 +98,7 @@ export function AppLayout() {
 
           <div className="stage-topbar__actions stage-topbar__actions--landing">
             {isAdmin ? (
-              <NavLink className="stage-nav__utility" to="/admin/model-assets">
+              <NavLink className="stage-nav__utility" to="/admin">
                 관리자
               </NavLink>
             ) : null}
@@ -89,7 +112,7 @@ export function AppLayout() {
                 로그아웃
               </button>
             ) : (
-              <NavLink className="stage-nav__cta" to="/auth">
+              <NavLink className="stage-nav__cta" to={buildAuthModalHref(location)}>
                 시작하기
               </NavLink>
             )}
@@ -114,6 +137,18 @@ export function AppLayout() {
             }
           }}
         />
+
+        {authMode ? (
+          <AuthModal
+            mode={authMode}
+            redirectTarget={authRedirect}
+            feedback={authFeedback}
+            onClose={closeAuthModal}
+            onModeChange={(nextMode: AuthMode) => {
+              navigate(buildAuthModalHref(location, { mode: nextMode, redirectPath: authRedirect }), { replace: true });
+            }}
+          />
+        ) : null}
       </div>
     );
   }
@@ -149,7 +184,7 @@ export function AppLayout() {
                 </button>
               </>
             ) : (
-              <button className="stage-nav__cta" type="button" onClick={() => navigate('/auth')}>
+              <button className="stage-nav__cta" type="button" onClick={() => navigate(buildAuthModalHref(location))}>
                 로그인
               </button>
             )}
@@ -175,6 +210,18 @@ export function AppLayout() {
           }
         }}
       />
+
+      {authMode ? (
+        <AuthModal
+          mode={authMode}
+          redirectTarget={authRedirect}
+          feedback={authFeedback}
+          onClose={closeAuthModal}
+          onModeChange={(nextMode: AuthMode) => {
+            navigate(buildAuthModalHref(location, { mode: nextMode, redirectPath: authRedirect }), { replace: true });
+          }}
+        />
+      ) : null}
     </div>
   );
 }

@@ -71,6 +71,11 @@ export type ChallengeReferencePosePoint = {
 
 export type ChallengeReferencePoseFrame = {
   frameIndex: number;
+  timestampMs: number;
+  secondIndex: number | null;
+  focusRegion: string | null;
+  poseWeight: number | null;
+  timingWeight: number | null;
   points: ChallengeReferencePosePoint[];
 };
 

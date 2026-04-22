@@ -1,0 +1,21 @@
+# Normalize line endings
+* text=auto eol=lf
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+
+# Enforce UTF-8 working tree encoding for source/docs
+*.md text working-tree-encoding=UTF-8
+*.java text working-tree-encoding=UTF-8
+*.kt text working-tree-encoding=UTF-8
+*.xml text working-tree-encoding=UTF-8
+*.yml text working-tree-encoding=UTF-8
+*.yaml text working-tree-encoding=UTF-8
+*.json text working-tree-encoding=UTF-8
+*.sql text working-tree-encoding=UTF-8
+*.html text working-tree-encoding=UTF-8
+*.css text working-tree-encoding=UTF-8
+*.js text working-tree-encoding=UTF-8
+*.jsx text working-tree-encoding=UTF-8
+*.ts text working-tree-encoding=UTF-8
+*.tsx text working-tree-encoding=UTF-8

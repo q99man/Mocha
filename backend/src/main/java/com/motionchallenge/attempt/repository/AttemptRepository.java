@@ -10,6 +10,8 @@ import org.springframework.data.repository.query.Param;
 
 public interface AttemptRepository extends JpaRepository<Attempt, Long> {
 
+    boolean existsByMemberId(Long memberId);
+
     @Query("select a from Attempt a join fetch a.challenge where a.member.id = :memberId order by a.updatedAt desc, a.id desc")
     List<Attempt> findAllWithChallengeByMemberIdOrderByCreatedAtDesc(@Param("memberId") Long memberId);
 

@@ -6,6 +6,7 @@ public record MemberSessionResponse(
         Long id,
         String email,
         String displayName,
+        String authProvider,
         String role,
         boolean authenticated) {
 
@@ -14,6 +15,7 @@ public record MemberSessionResponse(
                 member.getId(),
                 member.getEmail(),
                 member.getDisplayName(),
+                member.getAuthProvider().name(),
                 member.getRole().name(),
                 true);
     }

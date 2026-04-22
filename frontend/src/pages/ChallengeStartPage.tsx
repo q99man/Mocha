@@ -45,6 +45,7 @@ export function ChallengeStartPage() {
   const [resultAttempt, setResultAttempt] = useState<AttemptSummary | null>(null);
   const [resultError, setResultError] = useState<string | null>(null);
   const [judgementCue, setJudgementCue] = useState<JudgementCue | null>(null);
+  const [exitPromptOpen, setExitPromptOpen] = useState(false);
 
   const cameraVideoRef = useRef<HTMLVideoElement | null>(null);
   const cameraStreamRef = useRef<MediaStream | null>(null);
@@ -186,6 +187,20 @@ export function ChallengeStartPage() {
       stopCamera();
       document.body.classList.remove('body--play-fullscreen');
     };
+  }, [clearPlaybackTimers, discardRecording, stopCamera, stopReferenceVideo]);
+
+  const resetPlaySession = useCallback(() => {
+    clearPlaybackTimers();
+    discardRecording();
+    stopReferenceVideo();
+    stopCamera();
+    setPlayState('idle');
+    setCountdownNumber(3);
+    setProgress(0);
+    setSavingResult(false);
+    setResultAttempt(null);
+    setResultError(null);
+    setJudgementCue(null);
   }, [clearPlaybackTimers, discardRecording, stopCamera, stopReferenceVideo]);
 
   useEffect(() => {
@@ -468,39 +483,66 @@ export function ChallengeStartPage() {
   ]);
 
   const handleExit = useCallback(() => {
-    clearPlaybackTimers();
-    discardRecording();
-    stopReferenceVideo();
-    stopCamera();
-    setJudgementCue(null);
+    resetPlaySession();
     void navigate(`/challenges?challengeId=${id}`);
-  }, [clearPlaybackTimers, discardRecording, id, navigate, stopCamera, stopReferenceVideo]);
+  }, [id, navigate, resetPlaySession]);
+
+  const handleExitRequest = useCallback(() => {
+    if (playState === 'idle' || playState === 'result') {
+      handleExit();
+      return;
+    }
+
+    resetPlaySession();
+    setExitPromptOpen(true);
+  }, [handleExit, playState, resetPlaySession]);
 
   const handleRetry = useCallback(() => {
-    clearPlaybackTimers();
-    discardRecording();
-    stopReferenceVideo();
-    setPlayState('idle');
-    setCountdownNumber(3);
-    setProgress(0);
-    setSavingResult(false);
-    setResultAttempt(null);
-    setResultError(null);
-    setJudgementCue(null);
+    resetPlaySession();
 
     if (flowMode === 'camera') {
       void requestCamera();
-    } else {
-      stopCamera();
     }
-  }, [clearPlaybackTimers, discardRecording, flowMode, requestCamera, stopCamera, stopReferenceVideo]);
+  }, [flowMode, requestCamera, resetPlaySession]);
 
-  const latestScoreLabel = useMemo(() => {
-    if (!challenge?.latestRetrySummary?.latestScore && challenge?.latestRetrySummary?.latestScore !== 0) {
-      return 'No record';
+  const handleExitPromptClose = useCallback(() => {
+    setExitPromptOpen(false);
+  }, []);
+
+  const handleExitPromptConfirmExit = useCallback(() => {
+    setExitPromptOpen(false);
+    handleExit();
+  }, [handleExit]);
+
+  const handleExitPromptConfirmRetry = useCallback(() => {
+    setExitPromptOpen(false);
+    handleRetry();
+  }, [handleRetry]);
+
+  useEffect(() => {
+    function handleWindowKeyDown(event: KeyboardEvent) {
+      if (event.key !== 'Escape') {
+        return;
+      }
+
+      if (exitPromptOpen) {
+        event.preventDefault();
+        return;
+      }
+
+      if (playState === 'idle' || playState === 'result') {
+        return;
+      }
+
+      event.preventDefault();
+      handleExitRequest();
     }
-    return `${challenge.latestRetrySummary.latestScore} pt`;
-  }, [challenge?.latestRetrySummary]);
+
+    window.addEventListener('keydown', handleWindowKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleWindowKeyDown);
+    };
+  }, [exitPromptOpen, handleExitRequest, playState]);
 
   const rawVideoUrl = challenge?.guideVideoUrl ?? challenge?.fallbackThumbnailVideoUrl ?? null;
   const referenceVideoUrl = rawVideoUrl ? resolveApiUrl(rawVideoUrl) : null;
@@ -677,25 +719,20 @@ export function ChallengeStartPage() {
         <div className="play-stage__left">
           <span className="play-stage__gear-label">Motion Challenge</span>
 
-          <button type="button" className="play-stage__exit" onClick={handleExit}>
+          <button type="button" className="play-stage__exit" onClick={handleExitRequest}>
             Exit
           </button>
 
-          <div className="play-stage__video-wrap">
-            {referenceVideoUrl ? (
-              <video ref={refVideoRef} src={referenceVideoUrl} className="play-stage__video" playsInline preload="auto" />
-            ) : (
-              <div className="play-stage__video--placeholder">
-                <span>{challenge.title}</span>
-              </div>
-            )}
-          </div>
-
-          <div className="play-stage__info">
-            <span>{challenge.category}</span>
-            <strong>{formatDifficulty(challenge.difficulty)}</strong>
-            <span>{formatDurationLabel(challenge.durationSec)}</span>
-            <span>Latest score {latestScoreLabel}</span>
+          <div className="play-stage__media-stack">
+            <div className="play-stage__video-wrap">
+              {referenceVideoUrl ? (
+                <video ref={refVideoRef} src={referenceVideoUrl} className="play-stage__video" playsInline preload="auto" />
+              ) : (
+                <div className="play-stage__video--placeholder">
+                  <span>{challenge.title}</span>
+                </div>
+              )}
+            </div>
           </div>
 
           <div className="play-stage__gauge">
@@ -719,28 +756,21 @@ export function ChallengeStartPage() {
                 : 'Camera standby'}
           </div>
 
-          {cameraReady && flowMode === 'camera' ? (
-            <video ref={cameraVideoRef} className="play-stage__camera" autoPlay muted playsInline />
-          ) : (
-            <div className="play-stage__camera-placeholder">
-              <span>{flowMode === 'test' ? 'Test mode' : 'Camera'}</span>
-              <span>
-                {flowMode === 'test'
-                  ? '카메라 없이 판정 흐름만 점검하는 테스트 모드입니다.'
-                  : '카메라 권한과 미리보기를 준비하고 있습니다.'}
-              </span>
+          <div className="play-stage__media-stack play-stage__media-stack--camera">
+            <div className="play-stage__camera-frame">
+              {cameraReady && flowMode === 'camera' ? (
+                <video ref={cameraVideoRef} className="play-stage__camera" autoPlay muted playsInline />
+              ) : (
+                <div className="play-stage__camera-placeholder">
+                  <span>{flowMode === 'test' ? 'Test mode' : 'Camera'}</span>
+                  <span>
+                    {flowMode === 'test'
+                      ? '카메라 없이 판정 흐름만 점검하는 테스트 모드입니다.'
+                      : '카메라 권한과 미리보기를 준비하고 있습니다.'}
+                  </span>
+                </div>
+              )}
             </div>
-          )}
-
-          <div className="play-stage__guide-overlay">
-            <svg viewBox="0 0 200 340" fill="none" stroke="rgba(255,255,255,0.5)" strokeWidth="2">
-              <circle cx="100" cy="50" r="30" />
-              <rect x="70" y="90" width="60" height="100" rx="4" />
-              <line x1="70" y1="110" x2="20" y2="80" />
-              <line x1="130" y1="110" x2="180" y2="80" />
-              <line x1="80" y1="190" x2="50" y2="300" />
-              <line x1="120" y1="190" x2="150" y2="300" />
-            </svg>
           </div>
         </div>
 
@@ -820,6 +850,35 @@ export function ChallengeStartPage() {
                 {resultError ? <p className="play-stage__analysis-error">{resultError}</p> : null}
               </div>
             </div>
+          </div>
+        </div>
+      ) : null}
+
+      {exitPromptOpen ? (
+        <div className="play-stage__confirm-backdrop">
+          <div
+            className="play-stage__confirm-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="play-stage-exit-title"
+            aria-describedby="play-stage-exit-description"
+          >
+            <span className="play-stage__confirm-kicker">Challenge paused</span>
+            <h2 id="play-stage-exit-title">현재 도전을 중단할까요?</h2>
+            <p id="play-stage-exit-description">
+              진행 중인 도전은 정리되었습니다. 여기서 챌린지 목록으로 나가거나, 같은 챌린지를 다시 시작할 수 있습니다.
+            </p>
+            <div className="play-stage__confirm-actions">
+              <button type="button" className="play-stage__confirm-btn play-stage__confirm-btn--secondary" onClick={handleExitPromptConfirmExit}>
+                종료
+              </button>
+              <button type="button" className="play-stage__confirm-btn" onClick={handleExitPromptConfirmRetry}>
+                재도전
+              </button>
+            </div>
+            <button type="button" className="play-stage__confirm-link" onClick={handleExitPromptClose}>
+              계속 화면에 머무르기
+            </button>
           </div>
         </div>
       ) : null}

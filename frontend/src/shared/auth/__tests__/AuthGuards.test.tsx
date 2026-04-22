@@ -58,6 +58,7 @@ describe('auth guards', () => {
         id: 1,
         email: 'user@example.com',
         displayName: 'Normal User',
+        authProvider: 'LOCAL',
         role: 'USER',
         authenticated: true,
       },

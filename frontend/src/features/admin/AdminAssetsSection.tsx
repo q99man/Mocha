@@ -13,14 +13,19 @@ type AdminAssetsSectionProps = {
   versionLabel: string;
   uploading: boolean;
   deletingAssetId: number | null;
+  updatingAssetId?: number | null;
   expandedAssetId: number | null;
   assetPage: number;
   assetTotalPages: number;
+  assetVersionDrafts?: Record<number, string>;
   setVersionLabel: (value: string) => void;
   onSelectModelFile: (file: File | null) => void;
   onSubmitModel: () => void;
   onToggleAssetRow: (assetId: number) => void;
   onConfirmDeleteAsset: (asset: ModelAsset) => void;
+  onChangeAssetVersionDraft?: (assetId: number, value: string) => void;
+  onSaveAsset?: (asset: ModelAsset) => void;
+  onActivateAsset?: (asset: ModelAsset) => void;
   onAssetPageChange: (page: number) => void;
   buildActiveDescription: (asset: ModelAsset) => string;
   formatFileSize: (size: number) => string;
@@ -32,21 +37,24 @@ export function AdminAssetsSection({
   loading,
   assets,
   activeAsset,
-  modelSummary,
   selectedModelFile,
   versionLabel,
   uploading,
   deletingAssetId,
+  updatingAssetId,
   expandedAssetId,
   assetPage,
   assetTotalPages,
+  assetVersionDrafts,
   setVersionLabel,
   onSelectModelFile,
   onSubmitModel,
   onToggleAssetRow,
   onConfirmDeleteAsset,
+  onChangeAssetVersionDraft,
+  onSaveAsset,
+  onActivateAsset,
   onAssetPageChange,
-  buildActiveDescription,
   formatFileSize,
   formatDateTime,
   formatDateTimeFull,
@@ -54,11 +62,10 @@ export function AdminAssetsSection({
   const pagedAssets = assets.slice((assetPage - 1) * 5, (assetPage - 1) * 5 + 5);
 
   return (
-    <section className="glass-panel glass-panel--nested admin-hub-compact__section">
+    <section className="admin-hub-compact__section admin-shell-compact__section">
       <div className="board-detail-compact__toolbar admin-hub-compact__section-header">
         <div>
           <h3 className="glass-section-title">모델 관리</h3>
-          <p className="glass-toolbar__note">{modelSummary}</p>
         </div>
         <div className="board-detail-compact__meta">
           <span className="board-classic-badge">{assets.length}개 자산</span>
@@ -98,19 +105,12 @@ export function AdminAssetsSection({
         </div>
       </form>
 
-      {selectedModelFile ? (
-        <p className="glass-toolbar__note admin-hub-compact__inline-note">선택 파일: {selectedModelFile.name}</p>
-      ) : null}
-      {activeAsset ? (
-        <p className="glass-toolbar__note admin-hub-compact__inline-note">{buildActiveDescription(activeAsset)}</p>
-      ) : null}
-
       {loading ? (
-        <div className="glass-panel glass-panel--nested glass-panel--empty">
+        <div className="board-compact-empty">
           <strong>모델 자산을 불러오는 중입니다.</strong>
         </div>
       ) : pagedAssets.length === 0 ? (
-        <div className="glass-panel glass-panel--nested glass-panel--empty">
+        <div className="board-compact-empty">
           <strong>등록된 모델 자산이 없습니다.</strong>
         </div>
       ) : (
@@ -176,10 +176,20 @@ export function AdminAssetsSection({
                           <p>{asset.active ? '현재 운영 중인 활성 모델입니다.' : '보관 중인 모델 자산입니다.'}</p>
                         </div>
                         <div className="admin-hub-compact-row__actions admin-hub-compact-row__actions--wrap">
+                          {!asset.active && onActivateAsset ? (
+                            <button
+                              className="button-link button-link--secondary admin-hub-compact__action-btn"
+                              type="button"
+                              disabled={Boolean(updatingAssetId) || uploading}
+                              onClick={() => onActivateAsset?.(asset)}
+                            >
+                              {updatingAssetId === asset.id ? '적용 중...' : '활성 전환'}
+                            </button>
+                          ) : null}
                           <button
                             className="button-link button-link--secondary admin-hub-compact__action-btn admin-hub-compact__action-btn--danger"
                             type="button"
-                            disabled={deletingAssetId === asset.id || uploading}
+                            disabled={deletingAssetId === asset.id || Boolean(updatingAssetId) || uploading}
                             onClick={() => onConfirmDeleteAsset(asset)}
                           >
                             {deletingAssetId === asset.id ? '삭제 중...' : '모델 삭제'}
@@ -196,6 +206,25 @@ export function AdminAssetsSection({
                       </div>
 
                       <div className="admin-hub-compact__inline-grid">
+                          <div className="admin-hub-compact__inline-card">
+                            <span>버전 라벨 수정</span>
+                            <div className="admin-hub-compact__inline-form">
+                              <input
+                                type="text"
+                              value={assetVersionDrafts?.[asset.id] ?? asset.versionLabel ?? ''}
+                              onChange={(event) => onChangeAssetVersionDraft?.(asset.id, event.target.value)}
+                                placeholder="예: lite-v2"
+                              />
+                              <button
+                                className="button-link button-link--secondary admin-hub-compact__action-btn"
+                                type="button"
+                              disabled={Boolean(updatingAssetId) || uploading || !onSaveAsset}
+                              onClick={() => onSaveAsset?.(asset)}
+                              >
+                                {updatingAssetId === asset.id ? '저장 중...' : '저장'}
+                              </button>
+                          </div>
+                        </div>
                         <div className="admin-hub-compact__inline-card">
                           <span>저장 경로</span>
                           <strong>{asset.storagePath}</strong>

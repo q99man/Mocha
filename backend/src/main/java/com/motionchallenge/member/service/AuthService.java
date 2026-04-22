@@ -3,12 +3,17 @@ package com.motionchallenge.member.service;
 import com.motionchallenge.member.dto.AuthLoginRequest;
 import com.motionchallenge.member.dto.AuthRegisterRequest;
 import com.motionchallenge.member.dto.MemberSessionResponse;
+import com.motionchallenge.member.dto.OAuth2LoginResult;
+import com.motionchallenge.member.dto.OAuth2LoginStatus;
 import com.motionchallenge.member.entity.Member;
+import com.motionchallenge.member.entity.MemberAuthProvider;
 import com.motionchallenge.member.entity.MemberRole;
+import com.motionchallenge.member.oauth.OAuth2MemberProfile;
 import com.motionchallenge.member.repository.MemberRepository;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -56,7 +61,7 @@ public class AuthService {
         }
 
         MemberRole role = memberRepository.existsByRole(MemberRole.ADMIN) ? MemberRole.USER : MemberRole.ADMIN;
-        Member member = memberRepository.saveAndFlush(new Member(
+        Member member = memberRepository.saveAndFlush(Member.local(
                 normalizedEmail,
                 passwordEncoder.encode(request.getPassword()),
                 normalizedDisplayName,
@@ -74,6 +79,18 @@ public class AuthService {
         Authentication authentication =
                 authenticateAndPersist(normalizedEmail, request.getPassword(), httpRequest, httpResponse);
         return toSessionResponse(authentication);
+    }
+
+    @Transactional
+    public OAuth2LoginResult loginWithOAuth2(
+            String registrationId,
+            Map<String, Object> attributes,
+            HttpServletRequest httpRequest,
+            HttpServletResponse httpResponse) {
+        OAuth2MemberProfile profile = OAuth2MemberProfile.from(registrationId, attributes);
+        OAuth2UpsertResult result = upsertOAuth2Member(profile);
+        persistAuthenticatedSession(result.member(), httpRequest, httpResponse);
+        return new OAuth2LoginResult(MemberSessionResponse.from(result.member()), result.status());
     }
 
     public void logout(HttpServletRequest httpRequest, HttpServletResponse httpResponse) {
@@ -96,6 +113,7 @@ public class AuthService {
                 memberPrincipal.getId(),
                 memberPrincipal.getUsername(),
                 memberPrincipal.getDisplayName(),
+                memberPrincipal.getAuthProvider().name(),
                 memberPrincipal.getRole().name(),
                 true));
     }
@@ -138,8 +156,45 @@ public class AuthService {
                 memberPrincipal.getId(),
                 memberPrincipal.getUsername(),
                 memberPrincipal.getDisplayName(),
+                memberPrincipal.getAuthProvider().name(),
                 memberPrincipal.getRole().name(),
                 true);
+    }
+
+    private OAuth2UpsertResult upsertOAuth2Member(OAuth2MemberProfile profile) {
+        return memberRepository.findByAuthProviderAndProviderUserId(profile.authProvider(), profile.providerUserId())
+                .map(existing -> updateExistingSocialMember(existing, profile))
+                .orElseGet(() -> memberRepository.findByEmail(resolveSocialEmail(profile))
+                        .map(existing -> linkExistingMember(existing, profile))
+                        .orElseGet(() -> createSocialMember(profile)));
+    }
+
+    private OAuth2UpsertResult updateExistingSocialMember(Member member, OAuth2MemberProfile profile) {
+        member.updateProfile(resolveSocialEmail(profile), normalizeSocialDisplayName(profile), member.getRole());
+        member.updateSocialIdentity(profile.authProvider(), profile.providerUserId());
+        return new OAuth2UpsertResult(member, OAuth2LoginStatus.LOGIN);
+    }
+
+    private OAuth2UpsertResult linkExistingMember(Member member, OAuth2MemberProfile profile) {
+        member.updateProfile(resolveSocialEmail(profile), normalizeSocialDisplayName(profile), member.getRole());
+        member.updateSocialIdentity(profile.authProvider(), profile.providerUserId());
+        return new OAuth2UpsertResult(member, OAuth2LoginStatus.LINKED);
+    }
+
+    private OAuth2UpsertResult createSocialMember(OAuth2MemberProfile profile) {
+        MemberRole role = memberRepository.existsByRole(MemberRole.ADMIN) ? MemberRole.USER : MemberRole.ADMIN;
+        Member member = memberRepository.save(Member.social(
+                profile.authProvider(),
+                profile.providerUserId(),
+                resolveSocialEmail(profile),
+                normalizeSocialDisplayName(profile),
+                role));
+        return new OAuth2UpsertResult(member, OAuth2LoginStatus.REGISTERED);
+    }
+
+    private record OAuth2UpsertResult(
+            Member member,
+            OAuth2LoginStatus status) {
     }
 
     private String normalizeEmail(String email) {
@@ -155,5 +210,24 @@ public class AuthService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "?쒖떆 ?대쫫???꾩슂?⑸땲??");
         }
         return normalized;
+    }
+
+    private String normalizeSocialDisplayName(OAuth2MemberProfile profile) {
+        String candidate = profile.displayName() == null ? "" : profile.displayName().trim();
+        if (!candidate.isBlank()) {
+            return candidate.length() <= 40 ? candidate : candidate.substring(0, 40);
+        }
+        String email = resolveSocialEmail(profile);
+        int atIndex = email.indexOf('@');
+        String fallback = atIndex > 0 ? email.substring(0, atIndex) : email;
+        return fallback.length() <= 40 ? fallback : fallback.substring(0, 40);
+    }
+
+    private String resolveSocialEmail(OAuth2MemberProfile profile) {
+        String normalized = normalizeEmail(profile.email());
+        if (normalized != null && !normalized.isBlank()) {
+            return normalized;
+        }
+        return profile.authProvider().name().toLowerCase(Locale.ROOT) + "_" + profile.providerUserId() + "@oauth.mocha.local";
     }
 }

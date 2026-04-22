@@ -8,6 +8,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface AttemptProcessingJobRepository extends JpaRepository<AttemptProcessingJob, Long> {
 
+    boolean existsByMemberId(Long memberId);
+
     Optional<AttemptProcessingJob> findByTrackingId(String trackingId);
 
     Optional<AttemptProcessingJob> findByTrackingIdAndMemberId(String trackingId, Long memberId);

@@ -17,6 +17,7 @@ public interface BoardPostRepository extends JpaRepository<BoardPost, Long> {
             value = """
                     select post
                     from BoardPost post
+                    join fetch post.member
                     where (:category is null or post.category = :category)
                       and (:sourceType is null or post.sourceType = :sourceType)
                       and (:challengeId is null or post.challengeId = :challengeId)
@@ -52,6 +53,7 @@ public interface BoardPostRepository extends JpaRepository<BoardPost, Long> {
             value = """
                     select post
                     from BoardPost post
+                    join fetch post.member
                     where post.member.id = :memberId
                       and (:sourceType is null or post.sourceType = :sourceType)
                     order by post.createdAt desc, post.id desc
@@ -80,6 +82,8 @@ public interface BoardPostRepository extends JpaRepository<BoardPost, Long> {
     List<BoardPost> findAllByReviewIdIn(List<Long> reviewIds);
 
     long countBySourceType(BoardPostSourceType sourceType);
+
+    boolean existsByMemberId(Long memberId);
 
     @Query("""
             select post.challengeId, post.challengeTitle, count(post), avg(post.reviewRating)

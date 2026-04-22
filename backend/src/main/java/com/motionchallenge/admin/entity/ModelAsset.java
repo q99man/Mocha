@@ -108,4 +108,8 @@ public class ModelAsset extends BaseTimeEntity {
     public void deactivate() {
         this.active = false;
     }
+
+    public void updateVersionLabel(String versionLabel) {
+        this.versionLabel = versionLabel;
+    }
 }

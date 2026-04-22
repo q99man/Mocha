@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useLocation, useSearchParams } from 'react-router-dom';
 
 import { getBoardPosts } from '../shared/api/boardApi';
 import { useAuth } from '../shared/auth/AuthProvider';
+import { buildAuthModalHref } from '../shared/auth/authModalUtils';
 import { Pagination } from '../shared/components/Pagination';
 import type { BoardCategory, BoardPostSummary } from '../shared/types/board';
 
@@ -17,6 +18,7 @@ const CATEGORY_OPTIONS: Array<{ value: 'ALL' | BoardCategory; label: string }> =
 
 export function BoardPage() {
   const { isAuthenticated } = useAuth();
+  const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
   const [posts, setPosts] = useState<BoardPostSummary[]>([]);
   const [loading, setLoading] = useState(true);
@@ -164,7 +166,7 @@ export function BoardPage() {
             </button>
             <Link
               className="button-link button-link--compact"
-              to={isAuthenticated ? '/board/new' : '/auth'}
+              to={isAuthenticated ? '/board/new' : buildAuthModalHref(location, { redirectPath: '/board/new' })}
             >
               {isAuthenticated ? '글쓰기' : '로그인'}
             </Link>

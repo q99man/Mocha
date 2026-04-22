@@ -1,19 +1,31 @@
-import { useState } from 'react';
-import { NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { useMemo, useState } from 'react';
+import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 
 import { useAuth } from '../auth/AuthProvider';
 import { CompactConfirmDialog } from './CompactConfirmDialog';
 
 const ADMIN_NAV_ITEMS = [
-  { to: '/admin', label: '허브 홈' },
-  { to: '/admin/model-assets', label: '운영 관리' },
+  { tab: 'challenges', label: '챌린지' },
+  { tab: 'models', label: '모델' },
+  { tab: 'members', label: '회원' },
+  { tab: 'board', label: '게시판' },
 ];
 
 export function AdminLayout() {
+  const location = useLocation();
   const navigate = useNavigate();
   const { user, logout } = useAuth();
   const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
   const [logoutBusy, setLogoutBusy] = useState(false);
+
+  const activeTab = useMemo(() => {
+    const params = new URLSearchParams(location.search);
+    const tab = params.get('tab');
+    if (tab === 'models' || tab === 'members' || tab === 'board') {
+      return tab;
+    }
+    return 'challenges';
+  }, [location.search]);
 
   async function handleConfirmLogout() {
     setLogoutBusy(true);
@@ -39,9 +51,13 @@ export function AdminLayout() {
 
         <nav className="app-header-glass__nav" aria-label="관리자 메뉴">
           {ADMIN_NAV_ITEMS.map((item) => (
-            <NavLink key={item.to} to={item.to} end={item.to === '/admin'}>
+            <Link
+              key={item.tab}
+              className={activeTab === item.tab ? 'active' : undefined}
+              to={`/admin?tab=${item.tab}`}
+            >
               {item.label}
-            </NavLink>
+            </Link>
           ))}
         </nav>
 

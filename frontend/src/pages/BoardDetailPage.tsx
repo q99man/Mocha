@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 
 import { BoardCommentComposer } from '../features/board/BoardCommentComposer';
 import { BoardCommentList } from '../features/board/BoardCommentList';
@@ -13,6 +13,7 @@ import {
   updateBoardComment,
 } from '../shared/api/boardApi';
 import { useAuth } from '../shared/auth/AuthProvider';
+import { buildAuthModalHref, buildPathWithSearch } from '../shared/auth/authModalUtils';
 import { CompactConfirmDialog } from '../shared/components/CompactConfirmDialog';
 import type { BoardComment, BoardPost } from '../shared/types/board';
 
@@ -24,6 +25,7 @@ type BoardDetailConfirmState =
 
 export function BoardDetailPage() {
   const { id = '' } = useParams();
+  const location = useLocation();
   const navigate = useNavigate();
   const { isAuthenticated, isAdmin } = useAuth();
   const [post, setPost] = useState<BoardPost | null>(null);
@@ -241,7 +243,10 @@ export function BoardDetailPage() {
                 글쓰기
               </Link>
             ) : (
-              <Link className="button-link button-link--secondary button-link--compact" to="/auth">
+              <Link
+                className="button-link button-link--secondary button-link--compact"
+                to={buildAuthModalHref(location, { redirectPath: '/board/new' })}
+              >
                 로그인
               </Link>
             )}
@@ -313,7 +318,10 @@ export function BoardDetailPage() {
             <strong>로그인 후 댓글을 작성할 수 있습니다.</strong>
             <p>게시판 참여 기능은 로그인 사용자에게 열려 있습니다.</p>
             <div className="inline-actions">
-              <Link className="button-link button-link--compact" to="/auth">
+              <Link
+                className="button-link button-link--compact"
+                to={buildAuthModalHref(location, { redirectPath: buildPathWithSearch(location.pathname, location.search) })}
+              >
                 로그인
               </Link>
             </div>

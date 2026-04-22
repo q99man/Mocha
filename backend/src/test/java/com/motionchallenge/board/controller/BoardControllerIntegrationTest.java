@@ -94,10 +94,11 @@ class BoardControllerIntegrationTest {
                 .getResponse()
                 .getContentAsString());
 
-        mockMvc.perform(get("/api/board/posts?page=1&size=10"))
+        mockMvc.perform(get("/api/board/posts?page=1&size=10&sourceType=GENERAL"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.totalCount").value(1))
                 .andExpect(jsonPath("$.items[0].title").value("First board post"))
+                .andExpect(jsonPath("$.items[0].authorDisplayName").value("Member User"))
                 .andExpect(jsonPath("$.items[0].commentCount").value(1));
 
         mockMvc.perform(get("/api/board/posts/me").session(userSession))

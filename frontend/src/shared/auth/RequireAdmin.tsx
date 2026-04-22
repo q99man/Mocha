@@ -11,7 +11,7 @@ export function RequireAdmin({ children }: { children: React.ReactNode }) {
 
   if (!isAuthenticated) {
     const redirect = encodeURIComponent(location.pathname + location.search);
-    return <Navigate to={`/auth?redirect=${redirect}`} replace />;
+    return <Navigate to={`/auth?mode=login&redirect=${redirect}`} replace />;
   }
 
   if (!isAdmin) {

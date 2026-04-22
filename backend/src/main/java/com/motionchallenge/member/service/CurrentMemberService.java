@@ -1,6 +1,7 @@
 package com.motionchallenge.member.service;
 
 import com.motionchallenge.member.entity.Member;
+import com.motionchallenge.member.entity.MemberAuthProvider;
 import com.motionchallenge.member.entity.MemberRole;
 import com.motionchallenge.member.repository.MemberRepository;
 import java.util.Locale;
@@ -58,7 +59,7 @@ public class CurrentMemberService {
                 : MemberRole.USER;
 
         return Optional.of(memberRepository.findByEmail(username)
-                .orElseGet(() -> memberRepository.save(new Member(
+                .orElseGet(() -> memberRepository.save(Member.local(
                         username,
                         "EXTERNAL_AUTH_PRINCIPAL",
                         deriveDisplayName(username),

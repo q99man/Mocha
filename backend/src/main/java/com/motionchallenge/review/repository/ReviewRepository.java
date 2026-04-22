@@ -61,6 +61,8 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
             """)
     List<Review> findRecentWithMemberAndChallenge(Pageable pageable);
 
+    boolean existsByMemberId(Long memberId);
+
     @Modifying
     @Query("delete from Review review where review.challenge.id = :challengeId")
     void deleteByChallengeId(@Param("challengeId") Long challengeId);

@@ -1,14 +1,17 @@
 package com.motionchallenge.admin.controller;
 
 import com.motionchallenge.admin.dto.ModelAssetResponse;
+import com.motionchallenge.admin.dto.ModelAssetUpdateRequest;
 import com.motionchallenge.admin.service.ModelAssetService;
 import java.util.List;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
@@ -41,6 +44,13 @@ public class ModelAssetController {
             @RequestParam("modelFile") MultipartFile modelFile,
             @RequestParam(name = "versionLabel", required = false) String versionLabel) {
         return modelAssetService.uploadPoseLandmarker(modelFile, versionLabel);
+    }
+
+    @PatchMapping("/pose-landmarker/{id}")
+    public ModelAssetResponse updatePoseLandmarker(
+            @PathVariable Long id,
+            @RequestBody ModelAssetUpdateRequest request) {
+        return modelAssetService.updatePoseLandmarker(id, request);
     }
 
     @DeleteMapping("/pose-landmarker/{id}")

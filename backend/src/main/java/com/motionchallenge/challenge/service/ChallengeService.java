@@ -28,10 +28,13 @@ import com.motionchallenge.challenge.repository.ChallengeVideoRepository;
 import com.motionchallenge.motion.service.MotionAnalysisResult;
 import com.motionchallenge.motion.service.MotionAnalysisModeSupport;
 import com.motionchallenge.motion.service.MotionAnalysisService;
+import com.motionchallenge.member.entity.Member;
+import com.motionchallenge.member.service.CurrentMemberService;
 import com.motionchallenge.review.repository.ReviewRepository;
 import com.motionchallenge.video.service.StoredVideo;
 import com.motionchallenge.video.service.VideoStorageService;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Comparator;
@@ -67,6 +70,7 @@ public class ChallengeService {
     private final MotionAnalysisService motionAnalysisService;
     private final ObjectMapper objectMapper;
     private final ReviewRepository reviewRepository;
+    private final CurrentMemberService currentMemberService;
 
     public ChallengeService(
             ChallengeRepository challengeRepository,
@@ -81,7 +85,8 @@ public class ChallengeService {
             VideoStorageService videoStorageService,
             MotionAnalysisService motionAnalysisService,
             ObjectMapper objectMapper,
-            ReviewRepository reviewRepository) {
+            ReviewRepository reviewRepository,
+            CurrentMemberService currentMemberService) {
         this.challengeRepository = challengeRepository;
         this.challengeCacheService = challengeCacheService;
         this.motionSessionStateFactory = motionSessionStateFactory;
@@ -95,32 +100,38 @@ public class ChallengeService {
         this.motionAnalysisService = motionAnalysisService;
         this.objectMapper = objectMapper;
         this.reviewRepository = reviewRepository;
+        this.currentMemberService = currentMemberService;
     }
 
     public List<ChallengeResponse> getChallenges() {
         List<Challenge> challenges = challengeRepository.findAllByIsActiveTrueOrderByCreatedAtDesc();
-        return toResponses(challenges);
+        return toResponsesForCurrentMember(challenges);
     }
 
     public List<ChallengeResponse> getAdminChallenges() {
         List<Challenge> challenges = challengeRepository.findAllByOrderByCreatedAtDesc();
-        return toResponses(challenges);
+        return toAdminResponses(challenges);
     }
 
     public List<ChallengeResponse> getPopularChallenges() {
         List<Challenge> fallbackChallenges = challengeRepository.findTop3ByIsActiveTrueOrderByCreatedAtDesc();
-        List<ChallengeResponse> fallback = toResponses(fallbackChallenges);
+        Long currentMemberId = getCurrentMemberIdOrNull();
+        if (currentMemberId != null) {
+            return toMemberResponses(fallbackChallenges, currentMemberId);
+        }
+
+        List<ChallengeResponse> fallback = toPublicResponses(fallbackChallenges);
         return challengeCacheService.getPopularChallenges(fallback);
     }
 
     public Optional<ChallengeResponse> getChallenge(Long id) {
         return challengeRepository.findByIdAndIsActiveTrue(id)
-                .map(challenge -> toResponses(List.of(challenge)).get(0));
+                .map(this::toResponseForCurrentMember);
     }
 
     public Optional<ChallengeResponse> getAdminChallenge(Long id) {
         return challengeRepository.findById(id)
-                .map(challenge -> toResponses(List.of(challenge)).get(0));
+                .map(challenge -> toAdminResponses(List.of(challenge)).get(0));
     }
 
     public Optional<ChallengeReferencePosePreviewResponse> getReferencePosePreview(Long id) {
@@ -171,10 +182,17 @@ public class ChallengeService {
                     boolean referenceMotionProfileReady = challengeMotionProfileRepository.findByChallengeId(challenge.getId())
                             .filter(this::isUsableReferenceProfile)
                             .isPresent();
-                    Optional<Attempt> latestAttempt =
-                            attemptRepository.findTopByChallengeIdOrderByCreatedAtDescIdDesc(challenge.getId());
-                    Optional<AttemptProcessingJob> latestProcessingJob =
-                            attemptProcessingJobRepository.findTopByChallengeIdOrderByUpdatedAtDesc(challenge.getId());
+                    Long currentMemberId = getCurrentMemberIdOrNull();
+                    Optional<Attempt> latestAttempt = currentMemberId == null
+                            ? Optional.empty()
+                            : attemptRepository.findTopByChallengeIdAndMemberIdOrderByCreatedAtDescIdDesc(
+                                    challenge.getId(),
+                                    currentMemberId);
+                    Optional<AttemptProcessingJob> latestProcessingJob = currentMemberId == null
+                            ? Optional.empty()
+                            : attemptProcessingJobRepository.findTopByChallengeIdAndMemberIdOrderByUpdatedAtDesc(
+                                    challenge.getId(),
+                                    currentMemberId);
                     boolean latestAttemptVideoUploaded = latestAttempt
                             .map(attempt -> attemptVideoRepository.findByAttemptId(attempt.getId()).isPresent())
                             .orElse(false);
@@ -220,7 +238,7 @@ public class ChallengeService {
                 storedVideo.contentType(),
                 storedVideo.size()));
 
-        return toResponses(List.of(challenge)).get(0);
+        return toAdminResponses(List.of(challenge)).get(0);
     }
 
     @Transactional
@@ -242,7 +260,7 @@ public class ChallengeService {
         }
 
         challengeCacheService.evictPopularChallenges();
-        return toResponses(List.of(challenge)).get(0);
+        return toAdminResponses(List.of(challenge)).get(0);
     }
 
     @Transactional
@@ -252,7 +270,7 @@ public class ChallengeService {
 
         challenge.updateActive(active);
         challengeCacheService.evictPopularChallenges();
-        return toResponses(List.of(challenge)).get(0);
+        return toAdminResponses(List.of(challenge)).get(0);
     }
 
     @Transactional
@@ -400,7 +418,12 @@ public class ChallengeService {
         try {
             JsonNode root = objectMapper.readTree(motionProfile.getProfileData());
             JsonNode landmarksNode = root.path("landmarks");
-            frames = selectPreviewFrames(landmarksNode, 3);
+            JsonNode analysisSummaryNode = root.path("extras").path("analysisSummary");
+            JsonNode scoreSpotsNode = analysisSummaryNode.path("scoreSpots");
+            int targetSpotCount = resolveReferencePreviewSpotCount(challenge, durationMs);
+            frames = scoreSpotsNode.isArray() && !scoreSpotsNode.isEmpty()
+                    ? selectPreviewFramesFromScoreSpots(landmarksNode, scoreSpotsNode, targetSpotCount)
+                    : selectPreviewFrames(landmarksNode, targetSpotCount);
             JsonNode metricsNode = root.path("metrics");
             if (metricsNode.path("sampleCount").isNumber()) {
                 sampleCount = metricsNode.path("sampleCount").asInt();
@@ -423,6 +446,36 @@ public class ChallengeService {
                 frames);
     }
 
+    private int resolveReferencePreviewSpotCount(Challenge challenge, Long durationMs) {
+        if (challenge.getDurationSec() != null && challenge.getDurationSec() > 0) {
+            return Math.max(1, Math.min(30, challenge.getDurationSec()));
+        }
+        long safeDurationMs = durationMs == null ? 0L : durationMs;
+        return (int) Math.max(1, Math.min(30, Math.round(safeDurationMs / 1000.0)));
+    }
+
+    private List<ChallengeReferencePoseFrameResponse> selectPreviewFramesFromScoreSpots(
+            JsonNode landmarksNode,
+            JsonNode scoreSpotsNode,
+            int targetFrameCount) {
+        if (!landmarksNode.isArray() || landmarksNode.isEmpty() || !scoreSpotsNode.isArray() || scoreSpotsNode.isEmpty()) {
+            return List.of();
+        }
+
+        int size = scoreSpotsNode.size();
+        int actualCount = Math.min(targetFrameCount, size);
+        List<ChallengeReferencePoseFrameResponse> frames = new ArrayList<>(actualCount);
+        for (int index = 0; index < actualCount; index++) {
+            JsonNode scoreSpotNode = scoreSpotsNode.get(index);
+            JsonNode frameNode = findFrameNodeByIndex(landmarksNode, scoreSpotNode.path("frameIndex").asInt(-1));
+            if (frameNode == null) {
+                continue;
+            }
+            frames.add(toPreviewFrame(frameNode, scoreSpotNode, index));
+        }
+        return frames;
+    }
+
     private List<ChallengeReferencePoseFrameResponse> selectPreviewFrames(JsonNode landmarksNode, int targetFrameCount) {
         if (!landmarksNode.isArray() || landmarksNode.isEmpty()) {
             return List.of();
@@ -434,18 +487,52 @@ public class ChallengeService {
         return IntStream.range(0, actualCount)
                 .map(index -> actualCount == 1 ? 0 : (int) Math.round(index * (size - 1.0) / (actualCount - 1.0)))
                 .distinct()
-                .mapToObj(landmarksNode::get)
-                .map(this::toPreviewFrame)
+                .mapToObj(sampleIndex -> toPreviewFrame(landmarksNode.get(sampleIndex), null, sampleIndex))
                 .sorted(Comparator.comparingInt(ChallengeReferencePoseFrameResponse::frameIndex))
                 .toList();
     }
 
-    private ChallengeReferencePoseFrameResponse toPreviewFrame(JsonNode frameNode) {
+    private JsonNode findFrameNodeByIndex(JsonNode landmarksNode, int frameIndex) {
+        if (frameIndex < 0) {
+            return null;
+        }
+
+        for (JsonNode frameNode : landmarksNode) {
+            if (frameNode.path("frameIndex").asInt(-1) == frameIndex) {
+                return frameNode;
+            }
+        }
+        return null;
+    }
+
+    private ChallengeReferencePoseFrameResponse toPreviewFrame(JsonNode frameNode, JsonNode scoreSpotNode, int fallbackIndex) {
         int frameIndex = frameNode.path("frameIndex").asInt();
+        int timestampMs = scoreSpotNode != null && scoreSpotNode.path("cueMs").isNumber()
+                ? scoreSpotNode.path("cueMs").asInt()
+                : frameNode.path("timestampMs").asInt(frameIndex * 33);
+        Integer secondIndex = scoreSpotNode != null && scoreSpotNode.path("secondIndex").isNumber()
+                ? scoreSpotNode.path("secondIndex").asInt()
+                : fallbackIndex;
+        String focusRegion = scoreSpotNode != null && !scoreSpotNode.path("focusRegion").isMissingNode()
+                ? scoreSpotNode.path("focusRegion").asText(null)
+                : null;
+        Double poseWeight = scoreSpotNode != null && scoreSpotNode.path("poseWeight").isNumber()
+                ? scoreSpotNode.path("poseWeight").asDouble()
+                : null;
+        Double timingWeight = scoreSpotNode != null && scoreSpotNode.path("timingWeight").isNumber()
+                ? scoreSpotNode.path("timingWeight").asDouble()
+                : null;
         List<ChallengeReferencePosePointResponse> points = frameNode.path("points").isArray()
                 ? streamPoints(frameNode.path("points"))
                 : List.of();
-        return new ChallengeReferencePoseFrameResponse(frameIndex, points);
+        return new ChallengeReferencePoseFrameResponse(
+                frameIndex,
+                timestampMs,
+                secondIndex,
+                focusRegion,
+                poseWeight,
+                timingWeight,
+                points);
     }
 
     private List<ChallengeReferencePosePointResponse> streamPoints(JsonNode pointsNode) {
@@ -464,15 +551,39 @@ public class ChallengeService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "챌린지를 찾을 수 없습니다."));
     }
 
-    private List<ChallengeResponse> toResponses(List<Challenge> challenges) {
+    private List<ChallengeResponse> toResponsesForCurrentMember(List<Challenge> challenges) {
+        Long currentMemberId = getCurrentMemberIdOrNull();
+        if (currentMemberId == null) {
+            return toPublicResponses(challenges);
+        }
+        return toMemberResponses(challenges, currentMemberId);
+    }
+
+    private ChallengeResponse toResponseForCurrentMember(Challenge challenge) {
+        return toResponsesForCurrentMember(List.of(challenge)).get(0);
+    }
+
+    private List<ChallengeResponse> toPublicResponses(List<Challenge> challenges) {
+        return toResponses(challenges, Map.of());
+    }
+
+    private List<ChallengeResponse> toMemberResponses(List<Challenge> challenges, Long memberId) {
+        return toResponses(challenges, buildLatestRetrySummaryByChallengeIdForMember(challenges, memberId));
+    }
+
+    private List<ChallengeResponse> toAdminResponses(List<Challenge> challenges) {
+        return toResponses(challenges, buildLatestRetrySummaryByChallengeId(challenges));
+    }
+
+    private List<ChallengeResponse> toResponses(
+            List<Challenge> challenges,
+            Map<Long, ChallengeLatestRetrySummaryResponse> retrySummaryByChallengeId) {
         if (challenges.isEmpty()) {
             return List.of();
         }
 
         Map<Long, ChallengeVideo> videoByChallengeId = buildChallengeVideoByChallengeId(challenges);
         Set<Long> profileReadyChallengeIds = buildProfileReadyChallengeIds(challenges);
-        Map<Long, ChallengeLatestRetrySummaryResponse> retrySummaryByChallengeId =
-                buildLatestRetrySummaryByChallengeId(challenges);
 
         return challenges.stream()
                 .map(challenge -> toResponse(
@@ -560,6 +671,46 @@ public class ChallengeService {
         return summaryByChallengeId;
     }
 
+    private Map<Long, ChallengeLatestRetrySummaryResponse> buildLatestRetrySummaryByChallengeIdForMember(
+            List<Challenge> challenges,
+            Long memberId) {
+        if (challenges.isEmpty()) {
+            return Map.of();
+        }
+
+        Set<Long> challengeIds = toChallengeIds(challenges);
+        List<ChallengeRetryAttemptProjection> latestAttempts =
+                attemptRepository.findLatestUploadedAttemptSnapshotsByChallengeIdsAndMemberId(challengeIds, memberId);
+        return toLatestRetrySummaryMap(latestAttempts);
+    }
+
+    private Map<Long, ChallengeLatestRetrySummaryResponse> toLatestRetrySummaryMap(
+            List<ChallengeRetryAttemptProjection> latestAttempts) {
+        Map<Long, ChallengeLatestRetrySummaryResponse> summaryByChallengeId = new HashMap<>();
+        Map<Long, ChallengeRetryAttemptSnapshot> previousScoredAttemptByChallengeId = new HashMap<>();
+
+        latestAttempts.forEach(attempt -> {
+            ChallengeRetryAttemptSnapshot currentAttempt = toRetryAttemptSnapshot(attempt);
+            ChallengeRetryAttemptSnapshot previousAttempt = previousScoredAttemptByChallengeId.get(currentAttempt.challengeId());
+
+            summaryByChallengeId.put(
+                    currentAttempt.challengeId(),
+                    new ChallengeLatestRetrySummaryResponse(
+                            currentAttempt.attemptId(),
+                            currentAttempt.score(),
+                            currentAttempt.createdAt(),
+                            previousAttempt == null ? null : currentAttempt.score() - previousAttempt.score(),
+                            normalizeDisplayText(currentAttempt.strongestArea()),
+                            normalizeDisplayText(currentAttempt.weakestArea()),
+                            buildCoachingTeaser(currentAttempt, previousAttempt),
+                            buildRetryFocus(currentAttempt, previousAttempt),
+                            buildKeepStableFocus(currentAttempt, previousAttempt)));
+            previousScoredAttemptByChallengeId.put(currentAttempt.challengeId(), currentAttempt);
+        });
+
+        return summaryByChallengeId;
+    }
+
     private ChallengeRetryAttemptSnapshot toRetryAttemptSnapshot(ChallengeRetryAttemptProjection attempt) {
         return new ChallengeRetryAttemptSnapshot(
                 attempt.getAttemptId(),
@@ -579,6 +730,12 @@ public class ChallengeService {
             challengeIds.add(challenge.getId());
         }
         return challengeIds;
+    }
+
+    private Long getCurrentMemberIdOrNull() {
+        return currentMemberService.getCurrentMember()
+                .map(Member::getId)
+                .orElse(null);
     }
 
     private String buildCoachingTeaser(ChallengeRetryAttemptSnapshot attempt, ChallengeRetryAttemptSnapshot previousAttempt) {

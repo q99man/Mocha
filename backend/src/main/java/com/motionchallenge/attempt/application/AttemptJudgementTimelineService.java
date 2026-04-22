@@ -51,20 +51,24 @@ public class AttemptJudgementTimelineService {
             return List.of();
         }
 
-        int cueCount = resolveCueCount(reference.frames().size(), attempt.frames().size());
-        List<CueAnchor> cueAnchors = buildCueAnchors(reference, cueCount);
+        List<CueAnchor> cueAnchors = buildCueAnchors(reference, attempt);
+        if (cueAnchors.isEmpty()) {
+            return List.of();
+        }
 
         List<JudgementSample> samples = new ArrayList<>();
 
-        for (int index = 0; index < cueCount; index++) {
+        for (int index = 0; index < cueAnchors.size(); index++) {
             CueAnchor cueAnchor = cueAnchors.get(index);
             double ratio = cueAnchor.ratio();
-            FrameSnapshot referenceFrame = reference.frames().get(cueAnchor.frameIndex());
-            FrameSnapshot previousReferenceFrame = cueAnchor.frameIndex() > 0
-                    ? reference.frames().get(cueAnchor.frameIndex() - 1)
+            FrameSnapshot referenceFrame = reference.frames().get(cueAnchor.referenceFramePosition());
+            FrameSnapshot previousReferenceFrame = cueAnchor.referenceFramePosition() > 0
+                    ? reference.frames().get(cueAnchor.referenceFramePosition() - 1)
                     : null;
 
-            int triggerMs = resolveTimestamp(referenceFrame.timestampMs(), ratio, reference.durationMs());
+            int triggerMs = cueAnchor.timestampMs() > 0
+                    ? cueAnchor.timestampMs()
+                    : resolveTimestamp(referenceFrame.timestampMs(), ratio, reference.durationMs());
             int expectedAttemptMs = resolveExpectedAttemptTimestamp(ratio, attempt.durationMs());
             int windowMs = resolveCueWindowMs(cueAnchors, index, reference.durationMs());
             FrameSnapshot attemptFrame = selectBestAlignedAttemptFrame(
@@ -95,11 +99,12 @@ public class AttemptJudgementTimelineService {
                     reference.focusProfile(),
                     ratio);
             boolean accent = cueAnchor.accent() || "PERFECT".equals(verdict) || "MISS".equals(verdict);
+            int secondIndex = cueAnchor.secondIndex() >= 0 ? cueAnchor.secondIndex() : Math.max(0, triggerMs / 1000);
 
             samples.add(new JudgementSample(
                     index + 1,
-                    index,
-                    triggerMs / 1000,
+                    secondIndex,
+                    secondIndex,
                     triggerMs,
                     windowMs,
                     lane,
@@ -185,9 +190,13 @@ public class AttemptJudgementTimelineService {
             if (durationMs <= 0) {
                 durationMs = Math.max(1, frames.size() * 33L);
             }
-            return new ParsedProfile(frames, durationMs, parseFocusProfile(analysisSummary.path("focusProfile")));
+            return new ParsedProfile(
+                    frames,
+                    durationMs,
+                    parseFocusProfile(analysisSummary.path("focusProfile")),
+                    parseScoreSpots(analysisSummary.path("scoreSpots")));
         } catch (IOException exception) {
-            return new ParsedProfile(List.of(), 1L, FocusProfile.empty());
+            return new ParsedProfile(List.of(), 1L, FocusProfile.empty(), List.of());
         }
     }
 
@@ -235,7 +244,30 @@ public class AttemptJudgementTimelineService {
         return new FocusProfile(List.copyOf(primaryJoints), List.copyOf(segments));
     }
 
-    private int resolveCueCount(int referenceFrameCount, int attemptFrameCount) {
+    private List<ScoreSpot> parseScoreSpots(JsonNode scoreSpotsNode) {
+        if (!scoreSpotsNode.isArray()) {
+            return List.of();
+        }
+
+        List<ScoreSpot> scoreSpots = new ArrayList<>();
+        for (JsonNode scoreSpotNode : scoreSpotsNode) {
+            scoreSpots.add(new ScoreSpot(
+                    scoreSpotNode.path("secondIndex").asInt(scoreSpots.size()),
+                    scoreSpotNode.path("frameIndex").asInt(-1),
+                    scoreSpotNode.path("cueMs").asInt(0),
+                    Math.max(0, scoreSpotNode.path("windowStartMs").asInt(0)),
+                    Math.max(0, scoreSpotNode.path("windowEndMs").asInt(0))));
+        }
+        return List.copyOf(scoreSpots);
+    }
+
+    private int resolveCueCount(ParsedProfile reference, ParsedProfile attempt) {
+        if (!reference.scoreSpots().isEmpty()) {
+            return reference.scoreSpots().size();
+        }
+
+        int referenceFrameCount = reference.frames().size();
+        int attemptFrameCount = attempt.frames().size();
         int availableFrames = Math.max(1, Math.min(referenceFrameCount, attemptFrameCount));
         return clamp(availableFrames, 6, 14);
     }
@@ -307,7 +339,15 @@ public class AttemptJudgementTimelineService {
         return poseDifference + visibilityPenalty + (indexPenalty * 0.10) + windowPenalty;
     }
 
-    private List<CueAnchor> buildCueAnchors(ParsedProfile reference, int cueCount) {
+    private List<CueAnchor> buildCueAnchors(ParsedProfile reference, ParsedProfile attempt) {
+        if (!reference.scoreSpots().isEmpty()) {
+            return buildCueAnchorsFromScoreSpots(reference);
+        }
+        int cueCount = resolveCueCount(reference, attempt);
+        return buildHeuristicCueAnchors(reference, cueCount);
+    }
+
+    private List<CueAnchor> buildHeuristicCueAnchors(ParsedProfile reference, int cueCount) {
         List<FrameSnapshot> frames = reference.frames();
         if (frames.isEmpty()) {
             return List.of();
@@ -381,7 +421,36 @@ public class AttemptJudgementTimelineService {
 
         List<CueAnchor> anchors = new ArrayList<>();
         for (CueCandidate candidate : selected) {
-            anchors.add(new CueAnchor(candidate.frameIndex(), candidate.ratio(), candidate.timestampMs(), candidate.accent()));
+            anchors.add(new CueAnchor(
+                    candidate.frameIndex(),
+                    candidate.ratio(),
+                    candidate.timestampMs(),
+                    -1,
+                    0,
+                    candidate.accent()));
+        }
+        return anchors;
+    }
+
+    private List<CueAnchor> buildCueAnchorsFromScoreSpots(ParsedProfile reference) {
+        if (reference.frames().isEmpty()) {
+            return List.of();
+        }
+
+        List<CueAnchor> anchors = new ArrayList<>();
+        for (ScoreSpot scoreSpot : reference.scoreSpots()) {
+            int referenceFramePosition = findFramePositionByFrameIndex(reference.frames(), scoreSpot.frameIndex());
+            FrameSnapshot frame = reference.frames().get(referenceFramePosition);
+            int cueMs = scoreSpot.cueMs() > 0 ? scoreSpot.cueMs() : frame.timestampMs();
+            double ratio = clampDouble(cueMs / (double) Math.max(reference.durationMs(), 1L), 0.0, 1.0);
+            int preferredWindowMs = Math.max(0, scoreSpot.windowEndMs() - scoreSpot.windowStartMs());
+            anchors.add(new CueAnchor(
+                    referenceFramePosition,
+                    ratio,
+                    cueMs,
+                    Math.max(0, scoreSpot.secondIndex()),
+                    preferredWindowMs,
+                    scoreSpot.secondIndex() % 4 == 0));
         }
         return anchors;
     }
@@ -394,6 +463,8 @@ public class AttemptJudgementTimelineService {
                     0,
                     ratio,
                     resolveTimestamp(0, ratio, durationMs),
+                    index,
+                    0,
                     index % 4 == 0));
         }
         return anchors;
@@ -421,11 +492,14 @@ public class AttemptJudgementTimelineService {
     }
 
     private int resolveCueWindowMs(List<CueAnchor> anchors, int index, long durationMs) {
+        CueAnchor current = anchors.get(index);
+        if (current.preferredWindowMs() > 0) {
+            return clamp((int) Math.round(current.preferredWindowMs() * 0.62), 120, 260);
+        }
         if (anchors.size() <= 1) {
             return clamp((int) Math.round(Math.max(420.0, durationMs) * 0.62), 120, 260);
         }
 
-        CueAnchor current = anchors.get(index);
         int previousGap = index > 0
                 ? Math.max(60, current.timestampMs() - anchors.get(index - 1).timestampMs())
                 : Integer.MAX_VALUE;
@@ -448,6 +522,29 @@ public class AttemptJudgementTimelineService {
 
     private int resolveExpectedAttemptTimestamp(double ratio, long attemptDurationMs) {
         return (int) Math.round(ratio * Math.max(attemptDurationMs, 1L));
+    }
+
+    private int findFramePositionByFrameIndex(List<FrameSnapshot> frames, int frameIndex) {
+        if (frameIndex < 0) {
+            return 0;
+        }
+
+        for (int index = 0; index < frames.size(); index++) {
+            if (frames.get(index).frameIndex() == frameIndex) {
+                return index;
+            }
+        }
+
+        int bestIndex = 0;
+        int bestGap = Integer.MAX_VALUE;
+        for (int index = 0; index < frames.size(); index++) {
+            int gap = Math.abs(frames.get(index).frameIndex() - frameIndex);
+            if (gap < bestGap) {
+                bestGap = gap;
+                bestIndex = index;
+            }
+        }
+        return bestIndex;
     }
 
     private double comparePoseShape(
@@ -1143,7 +1240,11 @@ public class AttemptJudgementTimelineService {
         return Math.max(minValue, Math.min(maxValue, value));
     }
 
-    private record ParsedProfile(List<FrameSnapshot> frames, long durationMs, FocusProfile focusProfile) {
+    private record ParsedProfile(
+            List<FrameSnapshot> frames,
+            long durationMs,
+            FocusProfile focusProfile,
+            List<ScoreSpot> scoreSpots) {
     }
 
     private record FrameSnapshot(int frameIndex, int timestampMs, Map<String, LandmarkPoint> points) {
@@ -1172,6 +1273,14 @@ public class AttemptJudgementTimelineService {
             double timingWeight,
             String dominantRegion,
             Map<String, Double> jointWeights) {
+    }
+
+    private record ScoreSpot(
+            int secondIndex,
+            int frameIndex,
+            int cueMs,
+            int windowStartMs,
+            int windowEndMs) {
     }
 
     private record JudgementThresholds(
@@ -1214,9 +1323,11 @@ public class AttemptJudgementTimelineService {
     }
 
     private record CueAnchor(
-            int frameIndex,
+            int referenceFramePosition,
             double ratio,
             int timestampMs,
+            int secondIndex,
+            int preferredWindowMs,
             boolean accent) {
     }
 }

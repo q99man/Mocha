@@ -1,6 +1,7 @@
 package com.motionchallenge.member.service;
 
 import com.motionchallenge.member.entity.Member;
+import com.motionchallenge.member.entity.MemberAuthProvider;
 import com.motionchallenge.member.entity.MemberRole;
 import java.util.Collection;
 import java.util.List;
@@ -14,6 +15,7 @@ public class MemberPrincipal implements UserDetails {
     private final String email;
     private final String passwordHash;
     private final String displayName;
+    private final MemberAuthProvider authProvider;
     private final MemberRole role;
 
     public MemberPrincipal(Member member) {
@@ -21,6 +23,7 @@ public class MemberPrincipal implements UserDetails {
         this.email = member.getEmail();
         this.passwordHash = member.getPasswordHash();
         this.displayName = member.getDisplayName();
+        this.authProvider = member.getAuthProvider();
         this.role = member.getRole();
     }
 
@@ -36,6 +39,10 @@ public class MemberPrincipal implements UserDetails {
         return role;
     }
 
+    public MemberAuthProvider getAuthProvider() {
+        return authProvider;
+    }
+
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
         return List.of(new SimpleGrantedAuthority("ROLE_" + role.name()));
@@ -43,7 +50,7 @@ public class MemberPrincipal implements UserDetails {
 
     @Override
     public String getPassword() {
-        return passwordHash;
+        return passwordHash == null ? "" : passwordHash;
     }
 
     @Override

@@ -38,6 +38,8 @@ public interface BoardCommentRepository extends JpaRepository<BoardComment, Long
 
     long countByPostId(Long postId);
 
+    boolean existsByMemberId(Long memberId);
+
     @Modifying
     @Query("delete from BoardComment comment where comment.post.id = :postId")
     void deleteByPostId(@Param("postId") Long postId);

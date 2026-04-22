@@ -1,11 +1,10 @@
-import { createBrowserRouter } from 'react-router-dom';
+import { Navigate, createBrowserRouter } from 'react-router-dom';
 import { AdminLayout } from '../shared/components/AdminLayout';
 import { AppLayout } from '../shared/components/AppLayout';
 import { RequireAuth } from '../shared/auth/RequireAuth';
 import { RequireAdmin } from '../shared/auth/RequireAdmin';
 import { AdminChallengeAnalysisPage } from '../pages/AdminChallengeAnalysisPage';
 import { AdminHubPage } from '../pages/AdminHubPage';
-import { AdminModelAssetsPage } from '../pages/AdminModelAssetsPage';
 import { AttemptResultPage } from '../pages/AttemptResultPage';
 import { AuthPage } from '../pages/AuthPage';
 import { BoardDetailPage } from '../pages/BoardDetailPage';
@@ -97,7 +96,7 @@ export const router = createBrowserRouter([
       },
       {
         path: 'model-assets',
-        element: <AdminModelAssetsPage />,
+        element: <Navigate to="/admin?tab=models" replace />,
       },
       {
         path: 'challenges/:id/analysis',

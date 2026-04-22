@@ -25,6 +25,7 @@ docs/               현재 기준 프로젝트 문서
 - 제품 개요와 범위: [docs/PRODUCT.md](docs/PRODUCT.md)
 - 구조와 모듈 맵: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
 - 로컬 실행과 개발 가이드: [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)
+- 소셜 로그인 설정 가이드: [docs/SOCIAL_AUTH_SETUP.md](docs/SOCIAL_AUTH_SETUP.md)
 - 현재 상태와 다음 마일스톤: [docs/ROADMAP.md](docs/ROADMAP.md)
 - 과거 기록 보관소: [docs/archive/README.md](docs/archive/README.md)
 

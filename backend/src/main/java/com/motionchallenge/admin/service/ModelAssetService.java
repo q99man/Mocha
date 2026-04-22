@@ -1,6 +1,7 @@
 package com.motionchallenge.admin.service;
 
 import com.motionchallenge.admin.dto.ModelAssetResponse;
+import com.motionchallenge.admin.dto.ModelAssetUpdateRequest;
 import com.motionchallenge.admin.entity.ModelAsset;
 import com.motionchallenge.admin.entity.ModelAssetType;
 import com.motionchallenge.admin.repository.ModelAssetRepository;
@@ -101,6 +102,37 @@ public class ModelAssetService {
             deleteIfExists(runtimePath);
             reactivateLatestArchivedPoseLandmarker(asset.getId(), runtimePath);
         }
+    }
+
+    @Transactional
+    public ModelAssetResponse updatePoseLandmarker(Long assetId, ModelAssetUpdateRequest request) {
+        ModelAsset asset = modelAssetRepository.findByIdAndAssetType(assetId, ModelAssetType.POSE_LANDMARKER)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "수정할 Pose Landmarker 모델을 찾을 수 없습니다."));
+
+        if (request.versionLabel() != null) {
+            asset.updateVersionLabel(normalizeVersionLabel(request.versionLabel()));
+        }
+
+        if (Boolean.TRUE.equals(request.active()) && !asset.isActive()) {
+            Path runtimeDirectory = resolveRuntimeModelDirectory();
+            Path runtimePath = runtimeDirectory.resolve(motionAnalysisProperties.getMediapipe().getActiveModelFileName()).normalize();
+            Path archivePath = storageRootPath.resolve(asset.getStoragePath()).normalize();
+            if (!Files.exists(archivePath)) {
+                throw new ResponseStatusException(HttpStatus.CONFLICT, "활성화할 모델 파일을 찾을 수 없습니다.");
+            }
+            ensureDirectory(runtimeDirectory);
+            copyPath(archivePath, runtimePath);
+            modelAssetRepository.findAllByAssetTypeOrderByCreatedAtDesc(ModelAssetType.POSE_LANDMARKER).stream()
+                    .filter(ModelAsset::isActive)
+                    .forEach(ModelAsset::deactivate);
+            asset.activate();
+        }
+
+        if (Boolean.FALSE.equals(request.active()) && asset.isActive()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "활성 모델은 다른 모델을 먼저 활성화한 뒤 해제할 수 있습니다.");
+        }
+
+        return ModelAssetResponse.from(asset);
     }
 
     private void validateModelFile(MultipartFile modelFile) {

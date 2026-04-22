@@ -1,5 +1,5 @@
-import { API_BASE_URL, postJson } from './client';
-import type { AuthSession, LoginInput, RegisterInput } from '../types/auth';
+import { API_BASE_URL, postJson, resolveApiUrl } from './client';
+import type { AuthSession, LoginInput, RegisterInput, SocialAuthProvider } from '../types/auth';
 
 export async function register(input: RegisterInput): Promise<AuthSession> {
   return postJson<AuthSession, RegisterInput>('/api/auth/register', input);
@@ -27,4 +27,14 @@ export async function getCurrentSession(): Promise<AuthSession | null> {
   }
 
   return response.json() as Promise<AuthSession>;
+}
+
+export function buildSocialLoginUrl(provider: SocialAuthProvider, redirectPath?: string): string {
+  const registrationId = provider.toLowerCase();
+  const query = new URLSearchParams();
+  if (redirectPath) {
+    query.set('redirect', redirectPath);
+  }
+  const suffix = query.size > 0 ? `?${query.toString()}` : '';
+  return resolveApiUrl(`/oauth2/authorization/${registrationId}${suffix}`);
 }

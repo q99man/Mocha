@@ -1,6 +1,7 @@
 package com.motionchallenge.member.service;
 
 import com.motionchallenge.member.entity.Member;
+import com.motionchallenge.member.entity.MemberAuthProvider;
 import com.motionchallenge.member.repository.MemberRepository;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
@@ -20,6 +21,9 @@ public class MemberUserDetailsService implements UserDetailsService {
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
         Member member = memberRepository.findByEmail(username)
                 .orElseThrow(() -> new UsernameNotFoundException("Member not found"));
+        if (member.getAuthProvider() != MemberAuthProvider.LOCAL) {
+            throw new UsernameNotFoundException("Password login is not available for this account");
+        }
         return new MemberPrincipal(member);
     }
 }

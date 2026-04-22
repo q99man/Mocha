@@ -1,10 +1,14 @@
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
+
+import { buildAuthModalHref } from '../../shared/auth/authModalUtils';
 
 type LandingFooterProps = {
   isAuthenticated: boolean;
 };
 
 export function LandingFooter({ isAuthenticated }: LandingFooterProps) {
+  const location = useLocation();
+
   return (
     <footer className="lp-footer" id="footer">
       <div className="lp-footer__top">
@@ -16,7 +20,7 @@ export function LandingFooter({ isAuthenticated }: LandingFooterProps) {
           <div>
             <strong>탐색</strong>
             <Link to="/challenges">챌린지</Link>
-            <Link to={isAuthenticated ? '/mypage' : '/auth'}>마이페이지</Link>
+            <Link to={isAuthenticated ? '/mypage' : buildAuthModalHref(location)}>마이페이지</Link>
           </div>
           <div>
             <strong>바로가기</strong>
@@ -25,7 +29,7 @@ export function LandingFooter({ isAuthenticated }: LandingFooterProps) {
           </div>
           <div>
             <strong>시작</strong>
-            <Link to={isAuthenticated ? '/challenges' : '/auth'}>지금 시작하기</Link>
+            <Link to={isAuthenticated ? '/challenges' : buildAuthModalHref(location)}>지금 시작하기</Link>
           </div>
         </div>
       </div>

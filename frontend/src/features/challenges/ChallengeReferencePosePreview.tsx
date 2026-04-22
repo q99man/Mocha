@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+﻿import { useEffect, useRef, useState } from 'react';
 
 import { getChallengeReferencePreview } from '../../shared/api/challengeApi';
 import { resolveApiUrl } from '../../shared/api/client';
@@ -18,6 +18,7 @@ type Props = {
 type FrameTile = {
   frame: ChallengeReferencePoseFrame;
   label: string;
+  meta: string;
 };
 
 type PosePart = 'all' | 'head' | 'torso' | 'arms' | 'legs';
@@ -34,32 +35,30 @@ type PartLegend = {
   label: string;
   color: string;
 };
-
 const TEXT = {
-  title: '레퍼런스 포즈 오버레이',
-  descriptionSuffix: '영상 위에 핵심 관절만 겹쳐 보면서 레퍼런스 동작 흐름을 빠르게 확인할 수 있습니다.',
-  disabled: '모션 프로필이 준비되면 이 영역에서 포즈 오버레이를 확인할 수 있습니다.',
-  loading: '레퍼런스 포즈 오버레이를 불러오는 중입니다.',
-  loadError: '레퍼런스 포즈 미리보기를 불러오지 못했습니다.',
-  drawError: '레퍼런스 영상 위에 포즈를 그리는 중 문제가 발생했습니다.',
-  analyzer: '분석기',
-  sampleCount: '샘플 수',
-  analyzedAt: '분석 시각',
-  noRecord: '기록 없음',
-  noFrames: '이번 분석에는 화면별 포즈 프레임이 없어 오버레이를 생성할 수 없습니다.',
-  sampleLabel: '샘플',
-  startPose: '시작',
-  middlePose: '중간',
-  endPose: '마무리',
-  filterLabel: '표시 부위',
-  all: '전체',
-  head: '머리',
-  torso: '몸통',
-  arms: '팔',
-  legs: '다리',
+  title: 'Reference Pose Preview',
+  descriptionSuffix: 'reference pose spots for quick timing and motion checks.',
+  disabled: 'Preview becomes available after reference motion analysis is ready.',
+  loading: 'Loading reference pose preview.',
+  loadError: 'Failed to load the reference pose preview.',
+  drawError: 'Failed to render the preview frames from the reference video.',
+  analyzer: 'Analyzer',
+  sampleCount: 'Samples',
+  analyzedAt: 'Analyzed At',
+  noRecord: 'No record',
+  noFrames: 'This analysis does not include drawable pose frames yet.',
+  sampleLabel: 'Sample',
+  startPose: 'Start',
+  middlePose: 'Middle',
+  endPose: 'End',
+  filterLabel: 'Filter',
+  all: 'All',
+  head: 'Head',
+  torso: 'Torso',
+  arms: 'Arms',
+  legs: 'Legs',
 };
 
-const TILE_LABELS = [TEXT.startPose, TEXT.middlePose, TEXT.endPose];
 const MIN_VISIBILITY = 0.2;
 const OUT_OF_FRAME_MARGIN = 0.03;
 const PART_COLORS: Record<RenderPart, string> = {
@@ -242,7 +241,6 @@ export function ChallengeReferencePosePreview({
       }
 
       const tiles = buildFrameTiles(preview.frames);
-      const maxFrameIndex = Math.max(...preview.frames.map((frame) => frame.frameIndex), 1);
       const durationSeconds =
         video.duration && Number.isFinite(video.duration)
           ? video.duration
@@ -258,10 +256,7 @@ export function ChallengeReferencePosePreview({
           continue;
         }
 
-        const timestamp =
-          maxFrameIndex <= 0
-            ? 0
-            : Math.min(durationSeconds, Math.max(0, durationSeconds * (tiles[index].frame.frameIndex / maxFrameIndex)));
+        const timestamp = Math.min(durationSeconds, Math.max(0, tiles[index].frame.timestampMs / 1000));
 
         video.currentTime = Math.min(timestamp, Math.max(durationSeconds - 0.05, 0));
         await waitForEvent(video, 'seeked');
@@ -298,7 +293,7 @@ export function ChallengeReferencePosePreview({
 
       {!enabled ? (
         <div className="glass-panel glass-panel--nested glass-panel--empty">
-          <strong>오버레이 준비 중입니다.</strong>
+          <strong>Preview is preparing.</strong>
           <p>{TEXT.disabled}</p>
         </div>
       ) : null}
@@ -309,7 +304,7 @@ export function ChallengeReferencePosePreview({
       {!loading && !error && preview ? (
         <>
           <div className="glass-inline-meta reference-pose-preview__meta">
-            <span>{TEXT.analyzer}: {preview.analyzerName ?? '정보 없음'}</span>
+            <span>{TEXT.analyzer}: {preview.analyzerName ?? 'Unavailable'}</span>
             <span>{TEXT.sampleCount}: {preview.sampleCount ?? 0}</span>
             <span>{TEXT.analyzedAt}: {preview.analyzedAt ? new Date(preview.analyzedAt).toLocaleString('ko-KR') : TEXT.noRecord}</span>
           </div>
@@ -342,15 +337,21 @@ export function ChallengeReferencePosePreview({
 
           <div className="reference-pose-preview__grid">
             {buildFrameTiles(preview.frames).map((tile, index) => (
-              <figure key={`${tile.label}-${tile.frame.frameIndex}`} className="reference-pose-preview__tile">
+              <figure
+                key={`${tile.frame.secondIndex ?? index}-${tile.frame.frameIndex}-${tile.frame.timestampMs}`}
+                className="reference-pose-preview__tile"
+              >
                 <canvas
                   ref={(node) => {
                     canvasRefs.current[index] = node;
                   }}
                 />
                 <figcaption>
-                  <strong>{tile.label}</strong>
-                  <span>{`프레임 ${tile.frame.frameIndex}`}</span>
+                  <div className="reference-pose-preview__tile-copy">
+                    <strong>{tile.label}</strong>
+                    <span>{tile.meta}</span>
+                  </div>
+                  <span>{formatTileTimestamp(tile.frame.timestampMs)}</span>
                 </figcaption>
               </figure>
             ))}
@@ -360,7 +361,7 @@ export function ChallengeReferencePosePreview({
 
       {!loading && !error && preview && preview.frames.length === 0 ? (
         <div className="glass-panel glass-panel--nested glass-panel--empty">
-          <strong>표시할 프레임이 없습니다.</strong>
+          <strong>No preview frames available.</strong>
           <p>{TEXT.noFrames}</p>
         </div>
       ) : null}
@@ -369,10 +370,44 @@ export function ChallengeReferencePosePreview({
 }
 
 function buildFrameTiles(frames: ChallengeReferencePoseFrame[]): FrameTile[] {
-  return frames.map((frame, index) => ({
-    frame,
-    label: TILE_LABELS[index] ?? `${TEXT.sampleLabel} ${index + 1}`,
-  }));
+  return frames.map((frame, index) => {
+    const meta = buildTileMeta(frame);
+    return {
+      frame,
+      label: `${formatTileLabel(frame, index)} / ${meta}`,
+      meta,
+    };
+  });
+}
+
+function formatTileLabel(frame: ChallengeReferencePoseFrame, index: number) {
+  if (frame.secondIndex != null && Number.isFinite(frame.secondIndex)) {
+    return `${String(frame.secondIndex + 1).padStart(2, '0')} SEC`;
+  }
+  return `${TEXT.sampleLabel} ${index + 1}`;
+}
+
+function buildTileMeta(frame: ChallengeReferencePoseFrame) {
+  const regionLabel = mapFocusRegion(frame.focusRegion);
+  const weights =
+    frame.poseWeight != null && frame.timingWeight != null
+      ? `P ${Math.round(frame.poseWeight * 100)} / T ${Math.round(frame.timingWeight * 100)}`
+      : null;
+
+  return [regionLabel, weights].filter(Boolean).join(' / ') || `Frame ${frame.frameIndex}`;
+}
+
+function mapFocusRegion(region: string | null) {
+  if (!region) return null;
+  if (region === 'arm') return 'Arm';
+  if (region === 'leg') return 'Leg';
+  if (region === 'torso') return 'Torso';
+  return 'Body';
+}
+
+function formatTileTimestamp(timestampMs: number) {
+  const totalSeconds = Math.max(0, Math.round(timestampMs / 1000));
+  return `${String(totalSeconds).padStart(2, '0')}s`;
 }
 
 function drawFrameTile(canvas: HTMLCanvasElement, video: HTMLVideoElement, tile: FrameTile, activePart: PosePart) {

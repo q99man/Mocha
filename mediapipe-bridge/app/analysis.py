@@ -119,6 +119,12 @@ def analyze_with_mediapipe(payload: AnalyzeRequest) -> AnalyzeResponse:
         frame_step = max(1, int(round(fps / target_fps)))
     else:
         frame_step = max(1, total_frames // max_frames) if total_frames > 0 else 3
+    target_frame_indices = resolve_target_frame_indices(
+        total_frames,
+        duration_ms,
+        target_fps,
+        max_frames,
+    )
 
     base_options = mp.tasks.BaseOptions(model_asset_path=str(model_path))
     options = PoseLandmarkerOptions(
@@ -137,13 +143,31 @@ def analyze_with_mediapipe(payload: AnalyzeRequest) -> AnalyzeResponse:
 
     with PoseLandmarker.create_from_options(options) as pose_landmarker:
         frame_index = 0
-        while processed_frames < max_frames:
+        target_pointer = 0
+        while True:
             ok, frame = cap.read()
             if not ok:
                 break
-            if frame_index % frame_step != 0:
-                frame_index += 1
-                continue
+            if target_frame_indices:
+                if target_pointer >= len(target_frame_indices):
+                    break
+                target_index = target_frame_indices[target_pointer]
+                if frame_index < target_index:
+                    frame_index += 1
+                    continue
+                while target_pointer < len(target_frame_indices) and target_frame_indices[target_pointer] < frame_index:
+                    target_pointer += 1
+                if target_pointer >= len(target_frame_indices):
+                    break
+                if frame_index != target_frame_indices[target_pointer]:
+                    frame_index += 1
+                    continue
+            else:
+                if processed_frames >= max_frames:
+                    break
+                if frame_index % frame_step != 0:
+                    frame_index += 1
+                    continue
 
             rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb_frame)
@@ -170,6 +194,8 @@ def analyze_with_mediapipe(payload: AnalyzeRequest) -> AnalyzeResponse:
                     }
                 )
             processed_frames += 1
+            if target_frame_indices:
+                target_pointer += 1
             frame_index += 1
 
     cap.release()
@@ -184,7 +210,12 @@ def analyze_with_mediapipe(payload: AnalyzeRequest) -> AnalyzeResponse:
     signature = build_signature(payload, sampled_landmarks)
     sample_count = len(sampled_landmarks)
     analyzer_name = "mediapipe-fastapi-pose-v1"
-    analysis_summary = summarize_landmarks(sampled_landmarks, processed_frames, frames_with_pose)
+    analysis_summary = summarize_landmarks(
+        sampled_landmarks,
+        processed_frames,
+        frames_with_pose,
+        duration_ms,
+    )
 
     return AnalyzeResponse(
         provider="mediapipe",
@@ -216,6 +247,8 @@ def analyze_with_mediapipe(payload: AnalyzeRequest) -> AnalyzeResponse:
             "detailMultiplier": detail_multiplier,
             "samplingFpsTarget": target_fps,
             "samplingFrameStep": frame_step,
+            "samplingMode": "full-span-targets" if target_frame_indices else "interval-fallback",
+            "samplingFrameTargets": target_frame_indices,
             "totalFrames": total_frames,
             "processedFrames": processed_frames,
             "framesWithPose": frames_with_pose,
@@ -228,6 +261,7 @@ def summarize_landmarks(
     sampled_landmarks: list[dict[str, Any]],
     processed_frames: int,
     frames_with_pose: int,
+    duration_ms: int,
 ) -> dict[str, Any]:
     visibilities: list[float] = []
     torso_scales: list[float] = []
@@ -365,6 +399,7 @@ def summarize_landmarks(
         "joints": joint_metrics,
     }
     focus_profile = build_focus_profile(sampled_landmarks, focus_samples)
+    score_spots = build_score_spots(sampled_landmarks, focus_samples, focus_profile, duration_ms)
 
     return {
         "quality": quality,
@@ -372,6 +407,7 @@ def summarize_landmarks(
         "symmetry": symmetry,
         "kinematics": kinematics,
         "focusProfile": focus_profile,
+        "scoreSpots": score_spots,
     }
 
 
@@ -504,6 +540,139 @@ def build_focus_profile(
         "primaryJoints": primary_joints,
         "segments": segments,
     }
+
+
+def build_score_spots(
+    sampled_landmarks: list[dict[str, Any]],
+    focus_samples: list[dict[str, Any]],
+    focus_profile: dict[str, Any],
+    duration_ms: int,
+) -> list[dict[str, Any]]:
+    if not sampled_landmarks:
+        return []
+
+    spot_count = resolve_score_spot_count(duration_ms)
+    if spot_count <= 0:
+        return []
+
+    score_spots: list[dict[str, Any]] = []
+    for second_index in range(spot_count):
+        window_start_ms = int(round(second_index * duration_ms / spot_count))
+        window_end_ms = int(round((second_index + 1) * duration_ms / spot_count))
+        if second_index == spot_count - 1:
+            window_end_ms = max(window_end_ms, duration_ms)
+
+        candidate_indices = [
+            index
+            for index, frame in enumerate(sampled_landmarks)
+            if window_start_ms <= int(frame.get("timestampMs", 0)) < window_end_ms
+        ]
+        if not candidate_indices:
+            target_ms = int(round((window_start_ms + window_end_ms) / 2))
+            fallback_index = min(
+                range(len(sampled_landmarks)),
+                key=lambda index: abs(int(sampled_landmarks[index].get("timestampMs", 0)) - target_ms),
+            )
+            candidate_indices = [fallback_index]
+
+        selected_index = max(
+            candidate_indices,
+            key=lambda index: score_spot_candidate_quality(
+                focus_samples[index] if index < len(focus_samples) else {},
+                sampled_landmarks[index],
+            ),
+        )
+        selected_frame = sampled_landmarks[selected_index]
+        timestamp_ms = int(selected_frame.get("timestampMs", 0))
+        ratio = (
+            clamp(timestamp_ms / max(duration_ms, 1), 0.0, 1.0)
+            if duration_ms > 0
+            else clamp(second_index / max(spot_count - 1, 1), 0.0, 1.0)
+        )
+        segment = resolve_focus_segment_for_ratio(focus_profile, ratio)
+
+        score_spots.append(
+            {
+                "secondIndex": second_index,
+                "windowStartMs": window_start_ms,
+                "windowEndMs": window_end_ms,
+                "cueMs": timestamp_ms,
+                "frameIndex": int(selected_frame.get("frameIndex", selected_index)),
+                "focusRegion": str(segment.get("dominantRegion", "body")),
+                "poseWeight": round(float(segment.get("poseWeight", 0.7)), 4),
+                "timingWeight": round(float(segment.get("timingWeight", 0.7)), 4),
+            }
+        )
+
+    return score_spots
+
+
+def score_spot_candidate_quality(
+    focus_sample: dict[str, Any],
+    frame: dict[str, Any],
+) -> float:
+    motion_energy = clamp(float(focus_sample.get("motionEnergy", 0.0)), 0.0, 3.0) / 3.0
+    visibility = clamp(float(focus_sample.get("visibility", 0.0)), 0.0, 1.0)
+    points = frame.get("points", [])
+    visible_point_ratio = 0.0
+    if points:
+        visible_points = sum(
+            1 for point in points if clamp(float(point.get("visibility", 0.0)), 0.0, 1.0) >= 0.35
+        )
+        visible_point_ratio = visible_points / max(len(points), 1)
+    return motion_energy * 0.62 + visibility * 0.24 + visible_point_ratio * 0.14
+
+
+def resolve_score_spot_count(duration_ms: int) -> int:
+    if duration_ms <= 0:
+        return 1
+    return max(1, min(30, int(round(duration_ms / 1000.0))))
+
+
+def resolve_focus_segment_for_ratio(
+    focus_profile: dict[str, Any],
+    ratio: float,
+) -> dict[str, Any]:
+    segments = list(focus_profile.get("segments", [])) if focus_profile else []
+    if not segments:
+        return {
+            "dominantRegion": "body",
+            "poseWeight": 0.7,
+            "timingWeight": 0.7,
+        }
+
+    normalized_ratio = clamp(ratio, 0.0, 1.0)
+    for segment in segments:
+        start_ratio = clamp(float(segment.get("startRatio", 0.0)), 0.0, 1.0)
+        end_ratio = clamp(float(segment.get("endRatio", 1.0)), 0.0, 1.0)
+        if start_ratio <= normalized_ratio < end_ratio:
+            return segment
+    return segments[-1]
+
+
+def resolve_target_frame_indices(
+    total_frames: int,
+    duration_ms: int,
+    target_fps: float,
+    max_frames: int,
+) -> list[int]:
+    if total_frames <= 0:
+        return []
+
+    duration_seconds = max(duration_ms / 1000.0, 0.1)
+    requested_samples = max(24, int(round(duration_seconds * max(target_fps, 1.0))))
+    sample_count = max(1, min(total_frames, max_frames, requested_samples))
+    if sample_count >= total_frames:
+        return list(range(total_frames))
+    if sample_count == 1:
+        return [max(0, total_frames // 2)]
+
+    return sorted(
+        {
+            int(round(index * (total_frames - 1) / (sample_count - 1)))
+            for index in range(sample_count)
+        }
+    )
 
 
 def average_focus_target_scores(samples: list[dict[str, Any]]) -> dict[str, float]:

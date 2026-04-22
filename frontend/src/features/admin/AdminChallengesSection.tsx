@@ -1,6 +1,7 @@
 import { Fragment } from 'react';
 import { Link } from 'react-router-dom';
 
+import { CompactFilterDropdown } from '../../shared/components/CompactFilterDropdown';
 import { Pagination } from '../../shared/components/Pagination';
 import type { Challenge } from '../../shared/types/challenge';
 
@@ -60,7 +61,6 @@ export function AdminChallengesSection({
   analyzingId,
   deletingId,
   togglingId,
-  challengeSummary,
   statusFilterOptions,
   sortOptions,
   setChallengeSearch,
@@ -79,93 +79,70 @@ export function AdminChallengesSection({
   formatDateTimeFull,
 }: AdminChallengesSectionProps) {
   return (
-    <section className="glass-panel glass-panel--nested admin-hub-compact__section">
+    <section className="admin-hub-compact__section admin-shell-compact__section">
       <div className="board-detail-compact__toolbar admin-hub-compact__section-header">
         <div>
           <h3 className="glass-section-title">챌린지 관리</h3>
-          <p className="glass-toolbar__note">{challengeSummary}</p>
         </div>
       </div>
 
       <div className="admin-hub-compact__filters">
-        <label className="mypage-inline-field">
+        <label className="mypage-inline-field admin-hub-compact__search-field">
           <span>검색</span>
-          <input
-            type="text"
-            value={challengeSearch}
-            onChange={(event) => setChallengeSearch(event.target.value)}
-            placeholder="제목, 설명, 카테고리, ID"
-          />
+          <div className="admin-hub-compact__search-input-wrap">
+            <input
+              type="text"
+              value={challengeSearch}
+              onChange={(event) => setChallengeSearch(event.target.value)}
+              placeholder="제목, 설명, 카테고리, ID"
+            />
+            {challengeSearch || activeCategoryFilter !== 'ALL' || activeStatusFilter !== 'ALL' || activeSort !== 'NEWEST' ? (
+              <button
+                className="admin-hub-compact__search-clear"
+                type="button"
+                aria-label="필터 초기화"
+                onClick={onResetFilters}
+              >
+                ×
+              </button>
+            ) : null}
+          </div>
         </label>
-        <div className="admin-hub-compact__filter-group">
-          <span className="admin-hub-compact__filter-label">카테고리</span>
-          <div className="admin-hub-compact__filter-options" role="group" aria-label="카테고리 필터">
-            {categoryOptions.map((category) => {
-              const isActive = activeCategoryFilter === category;
-              return (
-                <button
-                  key={category}
-                  type="button"
-                  className={`admin-hub-compact__filter-option${isActive ? ' is-active' : ''}`}
-                  onClick={() => onSelectCategoryFilter(category)}
-                >
-                  {category === 'ALL' ? '전체' : category}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-        <div className="admin-hub-compact__filter-group">
-          <span className="admin-hub-compact__filter-label">상태</span>
-          <div className="admin-hub-compact__filter-options" role="group" aria-label="상태 필터">
-            {statusFilterOptions.map((option) => {
-              const isActive = activeStatusFilter === option.value;
-              return (
-                <button
-                  key={option.value}
-                  type="button"
-                  className={`admin-hub-compact__filter-option${isActive ? ' is-active' : ''}`}
-                  onClick={() => onSelectStatusFilter(option.value)}
-                >
-                  {option.label}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-        <div className="admin-hub-compact__filter-group">
-          <span className="admin-hub-compact__filter-label">정렬</span>
-          <div className="admin-hub-compact__filter-options" role="group" aria-label="정렬 기준">
-            {sortOptions.map((option) => {
-              const isActive = activeSort === option.value;
-              return (
-                <button
-                  key={option.value}
-                  type="button"
-                  className={`admin-hub-compact__filter-option${isActive ? ' is-active' : ''}`}
-                  onClick={() => onSelectSort(option.value)}
-                >
-                  {option.label}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-        <div className="admin-hub-compact__filter-actions">
-          <button className="button-link button-link--secondary button-link--compact" type="button" onClick={onResetFilters}>
-            필터 초기화
-          </button>
-        </div>
+        <CompactFilterDropdown
+          className="mypage-inline-field admin-hub-compact__filter-select"
+          label="카테고리"
+          value={activeCategoryFilter}
+          options={categoryOptions.map((category) => ({
+            value: category,
+            label: category === 'ALL' ? '전체' : category,
+          }))}
+          ariaLabel="카테고리 필터"
+          onChange={onSelectCategoryFilter}
+        />
+        <CompactFilterDropdown
+          className="mypage-inline-field admin-hub-compact__filter-select"
+          label="상태"
+          value={activeStatusFilter}
+          options={statusFilterOptions}
+          ariaLabel="상태 필터"
+          onChange={onSelectStatusFilter}
+        />
+        <CompactFilterDropdown
+          className="mypage-inline-field admin-hub-compact__filter-select"
+          label="정렬"
+          value={activeSort}
+          options={sortOptions}
+          ariaLabel="정렬 기준"
+          onChange={onSelectSort}
+        />
       </div>
 
-      <p className="glass-toolbar__note admin-hub-compact__inline-note">현재 조건에 맞는 챌린지 {filteredChallenges.length}개</p>
-
       {loading ? (
-        <div className="glass-panel glass-panel--nested glass-panel--empty">
+        <div className="board-compact-empty">
           <strong>챌린지 목록을 불러오는 중입니다.</strong>
         </div>
       ) : pagedChallenges.length === 0 ? (
-        <div className="glass-panel glass-panel--nested glass-panel--empty">
+        <div className="board-compact-empty">
           <strong>조건에 맞는 챌린지가 없습니다.</strong>
         </div>
       ) : (
