@@ -12,6 +12,7 @@ type CompactFilterDropdownProps<T extends string> = {
   onChange: (value: T) => void;
   className?: string;
   ariaLabel?: string;
+  disabled?: boolean;
 };
 
 export function CompactFilterDropdown<T extends string>({
@@ -21,6 +22,7 @@ export function CompactFilterDropdown<T extends string>({
   onChange,
   className,
   ariaLabel,
+  disabled,
 }: CompactFilterDropdownProps<T>) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement | null>(null);
@@ -57,7 +59,10 @@ export function CompactFilterDropdown<T extends string>({
   }, [open]);
 
   return (
-    <div ref={rootRef} className={className ? className : 'admin-hub-compact__filter-select'}>
+    <div
+      ref={rootRef}
+      className={`admin-hub-compact__filter-select${className ? ` ${className}` : ''}${disabled ? ' is-disabled' : ''}`}
+    >
       <span className="admin-hub-compact__filter-label">{label}</span>
       <button
         className={`admin-hub-compact__filter-trigger${open ? ' is-open' : ''}`}
@@ -66,6 +71,7 @@ export function CompactFilterDropdown<T extends string>({
         aria-expanded={open}
         aria-controls={listboxId}
         aria-label={ariaLabel ?? label}
+        disabled={disabled}
         onClick={() => setOpen((current) => !current)}
       >
         <span className="admin-hub-compact__filter-value">{selectedOption?.label ?? ''}</span>
@@ -91,8 +97,12 @@ export function CompactFilterDropdown<T extends string>({
                   setOpen(false);
                 }}
               >
-                <span>{option.label}</span>
-                {isSelected ? <span aria-hidden="true">선택</span> : null}
+                <span className="admin-hub-compact__filter-option-label">{option.label}</span>
+                {isSelected ? (
+                  <svg className="admin-hub-compact__filter-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                ) : null}
               </button>
             );
           })}

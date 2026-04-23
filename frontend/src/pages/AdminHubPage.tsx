@@ -27,8 +27,18 @@ import {
   updateChallenge,
   updateChallengeActive,
 } from '../shared/api/challengeApi';
+import {
+  IconAdd,
+  IconDelete,
+  IconEdit,
+  IconRefresh,
+  IconSave,
+  IconStatus,
+  IconView,
+} from '../shared/components/AdminIcons';
 import { CompactFilterDropdown } from '../shared/components/CompactFilterDropdown';
 import { CompactConfirmDialog } from '../shared/components/CompactConfirmDialog';
+import { CompactToast } from '../shared/components/CompactToast';
 import { Pagination } from '../shared/components/Pagination';
 import { useAuth } from '../shared/auth/AuthProvider';
 import type {
@@ -74,10 +84,10 @@ type ConfirmDialogState =
   | { kind: 'DELETE_MEMBER'; member: AdminMemberSummary }
   | { kind: 'DELETE_POST'; post: BoardPostSummary };
 
-const CHALLENGES_PER_PAGE = 6;
-const ASSETS_PER_PAGE = 5;
-const MEMBERS_PER_PAGE = 8;
-const POSTS_PER_PAGE = 8;
+const CHALLENGES_PER_PAGE = 10;
+const ASSETS_PER_PAGE = 10;
+const MEMBERS_PER_PAGE = 10;
+const POSTS_PER_PAGE = 10;
 
 const STATUS_FILTER_OPTIONS: Array<{ value: ChallengeStatusFilter; label: string }> = [
   { value: 'ALL', label: '전체' },
@@ -435,17 +445,24 @@ export function AdminHubPage() {
     }
   }
 
-  async function loadBoardPosts() {
+  async function loadBoardPosts(pageOverride = boardPage) {
     setBoardPostsLoading(true);
     setBoardError(null);
     try {
       const response = await getBoardPosts({
-        page: boardPage,
+        page: pageOverride,
         size: POSTS_PER_PAGE,
         category: boardCategoryFilter,
         sourceType: boardSourceFilter,
         keyword: boardKeyword,
       });
+      const nextTotalPages = Math.max(1, Math.ceil(response.totalCount / POSTS_PER_PAGE));
+      if (pageOverride > nextTotalPages) {
+        setBoardPosts([]);
+        setBoardTotalCount(response.totalCount);
+        setBoardPage(nextTotalPages);
+        return;
+      }
       setBoardPosts(response.items);
       setBoardTotalCount(response.totalCount);
     } catch (loadError) {
@@ -762,7 +779,12 @@ export function AdminHubPage() {
     try {
       await removeBoardPost(post.id);
       setBoardSuccess(`게시글 삭제 완료: ${post.title}`);
-      await Promise.all([loadAdminData(), loadBoardPosts()]);
+      const nextTotalCount = Math.max(0, boardTotalCount - 1);
+      const nextPage = Math.min(boardPage, Math.max(1, Math.ceil(nextTotalCount / POSTS_PER_PAGE)));
+      if (nextPage !== boardPage) {
+        setBoardPage(nextPage);
+      }
+      await Promise.all([loadAdminData(), loadBoardPosts(nextPage)]);
       return true;
     } catch (deleteError) {
       setBoardError(deleteError instanceof Error ? deleteError.message : '게시글 삭제에 실패했습니다.');
@@ -816,7 +838,20 @@ export function AdminHubPage() {
     );
   }
 
-  const statusMessages = uploadSuccess || uploadError || analysisMessage || analysisError || error || challengeSuccess || memberSuccess || memberError || boardSuccess || boardError;
+  const activeMessage = uploadSuccess || challengeSuccess || analysisMessage || memberSuccess || boardSuccess;
+  const activeError = uploadError || analysisError || error || memberError || boardError;
+  const clearAllMessages = () => {
+    setUploadSuccess(null);
+    setChallengeSuccess(null);
+    setAnalysisMessage(null);
+    setMemberSuccess(null);
+    setBoardSuccess(null);
+    setUploadError(null);
+    setAnalysisError(null);
+    setError(null);
+    setMemberError(null);
+    setBoardError(null);
+  };
 
   return (
     <>
@@ -829,22 +864,26 @@ export function AdminHubPage() {
             </div>
 
             <div className="inline-actions">
-              <button className="button-link button-link--secondary button-link--compact" type="button" onClick={() => void loadAdminData()}>
-                {refreshing ? '새로고침 중...' : '새로고침'}
+              <button className="button-link button-link--secondary button-link--compact admin-action-button" type="button" onClick={() => void loadAdminData()}>
+                <IconRefresh />
+                <span>{refreshing ? '새로고침 중...' : '새로고침'}</span>
               </button>
               {activeTab === 'challenges' ? (
-                <button className="button-link button-link--compact" type="button" onClick={openCreateChallengeModal}>
-                  챌린지 등록
+                <button className="button-link button-link--compact admin-action-button" type="button" onClick={openCreateChallengeModal}>
+                  <IconAdd />
+                  <span>챌린지 등록</span>
                 </button>
               ) : null}
               {activeTab === 'members' ? (
-                <button className="button-link button-link--compact" type="button" onClick={openCreateMemberModal}>
-                  회원 생성
+                <button className="button-link button-link--compact admin-action-button" type="button" onClick={openCreateMemberModal}>
+                  <IconAdd />
+                  <span>회원 생성</span>
                 </button>
               ) : null}
               {activeTab === 'board' ? (
-                <Link className="button-link button-link--compact" to="/board/new">
-                  글쓰기
+                <Link className="button-link button-link--compact admin-action-button" to="/board/new">
+                  <IconEdit />
+                  <span>글쓰기</span>
                 </Link>
               ) : null}
             </div>
@@ -873,20 +912,11 @@ export function AdminHubPage() {
             </div>
           </div>
 
-          {statusMessages ? (
-            <div className="glass-status-stack">
-              {uploadSuccess ? <p className="review-composer__message review-composer__message--success">{uploadSuccess}</p> : null}
-              {challengeSuccess ? <p className="review-composer__message review-composer__message--success">{challengeSuccess}</p> : null}
-              {analysisMessage ? <p className="review-composer__message review-composer__message--success">{analysisMessage}</p> : null}
-              {memberSuccess ? <p className="review-composer__message review-composer__message--success">{memberSuccess}</p> : null}
-              {boardSuccess ? <p className="review-composer__message review-composer__message--success">{boardSuccess}</p> : null}
-              {uploadError ? <p className="review-composer__message review-composer__message--error">{uploadError}</p> : null}
-              {analysisError ? <p className="review-composer__message review-composer__message--error">{analysisError}</p> : null}
-              {memberError ? <p className="review-composer__message review-composer__message--error">{memberError}</p> : null}
-              {boardError ? <p className="review-composer__message review-composer__message--error">{boardError}</p> : null}
-              {error ? <p className="review-composer__message review-composer__message--error">{error}</p> : null}
-            </div>
-          ) : null}
+          <CompactToast
+            message={activeError || activeMessage}
+            type={activeError ? 'error' : 'success'}
+            onClose={clearAllMessages}
+          />
 
           {loading ? (
             <div className="board-compact-empty">
@@ -961,6 +991,7 @@ export function AdminHubPage() {
               }
               onSaveAsset={handleSaveAsset}
               onActivateAsset={handleActivateAsset}
+              onSelectActiveAsset={handleActivateAsset}
               onAssetPageChange={setAssetPage}
               buildActiveDescription={buildActiveDescription}
               formatFileSize={formatFileSize}
@@ -976,8 +1007,8 @@ export function AdminHubPage() {
                   <h3 className="glass-section-title">회원 관리</h3>
                 </div>
                 <div className="board-detail-compact__meta">
-                  <span className="board-classic-badge">전체 {memberOverview?.totalCount ?? 0}명</span>
-                  <span className="board-classic-badge">관리자 {memberOverview?.adminCount ?? 0}명</span>
+                  <span className="board-classic-badge">{memberOverview?.totalCount ?? 0}명</span>
+                  <span className="board-classic-badge is-pinned">관리자 {memberOverview?.adminCount ?? 0}명</span>
                   <span className="board-classic-badge">회원 {memberOverview?.userCount ?? 0}명</span>
                 </div>
               </div>
@@ -1062,7 +1093,7 @@ export function AdminHubPage() {
                       members.map((member) => (
                         <article className="admin-hub-compact-row admin-hub-compact-row--members" key={member.id}>
                           <div className="admin-hub-compact-row__status">
-                            <span className={`board-classic-badge${member.role === 'ADMIN' ? ' is-pinned' : ''}`}>
+                            <span className={`board-classic-badge ${member.role === 'ADMIN' ? 'is-warning' : 'is-info'}`}>
                               {member.role === 'ADMIN' ? '관리자' : '회원'}
                             </span>
                           </div>
@@ -1081,21 +1112,23 @@ export function AdminHubPage() {
                           <div className="admin-hub-compact-row__metric">
                             {member.self ? '현재 계정' : member.hasActivity ? '이력 있음' : '삭제 가능'}
                           </div>
-                          <div className="admin-hub-compact-row__actions">
+                          <div className="admin-hub-compact-row__actions admin-action-group admin-action-group--row">
                             <button
-                              className="button-link button-link--secondary admin-hub-compact__action-btn"
+                              className="button-link button-link--secondary admin-hub-compact__action-btn admin-action-button"
                               type="button"
                               onClick={() => openEditMemberModal(member)}
                             >
-                              수정
+                              <IconEdit />
+                              <span>수정</span>
                             </button>
                             <button
-                              className="button-link button-link--secondary admin-hub-compact__action-btn admin-hub-compact__action-btn--danger"
+                              className="button-link button-link--secondary admin-hub-compact__action-btn admin-action-button admin-hub-compact__action-btn--danger"
                               type="button"
                               disabled={!member.canDelete}
                               onClick={() => setConfirmDialog({ kind: 'DELETE_MEMBER', member })}
                             >
-                              삭제
+                              <IconDelete />
+                              <span>삭제</span>
                             </button>
                           </div>
                         </article>
@@ -1116,9 +1149,10 @@ export function AdminHubPage() {
                   <h3 className="glass-section-title">게시판 관리</h3>
                 </div>
                 <div className="board-detail-compact__meta">
-                  <span className="board-classic-badge">전체 {boardOverview?.totalCount ?? 0}개</span>
-                  <span className="board-classic-badge">일반 {boardOverview?.generalCount ?? 0}개</span>
-                  <span className="board-classic-badge">후기 {boardOverview?.reviewCount ?? 0}개</span>
+                  <span className="board-classic-badge">전체 {boardOverview?.totalCount ?? 0}</span>
+                  <span className="board-classic-badge is-warning">공지 {boardOverview?.noticeCount ?? 0}</span>
+                  <span className="board-classic-badge is-info">자유 {boardOverview?.freeCount ?? 0}</span>
+                  <span className="board-classic-badge is-success">후기 {boardOverview?.reviewCount ?? 0}</span>
                 </div>
               </div>
 
@@ -1191,7 +1225,7 @@ export function AdminHubPage() {
                         return (
                           <article className="admin-hub-compact-row admin-hub-compact-row--posts" key={post.id}>
                             <div className="admin-hub-compact-row__status">
-                              <span className={`board-classic-badge${post.pinned ? ' is-pinned' : ''}`}>
+                              <span className={`board-classic-badge ${getCategoryBadgeClass(post)}`}>
                                 {post.pinned ? '고정' : toBoardCategoryLabel(post.category)}
                               </span>
                             </div>
@@ -1205,24 +1239,25 @@ export function AdminHubPage() {
                             <div className="admin-hub-compact-row__metric">
                               {editable ? '수동 관리' : '후기 연동'}
                             </div>
-                            <div className="admin-hub-compact-row__actions">
-                              <Link className="button-link button-link--secondary admin-hub-compact__action-btn" to={`/board/${post.id}`}>
-                                보기
+                            <div className="admin-hub-compact-row__actions admin-action-group admin-action-group--row">
+                              <Link className="button-link button-link--secondary admin-hub-compact__action-btn admin-action-button" to={`/board/${post.id}`}>
+                                <IconView />
+                                <span>보기</span>
                               </Link>
                               {editable ? (
-                                <Link className="button-link button-link--secondary admin-hub-compact__action-btn" to={`/board/${post.id}/edit`}>
-                                  수정
+                                <Link className="button-link button-link--secondary admin-hub-compact__action-btn admin-action-button" to={`/board/${post.id}/edit`}>
+                                  <IconEdit />
+                                  <span>수정</span>
                                 </Link>
                               ) : null}
-                              {editable ? (
-                                <button
-                                  className="button-link button-link--secondary admin-hub-compact__action-btn admin-hub-compact__action-btn--danger"
-                                  type="button"
-                                  onClick={() => setConfirmDialog({ kind: 'DELETE_POST', post })}
-                                >
-                                  삭제
-                                </button>
-                              ) : null}
+                              <button
+                                className="button-link button-link--secondary admin-hub-compact__action-btn admin-action-button admin-hub-compact__action-btn--danger"
+                                type="button"
+                                onClick={() => setConfirmDialog({ kind: 'DELETE_POST', post })}
+                              >
+                                <IconDelete />
+                                <span>삭제</span>
+                              </button>
                             </div>
                           </article>
                         );
@@ -1402,9 +1437,16 @@ function AdminMemberEditorModal({
           </div>
 
           <div className="inline-actions admin-hub-compact__modal-actions">
-            <button className="button-link admin-hub-compact__modal-btn" type="submit" disabled={memberSubmitting}>
-              {memberSubmitting ? (editing ? '수정 중...' : '생성 중...') : editing ? '수정 저장' : '회원 생성'}
-            </button>
+            {/* memberEditing was not defined; using !!editing instead */}
+            {(() => {
+              const memberEditing = !!editing;
+              return (
+                <button className="button-link admin-hub-compact__modal-btn admin-action-button" type="submit" disabled={memberSubmitting}>
+                  {memberEditing ? <IconSave /> : <IconAdd />}
+                  <span>{memberSubmitting ? (memberEditing ? '수정 중...' : '생성 중...') : memberEditing ? '수정 저장' : '회원 생성'}</span>
+                </button>
+              );
+            })()}
             <button
               className="button-link button-link--secondary admin-hub-compact__modal-btn"
               type="button"
@@ -1473,6 +1515,22 @@ function toBoardCategoryLabel(category: BoardPostSummary['category']) {
       return '후기';
     default:
       return category;
+  }
+}
+
+function getCategoryBadgeClass(post: BoardPostSummary) {
+  if (post.pinned) return 'is-warning';
+  switch (post.category) {
+    case 'NOTICE':
+      return 'is-warning';
+    case 'FREE':
+      return 'is-info';
+    case 'REVIEW':
+      return 'is-success';
+    case 'QNA':
+      return 'is-danger';
+    default:
+      return 'is-info';
   }
 }
 

@@ -79,6 +79,8 @@ export type BoardChallengeReviewSummary = {
 export type BoardOverview = {
   totalCount: number;
   generalCount: number;
+  noticeCount: number;
   reviewCount: number;
+  freeCount: number;
   topReviewChallenges: BoardChallengeReviewSummary[];
 };

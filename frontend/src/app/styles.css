@@ -5,6 +5,7 @@
   font-family: "Margarine";
   src: url("/fonts/Margarine-Regular.ttf") format("truetype");
   font-display: swap;
+}
 
 :root {
   color: #ffffff;
@@ -4342,17 +4343,63 @@ main {
   gap: 10px;
 }
 
+.stage-nav__utility,
 .stage-nav__cta {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   min-height: 42px;
-  padding: 0 18px;
-  border: 0;
+  padding: 0 20px;
   border-radius: 999px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  transition: all 0.24s cubic-bezier(0.16, 1, 0.3, 1);
+  cursor: pointer;
+}
+
+.stage-nav__utility {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.stage-nav__utility:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.16);
+  color: #ffffff;
+  transform: translateY(-1px);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+}
+
+.stage-nav__utility:active {
+  transform: translateY(0);
+}
+
+.stage-nav__cta {
   background: #ffffff;
-  color: #111111;
+  border: 1px solid #ffffff;
+  color: #000000;
   box-shadow: 0 10px 24px rgba(0, 0, 0, 0.18);
+}
+
+.stage-nav__cta:hover {
+  background: #f0f0f0;
+  border-color: #f0f0f0;
+  transform: translateY(-1px);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.22);
+}
+
+.stage-nav__cta:active {
+  transform: translateY(0);
+}
+
+.stage-nav__utility:disabled,
+.stage-nav__cta:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none !important;
+  box-shadow: none !important;
 }
 
 .app-header-glass__account {
@@ -6231,9 +6278,11 @@ main {
 .glass-pagination {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: center;
   gap: 10px;
-  margin-top: 18px;
+  margin-top: 0;
+  padding: 24px 0 28px;
+  border-top: 1px solid rgba(255, 255, 255, 0.04);
 }
 
 .glass-pagination__pages {
@@ -6291,6 +6340,15 @@ main {
 
   .glass-pagination__pages {
     flex-wrap: wrap;
+  }
+
+  .glass-pagination {
+    display: flex;
+    align-items: center;
+    flex-direction: row;
+    justify-content: center;
+    flex-wrap: wrap;
+    padding: 18px 0 22px;
   }
 }
 
@@ -7277,5 +7335,4 @@ main {
   .lp-footer__links {
     gap: 18px;
   }
-}
 }

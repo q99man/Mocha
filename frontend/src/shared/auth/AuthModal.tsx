@@ -1,4 +1,5 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 
 import { buildSocialLoginUrl } from '../api/authApi';
@@ -196,7 +197,15 @@ export function AuthModal({
           : await register({ email, password, displayName: normalizedDisplayName });
 
       const nextTarget = resolvedRedirectTarget.startsWith('/admin') && session.role !== 'ADMIN' ? '/' : resolvedRedirectTarget;
-      navigate(nextTarget, { replace: true });
+      navigate(nextTarget, {
+        replace: true,
+        state: {
+          compactToast: {
+            message: activeMode === 'login' ? '로그인되었습니다.' : '회원가입이 완료되었습니다.',
+            type: 'success',
+          },
+        },
+      });
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : '인증 처리에 실패했습니다.');
     } finally {
@@ -358,12 +367,13 @@ export function AuthModal({
     );
   }
 
-  return (
+  return createPortal(
     <div className="glass-modal" role="presentation">
       <button className="glass-modal__backdrop" type="button" aria-label="인증 모달 닫기" onClick={onClose} />
       <div className="glass-modal__panel" role="dialog" aria-modal="true" aria-label="인증" onClick={(event) => event.stopPropagation()}>
         {card}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

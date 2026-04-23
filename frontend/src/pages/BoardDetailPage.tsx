@@ -15,6 +15,7 @@ import {
 import { useAuth } from '../shared/auth/AuthProvider';
 import { buildAuthModalHref, buildPathWithSearch } from '../shared/auth/authModalUtils';
 import { CompactConfirmDialog } from '../shared/components/CompactConfirmDialog';
+import { CompactToast } from '../shared/components/CompactToast';
 import type { BoardComment, BoardPost } from '../shared/types/board';
 
 const INITIAL_COMMENT = '';
@@ -187,6 +188,11 @@ export function BoardDetailPage() {
     setCommentError(null);
   }
 
+  function clearCommentFeedback() {
+    setCommentError(null);
+    setCommentSuccess(null);
+  }
+
   if (loading) {
     return (
       <section className="glass-page board-page-compact">
@@ -308,8 +314,6 @@ export function BoardDetailPage() {
             busy={commentBusy}
             submitLabel="댓글 등록"
             placeholder="댓글 내용을 입력해 주세요."
-            error={editCommentId == null ? commentError : null}
-            success={commentSuccess}
             onChange={setCommentValue}
             onSubmit={handleCreateComment}
           />
@@ -334,7 +338,6 @@ export function BoardDetailPage() {
           busy={commentBusy}
           editCommentId={editCommentId}
           editValue={editCommentValue}
-          actionError={editCommentId != null ? commentError : null}
           onEditStart={handleEditStart}
           onEditChange={setEditCommentValue}
           onEditSubmit={handleUpdateComment}
@@ -342,6 +345,12 @@ export function BoardDetailPage() {
           onDelete={handleDeleteComment}
         />
       </section>
+
+      <CompactToast
+        message={commentError || commentSuccess}
+        type={commentError ? 'error' : 'success'}
+        onClose={clearCommentFeedback}
+      />
 
       <CompactConfirmDialog
         open={confirmState.type !== 'none'}

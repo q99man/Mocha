@@ -13,10 +13,6 @@ type ChallengeReviewsPaneProps = {
   reviewFormOpen: boolean;
   reviewForm: ReviewInput;
   reviewSubmitBusy: boolean;
-  reviewSubmitSuccess: string | null;
-  reviewSubmitError: string | null;
-  reviewEditSuccess: string | null;
-  reviewEditError: string | null;
   reviewLoading: boolean;
   reviewError: string | null;
   selectedChallengeReviews: Review[];
@@ -46,10 +42,6 @@ export function ChallengeReviewsPane({
   reviewFormOpen,
   reviewForm,
   reviewSubmitBusy,
-  reviewSubmitSuccess,
-  reviewSubmitError,
-  reviewEditSuccess,
-  reviewEditError,
   reviewLoading,
   reviewError,
   selectedChallengeReviews,
@@ -155,13 +147,6 @@ export function ChallengeReviewsPane({
         </form>
       ) : null}
 
-      {reviewSubmitSuccess ? <p className="song-select__review-message song-select__review-message--success">{reviewSubmitSuccess}</p> : null}
-      {reviewSubmitError ? <p className="song-select__review-message song-select__review-message--error">{reviewSubmitError}</p> : null}
-      {reviewEditSuccess ? <p className="song-select__review-message song-select__review-message--success">{reviewEditSuccess}</p> : null}
-      {reviewEditError && editingReviewId == null ? (
-        <p className="song-select__review-message song-select__review-message--error">{reviewEditError}</p>
-      ) : null}
-
       {reviewLoading ? (
         <div className="song-select__empty">
           <p>후기를 불러오는 중입니다.</p>
@@ -256,10 +241,6 @@ export function ChallengeReviewsPane({
                   </div>
                 </div>
               )}
-
-              {isEditing && reviewEditError ? (
-                <p className="song-select__review-message song-select__review-message--error">{reviewEditError}</p>
-              ) : null}
             </article>
           );
         })

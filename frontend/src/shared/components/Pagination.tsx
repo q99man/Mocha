@@ -2,22 +2,25 @@ type PaginationProps = {
   currentPage: number;
   totalPages: number;
   onPageChange: (page: number) => void;
+  className?: string;
 };
 
-export function Pagination({ currentPage, totalPages, onPageChange }: PaginationProps) {
+export function Pagination({ currentPage, totalPages, onPageChange, className }: PaginationProps) {
   if (totalPages <= 1) {
     return null;
   }
 
-  const pages = buildPages(currentPage, totalPages);
+  const safeCurrentPage = Math.min(Math.max(currentPage, 1), totalPages);
+  const pages = buildPages(safeCurrentPage, totalPages);
+  const paginationClassName = ['glass-pagination', className].filter(Boolean).join(' ');
 
   return (
-    <nav className="glass-pagination" aria-label="페이지 이동">
+    <nav className={paginationClassName} aria-label="페이지 이동">
       <button
         className="glass-pagination__button"
         type="button"
-        disabled={currentPage === 1}
-        onClick={() => onPageChange(currentPage - 1)}
+        disabled={safeCurrentPage === 1}
+        onClick={() => onPageChange(safeCurrentPage - 1)}
       >
         이전
       </button>
@@ -26,7 +29,7 @@ export function Pagination({ currentPage, totalPages, onPageChange }: Pagination
         {pages.map((page) => (
           <button
             key={page}
-            className={`glass-pagination__button${page === currentPage ? ' is-active' : ''}`}
+            className={`glass-pagination__button${page === safeCurrentPage ? ' is-active' : ''}`}
             type="button"
             onClick={() => onPageChange(page)}
           >
@@ -38,8 +41,8 @@ export function Pagination({ currentPage, totalPages, onPageChange }: Pagination
       <button
         className="glass-pagination__button"
         type="button"
-        disabled={currentPage === totalPages}
-        onClick={() => onPageChange(currentPage + 1)}
+        disabled={safeCurrentPage === totalPages}
+        onClick={() => onPageChange(safeCurrentPage + 1)}
       >
         다음
       </button>

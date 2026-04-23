@@ -1,7 +1,9 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 
 import { useAuth } from '../auth/AuthProvider';
+import { CompactConfirmDialog } from './CompactConfirmDialog';
+import { CompactToast } from './CompactToast';
 
 const ADMIN_NAV_ITEMS = [
   { tab: 'challenges', label: '챌린지' },
@@ -10,11 +12,22 @@ const ADMIN_NAV_ITEMS = [
   { tab: 'board', label: '게시판' },
 ];
 
+type LayoutToast = {
+  message: string;
+  type: 'success' | 'error';
+};
+
+type LayoutLocationState = {
+  compactToast?: LayoutToast;
+} | null;
+
 export function AdminLayout() {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, logout } = useAuth();
   const [logoutBusy, setLogoutBusy] = useState(false);
+  const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
+  const [layoutToast, setLayoutToast] = useState<LayoutToast | null>(null);
 
   const activeTab = useMemo(() => {
     const params = new URLSearchParams(location.search);
@@ -25,6 +38,23 @@ export function AdminLayout() {
     return 'challenges';
   }, [location.search]);
 
+  useEffect(() => {
+    const compactToast = (location.state as LayoutLocationState)?.compactToast;
+    if (!compactToast) {
+      return;
+    }
+
+    setLayoutToast(compactToast);
+    navigate(
+      {
+        pathname: location.pathname,
+        search: location.search,
+        hash: location.hash,
+      },
+      { replace: true, state: null },
+    );
+  }, [location.hash, location.pathname, location.search, location.state, navigate]);
+
   async function handleLogout() {
     if (logoutBusy) {
       return;
@@ -34,7 +64,27 @@ export function AdminLayout() {
 
     try {
       await logout();
-      navigate('/', { replace: true });
+      setLogoutConfirmOpen(false);
+      navigate('/', {
+        replace: true,
+        state: {
+          compactToast: {
+            message: '로그아웃되었습니다.',
+            type: 'success',
+          },
+        },
+      });
+    } catch {
+      setLogoutConfirmOpen(false);
+      navigate('/', {
+        replace: true,
+        state: {
+          compactToast: {
+            message: '로그아웃 처리 중 문제가 발생했습니다. 잠시 후 다시 시도해 주세요.',
+            type: 'error',
+          },
+        },
+      });
     } finally {
       setLogoutBusy(false);
     }
@@ -70,7 +120,7 @@ export function AdminLayout() {
           <button
             className="stage-nav__utility"
             type="button"
-            onClick={() => void handleLogout()}
+            onClick={() => setLogoutConfirmOpen(true)}
             disabled={logoutBusy}
           >
             로그아웃
@@ -81,6 +131,23 @@ export function AdminLayout() {
       <main className="app-main-glass">
         <Outlet />
       </main>
+
+      <CompactConfirmDialog
+        open={logoutConfirmOpen}
+        title="로그아웃할까요?"
+        description="관리자 계정에서 로그아웃하고 홈 화면으로 이동합니다."
+        confirmLabel="로그아웃"
+        cancelLabel="취소"
+        tone="danger"
+        busy={logoutBusy}
+        onConfirm={handleLogout}
+        onCancel={() => setLogoutConfirmOpen(false)}
+      />
+      <CompactToast
+        message={layoutToast?.message ?? null}
+        type={layoutToast?.type ?? 'success'}
+        onClose={() => setLayoutToast(null)}
+      />
     </div>
   );
 }

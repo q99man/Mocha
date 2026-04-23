@@ -1,6 +1,7 @@
 import { Fragment } from 'react';
 import { Link } from 'react-router-dom';
 
+import { IconView } from '../../shared/components/AdminIcons';
 import { Pagination } from '../../shared/components/Pagination';
 import type { AttemptSummary } from '../../shared/types/attempt';
 
@@ -38,8 +39,8 @@ export function MyPageAttemptsTab({
           <p>챌린지를 완료하면 여기서 바로 확인할 수 있습니다.</p>
         </div>
       ) : (
-        <div className="mypage-compact-table">
-          <div className="mypage-compact-table__head mypage-compact-table__head--attempts" role="presentation">
+        <div className="admin-hub-compact-table mypage-compact-table">
+          <div className="admin-hub-compact-table__head mypage-compact-table__head mypage-compact-table__head--attempts" role="presentation">
             <span>상태</span>
             <span>챌린지</span>
             <span>점수</span>
@@ -54,7 +55,7 @@ export function MyPageAttemptsTab({
               return (
                 <Fragment key={attempt.id}>
                   <article
-                    className={`mypage-compact-row mypage-compact-row--attempts${isExpanded ? ' is-expanded' : ''}`}
+                    className={`admin-hub-compact-row mypage-compact-row mypage-compact-row--attempts${isExpanded ? ' is-expanded' : ''}`}
                     role="button"
                     tabIndex={0}
                     onClick={() => onToggleAttempt(attempt.id)}
@@ -89,12 +90,13 @@ export function MyPageAttemptsTab({
                             {attempt.processingComplete ? '완료된 기록' : '처리 중인 기록'} · 생성 {formatDate(attempt.attemptedAt)}
                           </p>
                         </div>
-                        <div className="inline-actions board-actions-right">
+                        <div className="admin-action-group admin-action-group--inline">
                           <Link
-                            className="button-link button-link--secondary button-link--compact"
+                            className="button-link button-link--secondary button-link--compact admin-action-button"
                             to={`/challenges?challengeId=${attempt.challengeId}`}
                           >
-                            챌린지 보기
+                            <IconView />
+                            <span>챌린지 보기</span>
                           </Link>
                         </div>
                       </div>

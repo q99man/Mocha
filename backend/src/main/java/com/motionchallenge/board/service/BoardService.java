@@ -70,9 +70,11 @@ public class BoardService {
     }
 
     public BoardOverviewResponse getOverview() {
-        long totalCount = boardPostRepository.count();
-        long reviewCount = boardPostRepository.countBySourceType(BoardPostSourceType.REVIEW_SYNC);
-        long generalCount = boardPostRepository.countBySourceType(BoardPostSourceType.GENERAL);
+        long totalCount = boardPostRepository.countAllWithMember();
+        long reviewCount = boardPostRepository.countBySourceTypeWithMember(BoardPostSourceType.REVIEW_SYNC);
+        long generalCount = boardPostRepository.countBySourceTypeWithMember(BoardPostSourceType.GENERAL);
+        long noticeCount = boardPostRepository.countByCategory(BoardCategory.NOTICE);
+        long freeCount = boardPostRepository.countByCategory(BoardCategory.FREE);
 
         List<BoardChallengeReviewSummaryResponse> topReviewChallenges = boardPostRepository.findTopChallengeReviewSummaries(
                         BoardPostSourceType.REVIEW_SYNC,
@@ -81,7 +83,7 @@ public class BoardService {
                 .map(this::toChallengeReviewSummary)
                 .toList();
 
-        return new BoardOverviewResponse(totalCount, generalCount, reviewCount, topReviewChallenges);
+        return new BoardOverviewResponse(totalCount, generalCount, noticeCount, freeCount, reviewCount, topReviewChallenges);
     }
 
     public BoardPostListResponse getMyPosts(int page, int size, BoardPostSourceType sourceType) {

@@ -46,7 +46,7 @@ export function HomePage() {
         <LandingUseCaseSection reviews={reviews} />
       </main>
 
-      <LandingFooter isAuthenticated={isAuthenticated} />
+      <LandingFooter />
     </div>
   );
 }

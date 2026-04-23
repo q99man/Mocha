@@ -3,6 +3,8 @@ package com.motionchallenge.board.controller;
 import com.motionchallenge.board.repository.BoardCommentRepository;
 import com.motionchallenge.board.repository.BoardPostRepository;
 import com.motionchallenge.member.repository.MemberRepository;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.junit.jupiter.api.BeforeEach;
@@ -196,6 +198,57 @@ class BoardControllerIntegrationTest {
                                 }
                                 """))
                 .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void deletingPostUpdatesOverviewAndPaginationCounts() throws Exception {
+        register("admin@example.com", "Admin User");
+        MockHttpSession userSession = register("member@example.com", "Member User");
+        List<String> postIds = new ArrayList<>();
+
+        for (int index = 1; index <= 17; index += 1) {
+            String postId = extractId(mockMvc.perform(post("/api/board/posts")
+                            .session(userSession)
+                            .contentType("application/json")
+                            .content("""
+                                    {
+                                      "category": "FREE",
+                                      "title": "Pagination post %d",
+                                      "content": "Post used to verify count and pagination after deletion.",
+                                      "pinned": false
+                                    }
+                                    """.formatted(index)))
+                    .andExpect(status().isCreated())
+                    .andReturn()
+                    .getResponse()
+                    .getContentAsString());
+            postIds.add(postId);
+        }
+
+        mockMvc.perform(get("/api/board/posts?page=3&size=8&sourceType=GENERAL"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalCount").value(17))
+                .andExpect(jsonPath("$.items.length()").value(1));
+
+        mockMvc.perform(get("/api/board/posts/overview"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalCount").value(17))
+                .andExpect(jsonPath("$.generalCount").value(17))
+                .andExpect(jsonPath("$.freeCount").value(17));
+
+        mockMvc.perform(delete("/api/board/posts/{postId}", postIds.get(0)).session(userSession))
+                .andExpect(status().isNoContent());
+
+        mockMvc.perform(get("/api/board/posts?page=3&size=8&sourceType=GENERAL"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalCount").value(16))
+                .andExpect(jsonPath("$.items.length()").value(0));
+
+        mockMvc.perform(get("/api/board/posts/overview"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalCount").value(16))
+                .andExpect(jsonPath("$.generalCount").value(16))
+                .andExpect(jsonPath("$.freeCount").value(16));
     }
 
     @Test

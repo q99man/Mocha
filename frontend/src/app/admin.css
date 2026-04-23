@@ -24,6 +24,105 @@
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
 
+/* Badge Color Variations */
+.board-classic-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 24px;
+  padding: 0 10px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+}
+
+.board-classic-badge.is-success {
+  border-color: rgba(138, 240, 98, 0.22);
+  background: rgba(138, 240, 98, 0.08);
+  color: #8af062;
+  box-shadow: 0 0 12px rgba(138, 240, 98, 0.05);
+}
+
+.board-classic-badge.is-danger {
+  border-color: rgba(255, 107, 107, 0.22);
+  background: rgba(255, 107, 107, 0.08);
+  color: #ff6b6b;
+  box-shadow: 0 0 12px rgba(255, 107, 107, 0.05);
+}
+
+.board-classic-badge.is-info {
+  border-color: rgba(79, 216, 255, 0.22);
+  background: rgba(79, 216, 255, 0.08);
+  color: #4fd8ff;
+  box-shadow: 0 0 12px rgba(79, 216, 255, 0.05);
+}
+
+.board-classic-badge.is-warning {
+  border-color: rgba(255, 221, 138, 0.22);
+  background: rgba(255, 221, 138, 0.08);
+  color: #ffdd8a;
+  box-shadow: 0 0 12px rgba(255, 221, 138, 0.05);
+}
+
+/* Icon Button Styles */
+.admin-action-button {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  transition: all 0.22s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  position: relative;
+  overflow: hidden;
+}
+
+.admin-action-button:active {
+  transform: scale(0.96);
+}
+
+.admin-action-button svg {
+  width: 14px;
+  height: 14px;
+  stroke-width: 2.5;
+  transition: transform 0.2s ease;
+}
+
+.admin-action-button:hover svg {
+  transform: translateY(-1px);
+}
+
+.admin-action-button--icon-only {
+  padding: 6px !important;
+  min-width: 32px !important;
+  justify-content: center !important;
+}
+
+.admin-action-button--icon-only span {
+  display: none !important;
+}
+
+@media (max-width: 760px) {
+  .admin-action-button span {
+    display: none !important;
+  }
+  .admin-action-button {
+    padding: 8px !important;
+    min-width: 36px !important;
+    justify-content: center !important;
+  }
+}
+
+.admin-hub-compact__sidebar-btn {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  justify-content: center !important;
+  font-weight: 600 !important;
+}
+
 .admin-hub-compact__upload,
 .admin-hub-compact__filters {
   display: grid;
@@ -31,8 +130,41 @@
 }
 
 .admin-hub-compact__upload {
+  display: grid;
   grid-template-columns: minmax(0, 1.4fr) minmax(180px, 0.9fr) auto;
   align-items: end;
+  gap: 12px;
+  position: relative;
+  z-index: 1;
+}
+
+.admin-hub-compact__model-picker {
+  display: grid;
+  grid-template-columns: minmax(240px, 0.9fr) minmax(0, 1fr);
+  gap: 14px;
+  align-items: end;
+  padding: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.035);
+  position: relative;
+  z-index: 5;
+}
+
+.admin-hub-compact__model-select {
+  cursor: pointer;
+}
+
+.admin-hub-compact__model-select.is-disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.admin-hub-compact__model-picker-note {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.62);
+  font-size: 0.84rem;
+  line-height: 1.5;
 }
 
 .admin-hub-compact__upload-actions {
@@ -110,16 +242,27 @@
   text-align: left;
   cursor: pointer;
   transition:
-    border-color 160ms ease,
-    background 160ms ease,
-    box-shadow 160ms ease;
+    border-color 200ms ease,
+    background 200ms ease,
+    box-shadow 200ms ease,
+    transform 200ms ease;
 }
 
-.admin-hub-compact__filter-trigger:hover,
+.admin-hub-compact__filter-trigger:hover:not(:disabled) {
+  border-color: rgba(255, 221, 138, 0.35);
+  background: rgba(255, 255, 255, 0.07);
+}
+
 .admin-hub-compact__filter-trigger.is-open {
-  border-color: rgba(255, 221, 138, 0.28);
-  background: rgba(255, 255, 255, 0.06);
-  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.18);
+  border-color: #ffdd8a;
+  background: rgba(255, 255, 255, 0.08);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.24);
+}
+
+.admin-hub-compact__filter-trigger:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  filter: grayscale(0.5);
 }
 
 .admin-hub-compact__filter-value {
@@ -149,14 +292,27 @@
   display: grid;
   gap: 4px;
   padding: 8px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 16px;
   background:
-    linear-gradient(180deg, rgba(24, 31, 44, 0.98), rgba(12, 17, 26, 0.98));
+    linear-gradient(180deg, rgba(28, 35, 48, 0.98), rgba(14, 20, 30, 0.98));
   box-shadow:
-    0 18px 40px rgba(0, 0, 0, 0.32),
-    inset 0 1px 0 rgba(255, 255, 255, 0.05);
-  backdrop-filter: blur(18px);
+    0 24px 50px rgba(0, 0, 0, 0.42),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(24px);
+  animation: adminFilterMenuFadeIn 0.24s cubic-bezier(0.16, 1, 0.3, 1);
+  transform-origin: top center;
+}
+
+@keyframes adminFilterMenuFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 .admin-hub-compact__filter-option {
@@ -184,8 +340,16 @@
 }
 
 .admin-hub-compact__filter-option.is-active {
-  background: rgba(255, 221, 138, 0.14);
-  color: #ffe5a6;
+  background: rgba(255, 221, 138, 0.12);
+  color: #ffdd8a;
+  font-weight: 600;
+}
+
+.admin-hub-compact__filter-check {
+  width: 14px;
+  height: 14px;
+  color: #ffdd8a;
+  flex: 0 0 auto;
 }
 
 .admin-hub-compact__filter-option span:last-child {
@@ -243,17 +407,22 @@
 
 .admin-hub-compact-table__head--challenges,
 .admin-hub-compact-row--challenges {
-  grid-template-columns: 176px minmax(0, 2fr) 100px 108px minmax(220px, 1fr);
+  grid-template-columns:
+    minmax(7.5rem, 0.7fr)
+    minmax(14rem, 2.4fr)
+    minmax(4rem, 0.35fr)
+    minmax(4.75rem, 0.4fr)
+    minmax(13.5rem, 0.78fr);
 }
 
 .admin-hub-compact-table__head--members,
 .admin-hub-compact-row--members {
-  grid-template-columns: 72px minmax(170px, 1.15fr) minmax(190px, 1.05fr) 96px 88px 148px;
+  grid-template-columns: 72px minmax(140px, 1.1fr) minmax(160px, 1fr) 96px 88px 164px;
 }
 
 .admin-hub-compact-table__head--posts,
 .admin-hub-compact-row--posts {
-  grid-template-columns: 72px minmax(240px, 1.7fr) 120px 90px 174px;
+  grid-template-columns: 72px minmax(200px, 1.5fr) 100px 84px 228px;
 }
 
 .admin-hub-compact-row {
@@ -267,7 +436,9 @@
 
 .admin-hub-compact-row.is-expanded,
 .admin-hub-compact-row[role="button"]:hover {
-  background: rgba(255, 255, 255, 0.03);
+  background: rgba(255, 255, 255, 0.05);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
 }
 
 .admin-hub-compact-row__status,
@@ -350,28 +521,35 @@
   color: #c8ffe0;
 }
 
-.admin-hub-compact-row__actions {
-  display: flex;
+.admin-hub-compact-row__actions,
+.admin-action-group {
+  display: inline-flex;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: flex-start;
+  justify-self: start;
   gap: 6px;
   flex-wrap: wrap;
   align-self: start;
-}
-
-.admin-hub-compact-row--members .admin-hub-compact-row__actions,
-.admin-hub-compact-row--posts .admin-hub-compact-row__actions {
-  flex-wrap: nowrap;
-  justify-self: start;
-  justify-content: flex-start;
-  width: 100%;
   min-width: 0;
+  max-width: 100%;
 }
 
-.admin-hub-compact-row--members .admin-hub-compact__action-btn,
-.admin-hub-compact-row--posts .admin-hub-compact__action-btn {
+.admin-action-group--row {
+  width: max-content;
+}
+
+.admin-action-group--inline {
+  width: auto;
+}
+
+.admin-hub-compact__action-btn,
+.admin-action-button {
+  flex: 0 0 auto;
   min-height: 28px;
-  padding: 0 9px;
+  padding: 0 10px;
+  font-size: 0.76rem;
+  line-height: 1;
+  white-space: nowrap;
 }
 
 .admin-hub-compact-row--members .admin-hub-compact-row__meta,
@@ -395,14 +573,6 @@
 .admin-hub-compact-row--posts .admin-hub-compact-row__title span {
   overflow: hidden;
   text-overflow: ellipsis;
-}
-
-.admin-hub-compact-row--members .admin-hub-compact-row__actions {
-  gap: 8px;
-}
-
-.admin-hub-compact-row--posts .admin-hub-compact-row__actions {
-  gap: 6px;
 }
 
 .admin-hub-compact-row__actions--wrap {
@@ -981,6 +1151,11 @@
     justify-content: flex-start;
   }
 
+  .admin-hub-compact__model-picker,
+  .admin-hub-compact__upload {
+    grid-template-columns: 1fr;
+  }
+
   .admin-hub-compact__filter-actions {
     justify-content: flex-start;
   }
@@ -1019,11 +1194,14 @@
     grid-template-columns: 72px minmax(0, 1fr) 100px 84px;
   }
 
-  .admin-hub-compact-table__head--assets span:last-child,
-  .admin-hub-compact-row--assets .admin-hub-compact-row__actions,
+  .admin-hub-compact-table__head--assets span:nth-child(4),
+  .admin-hub-compact-row--assets .admin-hub-compact-row__date {
+    display: none;
+  }
+
   .admin-hub-compact-table__head--challenges,
   .admin-hub-compact-row--challenges {
-    grid-template-columns: 88px minmax(0, 1fr) 72px 1fr;
+    grid-template-columns: minmax(5.25rem, 0.55fr) minmax(0, 1fr) minmax(4rem, 0.35fr) minmax(12.25rem, 0.65fr);
   }
 
   .admin-hub-compact-table__head--challenges span:nth-child(4),
@@ -1033,6 +1211,7 @@
 }
 
 @media (max-width: 760px) {
+  .admin-hub-compact__filters,
   .admin-shell-compact__filters,
   .admin-shell-compact__filters--board {
     grid-template-columns: 1fr;
@@ -1099,15 +1278,57 @@
     display: none;
   }
 
+  .admin-hub-compact-table__head--challenges {
+    display: none;
+  }
+
+  .admin-hub-compact-table {
+    min-width: 0;
+  }
+
+  .admin-hub-compact-row--challenges {
+    grid-template-columns: 1fr;
+    gap: 10px;
+    width: 100%;
+    min-width: 0;
+    padding: 14px 0;
+  }
+
+  .admin-hub-compact-row--challenges .admin-hub-compact-row__status,
+  .admin-hub-compact-row--challenges .admin-hub-compact-row__title {
+    grid-column: 1;
+  }
+
+  .admin-hub-compact-row--challenges .admin-hub-compact-row__status--stack {
+    flex-wrap: wrap;
+  }
+
   .admin-hub-compact__inline-form {
     grid-template-columns: 1fr;
   }
 
   .admin-hub-compact-row__actions,
-  .admin-hub-compact-row__actions--wrap {
+  .admin-hub-compact-row__actions--wrap,
+  .admin-action-group {
     grid-column: 2;
+    justify-self: start;
     justify-content: flex-start;
     flex-wrap: wrap;
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .admin-hub-compact-row--challenges .admin-hub-compact-row__actions {
+    grid-column: 1;
+    width: 100%;
+  }
+
+  .admin-hub-compact__action-btn,
+  .admin-action-button {
+    width: auto;
+    justify-content: center;
+    min-width: 0;
+    padding-inline: 10px;
   }
 
   .admin-dashboard-compact__section-head,

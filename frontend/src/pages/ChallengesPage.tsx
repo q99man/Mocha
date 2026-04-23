@@ -12,6 +12,8 @@ import { resolveApiUrl } from '../shared/api/client';
 import { createChallengeReview, getChallengeReviews, removeReview, updateReview } from '../shared/api/reviewApi';
 import { useAuth } from '../shared/auth/AuthProvider';
 import { CompactConfirmDialog } from '../shared/components/CompactConfirmDialog';
+import { CompactToast } from '../shared/components/CompactToast';
+import { Pagination } from '../shared/components/Pagination';
 import type { Challenge } from '../shared/types/challenge';
 import type { Review, ReviewInput } from '../shared/types/review';
 
@@ -24,6 +26,7 @@ const INITIAL_REVIEW_FORM: ReviewInput = {
   rating: 5,
   content: '',
 };
+const CHALLENGES_PER_PAGE = 10;
 
 type ChallengeReviewConfirmState =
   | { type: 'none' }
@@ -38,6 +41,7 @@ export function ChallengesPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeFilter, setActiveFilter] = useState<ChallengeFilter>('ALL');
+  const [challengePage, setChallengePage] = useState(1);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [modalChallengeId, setModalChallengeId] = useState<number | null>(null);
   const [activePanel, setActivePanel] = useState<RightPanel>(
@@ -195,7 +199,7 @@ export function ChallengesPage() {
       selectedItem.focus({ preventScroll: true });
       selectedItem.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
     });
-  }, [activePanel, selectedId]);
+  }, [activePanel, challengePage, selectedId]);
 
   useEffect(() => {
     setReviewFormOpen(false);
@@ -239,6 +243,35 @@ export function ChallengesPage() {
       return true;
     });
   }, [activeFilter, challenges]);
+  const challengeTotalPages = Math.max(1, Math.ceil(filteredChallenges.length / CHALLENGES_PER_PAGE));
+  const pagedChallenges = useMemo(() => {
+    const startIndex = (challengePage - 1) * CHALLENGES_PER_PAGE;
+    return filteredChallenges.slice(startIndex, startIndex + CHALLENGES_PER_PAGE);
+  }, [challengePage, filteredChallenges]);
+
+  useEffect(() => {
+    setChallengePage(1);
+  }, [activeFilter]);
+
+  useEffect(() => {
+    if (challengePage > challengeTotalPages) {
+      setChallengePage(challengeTotalPages);
+    }
+  }, [challengePage, challengeTotalPages]);
+
+  useEffect(() => {
+    if (activePanel !== 'list' || selectedId == null) {
+      return;
+    }
+
+    const selectedIndex = filteredChallenges.findIndex((challenge) => challenge.id === selectedId);
+    if (selectedIndex < 0) {
+      return;
+    }
+
+    const selectedPage = Math.floor(selectedIndex / CHALLENGES_PER_PAGE) + 1;
+    setChallengePage((current) => (current === selectedPage ? current : selectedPage));
+  }, [activePanel, filteredChallenges, selectedId]);
 
   const selectedChallengeReviews = selectedChallenge ? reviewsByChallengeId[selectedChallenge.id] ?? [] : [];
   const hasAttemptedSelectedChallenge = Boolean(
@@ -250,6 +283,15 @@ export function ChallengesPage() {
       selectedChallengeReviews.some((review) => review.mine || (user != null && review.memberId === user.id)),
   );
   const canWriteReview = Boolean(selectedChallenge && isAuthenticated && hasAttemptedSelectedChallenge && !hasMyReview);
+  const activeReviewFeedbackError = reviewSubmitError || reviewEditError;
+  const activeReviewFeedbackSuccess = reviewSubmitSuccess || reviewEditSuccess;
+
+  function clearReviewFeedback() {
+    setReviewSubmitError(null);
+    setReviewSubmitSuccess(null);
+    setReviewEditError(null);
+    setReviewEditSuccess(null);
+  }
 
   useEffect(() => {
     if (!selectedChallenge || activePanel !== 'reviews') {
@@ -654,29 +696,32 @@ export function ChallengesPage() {
 
         <div className="song-select__list-pane">
           {activePanel === 'list' ? (
-            <ChallengeListPane
-              filterOptions={filterOptions}
-              activeFilter={activeFilter}
-              filteredChallenges={filteredChallenges}
-              selectedId={selectedId}
-              onSelectFilter={(filter) => {
-                setActiveFilter(filter);
-                setActivePanel('list');
-              }}
-              registerItemRef={(challengeId, node) => {
-                challengeItemRefs.current[challengeId] = node;
-              }}
-              onItemClick={handleItemClick}
-              onItemKeyDown={handleItemKeyDown}
-              onItemFocus={setSelectedId}
-              onItemDoubleClick={(challengeId) => {
-                setSelectedId(challengeId);
-                setModalChallengeId(challengeId);
-              }}
-              onOpenReviews={openReviewsPanel}
-              formatDuration={formatDuration}
-              formatDifficulty={formatDifficulty}
-            />
+            <>
+              <ChallengeListPane
+                filterOptions={filterOptions}
+                activeFilter={activeFilter}
+                filteredChallenges={pagedChallenges}
+                selectedId={selectedId}
+                onSelectFilter={(filter) => {
+                  setActiveFilter(filter);
+                  setActivePanel('list');
+                }}
+                registerItemRef={(challengeId, node) => {
+                  challengeItemRefs.current[challengeId] = node;
+                }}
+                onItemClick={handleItemClick}
+                onItemKeyDown={handleItemKeyDown}
+                onItemFocus={setSelectedId}
+                onItemDoubleClick={(challengeId) => {
+                  setSelectedId(challengeId);
+                  setModalChallengeId(challengeId);
+                }}
+                onOpenReviews={openReviewsPanel}
+                formatDuration={formatDuration}
+                formatDifficulty={formatDifficulty}
+              />
+              <Pagination currentPage={challengePage} totalPages={challengeTotalPages} onPageChange={setChallengePage} />
+            </>
           ) : (
             <ChallengeReviewsPane
               selectedChallenge={selectedChallenge}
@@ -687,10 +732,6 @@ export function ChallengesPage() {
               reviewFormOpen={reviewFormOpen}
               reviewForm={reviewForm}
               reviewSubmitBusy={reviewSubmitBusy}
-              reviewSubmitSuccess={reviewSubmitSuccess}
-              reviewSubmitError={reviewSubmitError}
-              reviewEditSuccess={reviewEditSuccess}
-              reviewEditError={reviewEditError}
               reviewLoading={reviewLoading}
               reviewError={reviewError}
               selectedChallengeReviews={selectedChallengeReviews}
@@ -747,6 +788,12 @@ export function ChallengesPage() {
         busy={reviewEditBusy}
         onConfirm={confirmState.type === 'update-review' ? confirmReviewUpdate : confirmReviewDelete}
         onCancel={() => setConfirmState({ type: 'none' })}
+      />
+
+      <CompactToast
+        message={activeReviewFeedbackError || activeReviewFeedbackSuccess}
+        type={activeReviewFeedbackError ? 'error' : 'success'}
+        onClose={clearReviewFeedback}
       />
     </div>
   );

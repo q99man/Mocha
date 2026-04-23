@@ -61,14 +61,14 @@ type ReviewCardProps = {
 };
 
 function ReviewCard({ review, ariaHidden }: ReviewCardProps) {
-  const challengeReviewQuery = new URLSearchParams({
-    sourceType: 'REVIEW_SYNC',
-    challengeId: String(review.challengeId),
-    challengeTitle: review.challengeTitle,
-  }).toString();
-
   return (
-    <article className="lp-usecase-grid__card lp-review-card lp-panel-glass" aria-hidden={ariaHidden}>
+    <Link
+      className="lp-usecase-grid__card lp-review-card lp-panel-glass"
+      to={`/challenges?challengeId=${review.challengeId}&panel=reviews`}
+      aria-hidden={ariaHidden}
+      aria-label={`${review.challengeTitle} 챌린지 후기 보러가기`}
+      tabIndex={ariaHidden ? -1 : undefined}
+    >
       <div className="lp-review-card__top">
         <div className="lp-review-card__meta">
           <span className="lp-kicker">Challenge</span>
@@ -84,22 +84,8 @@ function ReviewCard({ review, ariaHidden }: ReviewCardProps) {
           <strong>{review.memberDisplayName}</strong>
           <span>{formatReviewDate(review.updatedAt)}</span>
         </div>
-
-        <div className="lp-review-card__actions">
-          <Link className="lp-review-card__link" to={`/challenges?challengeId=${review.challengeId}&panel=reviews`}>
-            챌린지 보기
-          </Link>
-          <Link className="lp-review-card__link lp-review-card__link--secondary" to={`/board?${challengeReviewQuery}`}>
-            같은 챌린지 후기
-          </Link>
-          {review.boardPostId ? (
-            <Link className="lp-review-card__link lp-review-card__link--secondary" to={`/board/${review.boardPostId}`}>
-              게시판 후기
-            </Link>
-          ) : null}
-        </div>
       </div>
-    </article>
+    </Link>
   );
 }
 

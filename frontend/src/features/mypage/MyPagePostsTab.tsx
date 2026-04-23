@@ -1,5 +1,6 @@
 import { Fragment, type Dispatch, type SetStateAction } from 'react';
 
+import { IconAdd, IconDelete, IconEdit, IconSave } from '../../shared/components/AdminIcons';
 import { Pagination } from '../../shared/components/Pagination';
 import { CompactSegmentedControl } from '../../shared/components/CompactSegmentedControl';
 import type { BoardPost, BoardPostInput, BoardPostSummary } from '../../shared/types/board';
@@ -17,8 +18,6 @@ type MyPagePostsTabProps = {
   editingPostId: number | null;
   postForm: BoardPostInput;
   postBusy: boolean;
-  postActionSuccess: string | null;
-  postActionError: string | null;
   postPage: number;
   postTotalPages: number;
   categoryOptions: CategoryOption[];
@@ -46,8 +45,6 @@ export function MyPagePostsTab({
   editingPostId,
   postForm,
   postBusy,
-  postActionSuccess,
-  postActionError,
   postPage,
   postTotalPages,
   categoryOptions,
@@ -67,9 +64,10 @@ export function MyPagePostsTab({
     <>
       <div className="mypage-inline-toolbar">
         <p className="mypage-inline-toolbar__note">게시글 항목을 누르면 아래에서 바로 상세보기와 수정이 열립니다.</p>
-        <div className="inline-actions board-actions-right">
-          <button className="button-link button-link--compact" type="button" onClick={onStartCreatePost}>
-            글쓰기
+        <div className="admin-action-group admin-action-group--inline">
+          <button className="button-link button-link--compact admin-action-button" type="button" onClick={onStartCreatePost}>
+            <IconAdd />
+            <span>글쓰기</span>
           </button>
         </div>
       </div>
@@ -81,22 +79,23 @@ export function MyPagePostsTab({
               <strong>새 게시글 작성</strong>
               <p>게시판에 맞게 간단하게 작성하고 바로 등록할 수 있습니다.</p>
             </div>
-            <div className="inline-actions board-actions-right">
+            <div className="admin-action-group admin-action-group--inline">
               <button
-                className="button-link button-link--secondary button-link--compact"
+                className="button-link button-link--secondary button-link--compact admin-action-button"
                 type="button"
                 onClick={onCancelPostEditor}
                 disabled={postBusy}
               >
-                닫기
+                <span>닫기</span>
               </button>
               <button
-                className="button-link button-link--compact"
+                className="button-link button-link--compact admin-action-button"
                 type="button"
                 onClick={() => void onCreatePost()}
                 disabled={postBusy || !postForm.title.trim() || !postForm.content.trim()}
               >
-                {postBusy ? '등록 중...' : '등록하기'}
+                <IconSave />
+                <span>{postBusy ? '등록 중...' : '등록하기'}</span>
               </button>
             </div>
           </div>
@@ -138,8 +137,6 @@ export function MyPagePostsTab({
             </label>
           </div>
 
-          {postActionSuccess ? <p className="mypage-inline-message is-success">{postActionSuccess}</p> : null}
-          {postActionError ? <p className="mypage-inline-message is-error">{postActionError}</p> : null}
         </section>
       ) : null}
 
@@ -150,11 +147,10 @@ export function MyPagePostsTab({
       ) : posts.length === 0 ? (
         <div className="glass-panel glass-panel--nested glass-panel--empty">
           <strong>아직 작성한 게시글이 없습니다.</strong>
-          <p>게시판에서 글을 작성하면 여기서 바로 확인할 수 있습니다.</p>
         </div>
       ) : (
-        <div className="mypage-compact-table">
-          <div className="mypage-compact-table__head mypage-compact-table__head--posts" role="presentation">
+        <div className="admin-hub-compact-table mypage-compact-table">
+          <div className="admin-hub-compact-table__head mypage-compact-table__head mypage-compact-table__head--posts" role="presentation">
             <span>분류</span>
             <span>제목</span>
             <span>조회수</span>
@@ -171,7 +167,7 @@ export function MyPagePostsTab({
               return (
                 <Fragment key={post.id}>
                   <article
-                    className={`mypage-compact-row mypage-compact-row--posts${isExpanded ? ' is-expanded' : ''}`}
+                    className={`admin-hub-compact-row mypage-compact-row mypage-compact-row--posts${isExpanded ? ' is-expanded' : ''}`}
                     role="button"
                     tabIndex={0}
                     onClick={() => void onTogglePost(post.id)}
@@ -214,21 +210,22 @@ export function MyPagePostsTab({
                                 {toCategoryLabel(detail.category)} · {detail.authorDisplayName} · 작성 {formatDate(detail.createdAt)}
                               </p>
                             </div>
-                            <div className="inline-actions board-actions-right">
+                            <div className="admin-action-group admin-action-group--inline">
                               {!isEditing ? (
                                 <>
                                   <button
-                                    className="button-link button-link--secondary button-link--compact"
+                                    className="button-link button-link--secondary button-link--compact admin-action-button"
                                     type="button"
                                     onClick={(event) => {
                                       event.stopPropagation();
                                       onStartPostEdit(detail);
                                     }}
                                   >
-                                    수정하기
+                                    <IconEdit />
+                                    <span>수정</span>
                                   </button>
                                   <button
-                                    className="button-link button-link--compact"
+                                    className="button-link button-link--secondary button-link--compact admin-action-button admin-hub-compact__action-btn--danger"
                                     type="button"
                                     disabled={postBusy}
                                     onClick={(event) => {
@@ -236,13 +233,14 @@ export function MyPagePostsTab({
                                       onDeletePost(detail.id);
                                     }}
                                   >
-                                    {postBusy ? '처리 중...' : '삭제하기'}
+                                    <IconDelete />
+                                    <span>{postBusy ? '처리 중...' : '삭제'}</span>
                                   </button>
                                 </>
                               ) : (
                                 <>
                                   <button
-                                    className="button-link button-link--secondary button-link--compact"
+                                    className="button-link button-link--secondary button-link--compact admin-action-button"
                                     type="button"
                                     onClick={(event) => {
                                       event.stopPropagation();
@@ -250,10 +248,10 @@ export function MyPagePostsTab({
                                     }}
                                     disabled={postBusy}
                                   >
-                                    취소
+                                    <span>취소</span>
                                   </button>
                                   <button
-                                    className="button-link button-link--compact"
+                                    className="button-link button-link--compact admin-action-button"
                                     type="button"
                                     onClick={(event) => {
                                       event.stopPropagation();
@@ -261,7 +259,8 @@ export function MyPagePostsTab({
                                     }}
                                     disabled={postBusy || !postForm.title.trim() || !postForm.content.trim()}
                                   >
-                                    {postBusy ? '수정 중...' : '수정하기'}
+                                    <IconSave />
+                                    <span>{postBusy ? '수정 중...' : '저장'}</span>
                                   </button>
                                 </>
                               )}
@@ -316,8 +315,6 @@ export function MyPagePostsTab({
                             </div>
                           )}
 
-                          {postActionSuccess ? <p className="mypage-inline-message is-success">{postActionSuccess}</p> : null}
-                          {postActionError ? <p className="mypage-inline-message is-error">{postActionError}</p> : null}
                         </>
                       ) : null}
                     </section>

@@ -17,6 +17,7 @@ import { getChallenges } from '../shared/api/challengeApi';
 import { getMyReviews, removeReview, updateReview } from '../shared/api/reviewApi';
 import { useAuth } from '../shared/auth/AuthProvider';
 import { CompactConfirmDialog } from '../shared/components/CompactConfirmDialog';
+import { CompactToast } from '../shared/components/CompactToast';
 import type { AttemptSummary } from '../shared/types/attempt';
 import type { BoardPost, BoardPostInput, BoardPostSummary } from '../shared/types/board';
 import type { Review, ReviewInput } from '../shared/types/review';
@@ -251,6 +252,16 @@ export function MyPage() {
     }
     return `내 후기 ${reviews.length}개`;
   }, [activeTab, latestAttempts.length, postTotalCount, reviews.length]);
+
+  const activeActionError = postActionError || reviewActionError;
+  const activeActionSuccess = postActionSuccess || reviewActionSuccess;
+
+  function clearActionFeedback() {
+    setPostActionError(null);
+    setPostActionSuccess(null);
+    setReviewActionError(null);
+    setReviewActionSuccess(null);
+  }
 
   function resetInlineStates() {
     setExpandedAttemptId(null);
@@ -596,7 +607,7 @@ export function MyPage() {
 
   return (
     <div className="glass-page board-page-compact">
-      <section className="board-compact-shell board-compact-shell--detail mypage-compact-shell">
+      <section className="board-compact-shell board-compact-shell--detail mypage-compact-shell admin-hub-compact">
         <div className="board-detail-compact__toolbar mypage-compact-header">
           <div>
             <h2 className="board-classic-title">{user?.displayName ?? '회원'}님의 마이페이지</h2>
@@ -643,8 +654,6 @@ export function MyPage() {
             editingPostId={editingPostId}
             postForm={postForm}
             postBusy={postBusy}
-            postActionSuccess={postActionSuccess}
-            postActionError={postActionError}
             postPage={postPage}
             postTotalPages={postTotalPages}
             categoryOptions={POST_CATEGORY_OPTIONS}
@@ -669,8 +678,6 @@ export function MyPage() {
             editingReviewId={editingReviewId}
             reviewForm={reviewForm}
             reviewBusy={reviewBusy}
-            reviewActionSuccess={reviewActionSuccess}
-            reviewActionError={reviewActionError}
             reviewPage={reviewPage}
             reviewTotalPages={reviewTotalPages}
             challengeDifficultyById={challengeDifficultyById}
@@ -721,6 +728,11 @@ export function MyPage() {
                 : confirmDeleteReview
         }
         onCancel={() => setConfirmState({ type: 'none' })}
+      />
+      <CompactToast
+        message={activeActionError || activeActionSuccess}
+        type={activeActionError ? 'error' : 'success'}
+        onClose={clearActionFeedback}
       />
     </div>
   );

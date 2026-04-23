@@ -41,7 +41,7 @@ public class AdminMemberController {
     @GetMapping
     public AdminMemberListResponse getMembers(
             @RequestParam(defaultValue = "1") int page,
-            @RequestParam(defaultValue = "8") int size,
+            @RequestParam(defaultValue = "10") int size,
             @RequestParam(required = false) MemberRole role,
             @RequestParam(required = false) MemberAuthProvider authProvider,
             @RequestParam(defaultValue = "NEWEST") AdminMemberSortOption sort,

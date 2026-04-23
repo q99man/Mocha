@@ -1,6 +1,7 @@
 import { Fragment, type Dispatch, type SetStateAction } from 'react';
 
 import { ReviewStars } from '../reviews/ReviewStars';
+import { IconDelete, IconEdit, IconSave, IconView } from '../../shared/components/AdminIcons';
 import { Pagination } from '../../shared/components/Pagination';
 import type { Review, ReviewInput } from '../../shared/types/review';
 
@@ -10,8 +11,6 @@ type MyPageReviewsTabProps = {
   editingReviewId: number | null;
   reviewForm: ReviewInput;
   reviewBusy: boolean;
-  reviewActionSuccess: string | null;
-  reviewActionError: string | null;
   reviewPage: number;
   reviewTotalPages: number;
   challengeDifficultyById: Record<number, string>;
@@ -32,8 +31,6 @@ export function MyPageReviewsTab({
   editingReviewId,
   reviewForm,
   reviewBusy,
-  reviewActionSuccess,
-  reviewActionError,
   reviewPage,
   reviewTotalPages,
   challengeDifficultyById,
@@ -59,8 +56,8 @@ export function MyPageReviewsTab({
           <p>챌린지에 참여하면 후기 버튼으로 바로 등록할 수 있습니다.</p>
         </div>
       ) : (
-        <div className="mypage-compact-table">
-          <div className="mypage-compact-table__head mypage-compact-table__head--reviews" role="presentation">
+        <div className="admin-hub-compact-table mypage-compact-table">
+          <div className="admin-hub-compact-table__head mypage-compact-table__head mypage-compact-table__head--reviews" role="presentation">
             <span>난이도</span>
             <span>제목</span>
             <span>별점</span>
@@ -75,7 +72,7 @@ export function MyPageReviewsTab({
               return (
                 <Fragment key={review.id}>
                   <article
-                    className={`mypage-compact-row mypage-compact-row--reviews${isExpanded ? ' is-expanded' : ''}`}
+                    className={`admin-hub-compact-row mypage-compact-row mypage-compact-row--reviews${isExpanded ? ' is-expanded' : ''}`}
                     role="button"
                     tabIndex={0}
                     onClick={() => onToggleReview(review.id)}
@@ -107,31 +104,33 @@ export function MyPageReviewsTab({
                             {challengeDifficultyById[review.challengeId] ?? '-'} · 작성 {formatDate(review.createdAt)}
                           </p>
                         </div>
-                        <div className="inline-actions board-actions-right">
+                        <div className="admin-action-group admin-action-group--inline">
                           <button
-                            className="button-link button-link--secondary button-link--compact"
+                            className="button-link button-link--secondary button-link--compact admin-action-button"
                             type="button"
                             onClick={(event) => {
                               event.stopPropagation();
                               void onNavigateToChallenge(review.challengeId);
                             }}
                           >
-                            챌린지 보기
+                            <IconView />
+                            <span>챌린지 보기</span>
                           </button>
                           {!isEditing ? (
                             <>
                               <button
-                                className="button-link button-link--secondary button-link--compact"
+                                className="button-link button-link--secondary button-link--compact admin-action-button"
                                 type="button"
                                 onClick={(event) => {
                                   event.stopPropagation();
                                   onStartReviewEdit(review);
                                 }}
                               >
-                                수정하기
+                                <IconEdit />
+                                <span>수정</span>
                               </button>
                               <button
-                                className="button-link button-link--compact"
+                                className="button-link button-link--secondary button-link--compact admin-action-button admin-hub-compact__action-btn--danger"
                                 type="button"
                                 disabled={reviewBusy}
                                 onClick={(event) => {
@@ -139,13 +138,14 @@ export function MyPageReviewsTab({
                                   onDeleteReview(review.id);
                                 }}
                               >
-                                {reviewBusy ? '처리 중...' : '삭제하기'}
+                                <IconDelete />
+                                <span>{reviewBusy ? '처리 중...' : '삭제'}</span>
                               </button>
                             </>
                           ) : (
                             <>
                               <button
-                                className="button-link button-link--secondary button-link--compact"
+                                className="button-link button-link--secondary button-link--compact admin-action-button"
                                 type="button"
                                 onClick={(event) => {
                                   event.stopPropagation();
@@ -153,10 +153,10 @@ export function MyPageReviewsTab({
                                 }}
                                 disabled={reviewBusy}
                               >
-                                취소
+                                <span>취소</span>
                               </button>
                               <button
-                                className="button-link button-link--compact"
+                                className="button-link button-link--compact admin-action-button"
                                 type="button"
                                 onClick={(event) => {
                                   event.stopPropagation();
@@ -164,7 +164,8 @@ export function MyPageReviewsTab({
                                 }}
                                 disabled={reviewBusy || !reviewForm.content.trim()}
                               >
-                                {reviewBusy ? '수정 중...' : '수정하기'}
+                                <IconSave />
+                                <span>{reviewBusy ? '수정 중...' : '저장'}</span>
                               </button>
                             </>
                           )}
@@ -209,8 +210,6 @@ export function MyPageReviewsTab({
                         </div>
                       )}
 
-                      {reviewActionSuccess ? <p className="mypage-inline-message is-success">{reviewActionSuccess}</p> : null}
-                      {reviewActionError ? <p className="mypage-inline-message is-error">{reviewActionError}</p> : null}
                     </section>
                   ) : null}
                 </Fragment>

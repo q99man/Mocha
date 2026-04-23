@@ -1,6 +1,13 @@
 import { Fragment } from 'react';
 import { Link } from 'react-router-dom';
 
+import {
+  IconAnalyze,
+  IconDelete,
+  IconEdit,
+  IconStatus,
+  IconView,
+} from '../../shared/components/AdminIcons';
 import { CompactFilterDropdown } from '../../shared/components/CompactFilterDropdown';
 import { Pagination } from '../../shared/components/Pagination';
 import type { Challenge } from '../../shared/types/challenge';
@@ -86,7 +93,7 @@ export function AdminChallengesSection({
         </div>
       </div>
 
-      <div className="admin-hub-compact__filters">
+      <div className="admin-hub-compact__filters admin-shell-compact__filters">
         <label className="mypage-inline-field admin-hub-compact__search-field">
           <span>검색</span>
           <div className="admin-hub-compact__search-input-wrap">
@@ -174,10 +181,10 @@ export function AdminChallengesSection({
                     }}
                   >
                     <div className="admin-hub-compact-row__status admin-hub-compact-row__status--stack">
-                      <span className={`board-classic-badge${challenge.isActive ? ' is-pinned' : ''}`}>
+                      <span className={`board-classic-badge ${challenge.isActive ? 'is-success' : 'is-danger'}`}>
                         {challenge.isActive ? '활성' : '비활성'}
                       </span>
-                      <span className={`board-classic-badge${challenge.referenceMotionProfileReady ? ' is-pinned' : ''}`}>
+                      <span className={`board-classic-badge ${challenge.referenceMotionProfileReady ? 'is-success' : 'is-warning'}`}>
                         {challenge.referenceMotionProfileReady ? '평가 가능' : '분석 필요'}
                       </span>
                     </div>
@@ -189,16 +196,40 @@ export function AdminChallengesSection({
                     </div>
                     <div className="admin-hub-compact-row__metric">{formatDifficulty(challenge.difficulty)}</div>
                     <div className="admin-hub-compact-row__meta">{formatReferenceStatus(challenge.referenceAnalysisStatus)}</div>
-                    <div className="admin-hub-compact-row__actions">
+                    <div className="admin-hub-compact-row__actions admin-action-group admin-action-group--row">
                       <button
-                        className="button-link button-link--secondary admin-hub-compact__action-btn"
+                        className="button-link button-link--secondary admin-hub-compact__action-btn admin-action-button"
                         type="button"
                         onClick={(event) => {
                           event.stopPropagation();
                           onToggleChallengeRow(challenge.id);
                         }}
                       >
-                        {isExpanded ? '닫기' : '상세'}
+                        <span>{isExpanded ? '닫기' : '상세'}</span>
+                      </button>
+                      <button
+                        className="button-link button-link--secondary admin-hub-compact__action-btn admin-action-button"
+                        type="button"
+                        disabled={analyzingId === challenge.id || deletingId === challenge.id || togglingId === challenge.id}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          onEditChallenge(challenge);
+                        }}
+                      >
+                        <IconEdit />
+                        <span>수정</span>
+                      </button>
+                      <button
+                        className="button-link button-link--secondary admin-hub-compact__action-btn admin-action-button admin-hub-compact__action-btn--danger"
+                        type="button"
+                        disabled={analyzingId === challenge.id || deletingId === challenge.id || togglingId === challenge.id}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          onConfirmDeleteChallenge(challenge);
+                        }}
+                      >
+                        <IconDelete />
+                        <span>{deletingId === challenge.id ? '삭제 중...' : '삭제'}</span>
                       </button>
                     </div>
                   </article>
@@ -210,31 +241,29 @@ export function AdminChallengesSection({
                           <strong>{challenge.title}</strong>
                           <p>{challenge.description}</p>
                         </div>
-                        <div className="admin-hub-compact-row__actions admin-hub-compact-row__actions--wrap">
-                          <Link
-                            className="button-link button-link--secondary admin-hub-compact__action-btn"
-                            to={`/admin/challenges/${challenge.id}/analysis`}
-                          >
-                            분석 보기
-                          </Link>
+                        <div className="admin-hub-compact-row__actions admin-hub-compact-row__actions--wrap admin-action-group admin-action-group--inline">
                           <button
-                            className="button-link button-link--secondary admin-hub-compact__action-btn"
+                            className="button-link button-link--secondary admin-hub-compact__action-btn admin-action-button"
                             type="button"
-                            disabled={analyzingId === challenge.id || deletingId === challenge.id || togglingId === challenge.id}
-                            onClick={() => onEditChallenge(challenge)}
-                          >
-                            수정
-                          </button>
-                          <button
-                            className="button-link button-link--secondary admin-hub-compact__action-btn"
-                            type="button"
-                            disabled={analyzingId === challenge.id || deletingId === challenge.id || togglingId === challenge.id}
+                            disabled={
+                              analyzingId === challenge.id ||
+                              deletingId === challenge.id ||
+                              togglingId === challenge.id
+                            }
                             onClick={() => void onToggleChallengeActive(challenge)}
                           >
-                            {togglingId === challenge.id ? '변경 중...' : challenge.isActive ? '비활성' : '활성'}
+                            <IconStatus />
+                            <span>{togglingId === challenge.id ? '변경 중...' : challenge.isActive ? '비활성' : '활성'}</span>
                           </button>
+                          <Link
+                            className="button-link button-link--secondary admin-hub-compact__action-btn admin-action-button"
+                            to={`/admin/challenges/${challenge.id}/analysis`}
+                          >
+                            <IconView />
+                            <span>분석 보기</span>
+                          </Link>
                           <button
-                            className="button-link admin-hub-compact__action-btn"
+                            className="button-link admin-hub-compact__action-btn admin-action-button"
                             type="button"
                             disabled={
                               !activeAssetReady ||
@@ -246,15 +275,8 @@ export function AdminChallengesSection({
                             }
                             onClick={() => void onAnalyzeReference(challenge.id)}
                           >
-                            {analyzingId === challenge.id ? '분석 중...' : '분석 실행'}
-                          </button>
-                          <button
-                            className="button-link button-link--secondary admin-hub-compact__action-btn admin-hub-compact__action-btn--danger"
-                            type="button"
-                            disabled={analyzingId === challenge.id || deletingId === challenge.id || togglingId === challenge.id}
-                            onClick={() => onConfirmDeleteChallenge(challenge)}
-                          >
-                            {deletingId === challenge.id ? '삭제 중...' : '삭제'}
+                            <IconAnalyze />
+                            <span>{analyzingId === challenge.id ? '분석 중...' : '분석 실행'}</span>
                           </button>
                         </div>
                       </div>

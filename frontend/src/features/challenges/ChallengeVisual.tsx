@@ -18,7 +18,7 @@ export function ChallengeVisual({
   videoAutoPlay = false,
 }: ChallengeVisualProps) {
   if (thumbnailUrl) {
-    return <img className={className} src={thumbnailUrl} alt={title} />;
+    return <img className={className} src={resolveApiUrl(thumbnailUrl)} alt={title} />;
   }
 
   if (fallbackThumbnailVideoUrl) {

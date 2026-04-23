@@ -101,7 +101,14 @@ export function BoardEditorPage() {
           ? await updateBoardPost(id, payload)
           : await createBoardPost(payload);
 
-      navigate(`/board/${response.id}`);
+      navigate(`/board/${response.id}`, {
+        state: {
+          compactToast: {
+            message: isEditMode ? '게시글이 수정되었습니다.' : '게시글이 등록되었습니다.',
+            type: 'success',
+          },
+        },
+      });
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : '게시글을 저장하지 못했습니다.');
       setSaving(false);

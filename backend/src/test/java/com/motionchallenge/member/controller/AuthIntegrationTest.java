@@ -21,11 +21,13 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.transaction.annotation.Transactional;
 
+import static org.hamcrest.Matchers.containsString;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -65,6 +67,18 @@ class AuthIntegrationTest {
         attemptRepository.deleteAllInBatch();
         challengeRepository.deleteAllInBatch();
         memberRepository.deleteAllInBatch();
+    }
+
+    @Test
+    void disabledOAuthProviderRedirectsToAuthFailureInsteadOf404() throws Exception {
+        mockMvc.perform(get("/oauth2/authorization/kakao")
+                        .param("redirect", "/challenges"))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(header().string("Location", containsString("/auth?error=social")))
+                .andExpect(header().string("Location", containsString("social=failure")))
+                .andExpect(header().string("Location", containsString("provider=kakao")))
+                .andExpect(header().string("Location", containsString("reason=disabled")))
+                .andExpect(header().string("Location", containsString("redirect=/challenges")));
     }
 
     @Test

@@ -5,18 +5,30 @@ import { useAuth } from '../auth/AuthProvider';
 import { AuthModal } from '../auth/AuthModal';
 import {
   buildAuthModalHref,
+  buildPathWithSearch,
   resolveAuthFeedback,
   resolveAuthMode,
   sanitizeAuthRedirectPath,
   stripAuthModalSearch,
   type AuthMode,
 } from '../auth/authModalUtils';
+import { CompactConfirmDialog } from './CompactConfirmDialog';
+import { CompactToast } from './CompactToast';
 
 const BASE_NAV_ITEMS = [
   { to: '/', label: '홈' },
   { to: '/challenges', label: '챌린지' },
   { to: '/board', label: '게시판' },
 ];
+
+type LayoutToast = {
+  message: string;
+  type: 'success' | 'error';
+};
+
+type LayoutLocationState = {
+  compactToast?: LayoutToast;
+} | null;
 
 export function AppLayout() {
   const location = useLocation();
@@ -32,6 +44,8 @@ export function AppLayout() {
     (location.pathname.startsWith('/attempts/') && location.pathname.endsWith('/result'));
   const [isLandingTopbarScrolled, setIsLandingTopbarScrolled] = useState(false);
   const [logoutBusy, setLogoutBusy] = useState(false);
+  const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
+  const [layoutToast, setLayoutToast] = useState<LayoutToast | null>(null);
 
   const navItems = [
     ...BASE_NAV_ITEMS,
@@ -62,6 +76,23 @@ export function AppLayout() {
     };
   }, [isImmersivePlayRoute, isLandingRoute]);
 
+  useEffect(() => {
+    const compactToast = (location.state as LayoutLocationState)?.compactToast;
+    if (!compactToast) {
+      return;
+    }
+
+    setLayoutToast(compactToast);
+    navigate(
+      {
+        pathname: location.pathname,
+        search: location.search,
+        hash: location.hash,
+      },
+      { replace: true, state: null },
+    );
+  }, [location.hash, location.pathname, location.search, location.state, navigate]);
+
   async function handleLogout() {
     if (logoutBusy) {
       return;
@@ -71,7 +102,22 @@ export function AppLayout() {
 
     try {
       await logout();
-      navigate('/', { replace: true });
+      setLogoutConfirmOpen(false);
+      navigate('/', {
+        replace: true,
+        state: {
+          compactToast: {
+            message: '로그아웃되었습니다.',
+            type: 'success',
+          },
+        },
+      });
+    } catch {
+      setLogoutConfirmOpen(false);
+      setLayoutToast({
+        message: '로그아웃 처리 중 문제가 발생했습니다. 잠시 후 다시 시도해 주세요.',
+        type: 'error',
+      });
     } finally {
       setLogoutBusy(false);
     }
@@ -86,6 +132,28 @@ export function AppLayout() {
       { replace: true },
     );
   }
+
+  const logoutConfirmDialog = (
+    <CompactConfirmDialog
+      open={logoutConfirmOpen}
+      title="로그아웃할까요?"
+      description="현재 계정에서 로그아웃하고 홈 화면으로 이동합니다."
+      confirmLabel="로그아웃"
+      cancelLabel="취소"
+      tone="danger"
+      busy={logoutBusy}
+      onConfirm={handleLogout}
+      onCancel={() => setLogoutConfirmOpen(false)}
+    />
+  );
+
+  const layoutToastElement = (
+    <CompactToast
+      message={layoutToast?.message ?? null}
+      type={layoutToast?.type ?? 'success'}
+      onClose={() => setLayoutToast(null)}
+    />
+  );
 
   if (isLandingRoute) {
     return (
@@ -112,13 +180,13 @@ export function AppLayout() {
               <button
                 className="stage-nav__utility"
                 type="button"
-                onClick={() => void handleLogout()}
+                onClick={() => setLogoutConfirmOpen(true)}
                 disabled={logoutBusy}
               >
                 로그아웃
               </button>
             ) : (
-              <NavLink className="stage-nav__cta" to={buildAuthModalHref(location)}>
+              <NavLink className="stage-nav__cta" to={buildAuthModalHref(location, { redirectPath: '/challenges' })}>
                 시작하기
               </NavLink>
             )}
@@ -140,6 +208,9 @@ export function AppLayout() {
             }}
           />
         ) : null}
+
+        {layoutToastElement}
+        {logoutConfirmDialog}
       </div>
     );
   }
@@ -169,14 +240,20 @@ export function AppLayout() {
                 <button
                   className="stage-nav__utility"
                   type="button"
-                  onClick={() => void handleLogout()}
+                  onClick={() => setLogoutConfirmOpen(true)}
                   disabled={logoutBusy}
                 >
                   로그아웃
                 </button>
               </>
             ) : (
-              <button className="stage-nav__cta" type="button" onClick={() => navigate(buildAuthModalHref(location))}>
+              <button
+                className="stage-nav__cta"
+                type="button"
+                onClick={() =>
+                  navigate(buildAuthModalHref(location, { redirectPath: buildPathWithSearch(location.pathname, location.search) }))
+                }
+              >
                 로그인
               </button>
             )}
@@ -199,6 +276,9 @@ export function AppLayout() {
           }}
         />
       ) : null}
+
+      {layoutToastElement}
+      {logoutConfirmDialog}
     </div>
   );
 }

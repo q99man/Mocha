@@ -1,6 +1,13 @@
 import { Fragment } from 'react';
 
+import {
+  IconAdd,
+  IconDelete,
+  IconSave,
+  IconStatus,
+} from '../../shared/components/AdminIcons';
 import { CompactFileField } from '../../shared/components/CompactFileField';
+import { CompactFilterDropdown } from '../../shared/components/CompactFilterDropdown';
 import { Pagination } from '../../shared/components/Pagination';
 import type { ModelAsset } from '../../shared/types/admin';
 
@@ -26,6 +33,7 @@ type AdminAssetsSectionProps = {
   onChangeAssetVersionDraft?: (assetId: number, value: string) => void;
   onSaveAsset?: (asset: ModelAsset) => void;
   onActivateAsset?: (asset: ModelAsset) => void;
+  onSelectActiveAsset?: (asset: ModelAsset) => void;
   onAssetPageChange: (page: number) => void;
   buildActiveDescription: (asset: ModelAsset) => string;
   formatFileSize: (size: number) => string;
@@ -54,12 +62,24 @@ export function AdminAssetsSection({
   onChangeAssetVersionDraft,
   onSaveAsset,
   onActivateAsset,
+  onSelectActiveAsset,
   onAssetPageChange,
   formatFileSize,
   formatDateTime,
   formatDateTimeFull,
 }: AdminAssetsSectionProps) {
   const pagedAssets = assets.slice((assetPage - 1) * 5, (assetPage - 1) * 5 + 5);
+  const activeAssetId = activeAsset?.id ?? '';
+  const activeSelectDisabled = loading || uploading || Boolean(updatingAssetId) || assets.length === 0;
+
+  function handleActiveAssetChange(assetId: string) {
+    const nextAsset = assets.find((asset) => String(asset.id) === assetId);
+    if (!nextAsset || nextAsset.active) {
+      return;
+    }
+
+    onSelectActiveAsset?.(nextAsset);
+  }
 
   return (
     <section className="admin-hub-compact__section admin-shell-compact__section">
@@ -69,8 +89,29 @@ export function AdminAssetsSection({
         </div>
         <div className="board-detail-compact__meta">
           <span className="board-classic-badge">{assets.length}개 자산</span>
-          <span className="board-classic-badge">{activeAsset ? '활성 모델 있음' : '모델 필요'}</span>
+          <span className={`board-classic-badge ${activeAsset ? 'is-success' : 'is-warning'}`}>
+            {activeAsset ? '활성 모델 있음' : '모델 필요'}
+          </span>
         </div>
+      </div>
+
+      <div className="admin-hub-compact__model-picker">
+        <CompactFilterDropdown
+          className="mypage-inline-field admin-hub-compact__model-select"
+          label="활성 모델 선택"
+          value={String(activeAssetId)}
+          disabled={activeSelectDisabled || !onSelectActiveAsset}
+          options={assets.map((asset) => ({
+            value: String(asset.id),
+            label: formatModelOptionLabel(asset, formatFileSize),
+          }))}
+          onChange={(value) => handleActiveAssetChange(value)}
+        />
+        <p className="admin-hub-compact__model-picker-note">
+          {activeAsset
+            ? `현재 적용 중: ${activeAsset.versionLabel ?? activeAsset.originalFileName}`
+            : '활성 모델을 선택하면 런타임 모델 파일이 즉시 교체됩니다.'}
+        </p>
       </div>
 
       <form
@@ -99,8 +140,9 @@ export function AdminAssetsSection({
           />
         </label>
         <div className="admin-hub-compact__upload-actions">
-          <button className="button-link button-link--compact" type="submit" disabled={uploading}>
-            {uploading ? '업로드 중...' : '모델 업로드'}
+          <button className="button-link button-link--compact admin-action-button" type="submit" disabled={uploading}>
+            <IconAdd />
+            <span>{uploading ? '업로드 중...' : '모델 업로드'}</span>
           </button>
         </div>
       </form>
@@ -142,7 +184,7 @@ export function AdminAssetsSection({
                     }}
                   >
                     <div className="admin-hub-compact-row__status">
-                      <span className={`board-classic-badge${asset.active ? ' is-pinned' : ''}`}>
+                      <span className={`board-classic-badge ${asset.active ? 'is-success' : 'is-info'}`}>
                         {asset.active ? '활성' : '보관'}
                       </span>
                     </div>
@@ -154,16 +196,16 @@ export function AdminAssetsSection({
                     </div>
                     <div className="admin-hub-compact-row__meta">{asset.versionLabel ?? '라벨 없음'}</div>
                     <div className="admin-hub-compact-row__date">{formatDateTime(asset.createdAt)}</div>
-                    <div className="admin-hub-compact-row__actions">
+                    <div className="admin-hub-compact-row__actions admin-action-group admin-action-group--row">
                       <button
-                        className="button-link button-link--secondary admin-hub-compact__action-btn"
+                        className="button-link button-link--secondary admin-hub-compact__action-btn admin-action-button"
                         type="button"
                         onClick={(event) => {
                           event.stopPropagation();
                           onToggleAssetRow(asset.id);
                         }}
                       >
-                        {isExpanded ? '닫기' : '상세'}
+                        <span>{isExpanded ? '닫기' : '상세'}</span>
                       </button>
                     </div>
                   </article>
@@ -175,24 +217,26 @@ export function AdminAssetsSection({
                           <strong>{asset.originalFileName}</strong>
                           <p>{asset.active ? '현재 운영 중인 활성 모델입니다.' : '보관 중인 모델 자산입니다.'}</p>
                         </div>
-                        <div className="admin-hub-compact-row__actions admin-hub-compact-row__actions--wrap">
+                        <div className="admin-hub-compact-row__actions admin-hub-compact-row__actions--wrap admin-action-group admin-action-group--inline">
                           {!asset.active && onActivateAsset ? (
                             <button
-                              className="button-link button-link--secondary admin-hub-compact__action-btn"
+                              className="button-link button-link--secondary admin-hub-compact__action-btn admin-action-button"
                               type="button"
                               disabled={Boolean(updatingAssetId) || uploading}
                               onClick={() => onActivateAsset?.(asset)}
                             >
-                              {updatingAssetId === asset.id ? '적용 중...' : '활성 전환'}
+                              <IconStatus />
+                              <span>{updatingAssetId === asset.id ? '적용 중...' : '활성 전환'}</span>
                             </button>
                           ) : null}
                           <button
-                            className="button-link button-link--secondary admin-hub-compact__action-btn admin-hub-compact__action-btn--danger"
+                            className="button-link button-link--secondary admin-hub-compact__action-btn admin-action-button admin-hub-compact__action-btn--danger"
                             type="button"
                             disabled={deletingAssetId === asset.id || Boolean(updatingAssetId) || uploading}
                             onClick={() => onConfirmDeleteAsset(asset)}
                           >
-                            {deletingAssetId === asset.id ? '삭제 중...' : '모델 삭제'}
+                            <IconDelete />
+                            <span>{deletingAssetId === asset.id ? '삭제 중...' : '모델 삭제'}</span>
                           </button>
                         </div>
                       </div>
@@ -216,12 +260,13 @@ export function AdminAssetsSection({
                                 placeholder="예: lite-v2"
                               />
                               <button
-                                className="button-link button-link--secondary admin-hub-compact__action-btn"
+                                className="button-link button-link--secondary admin-hub-compact__action-btn admin-action-button"
                                 type="button"
                               disabled={Boolean(updatingAssetId) || uploading || !onSaveAsset}
                               onClick={() => onSaveAsset?.(asset)}
                               >
-                                {updatingAssetId === asset.id ? '저장 중...' : '저장'}
+                                <IconSave />
+                                <span>{updatingAssetId === asset.id ? '저장 중...' : '저장'}</span>
                               </button>
                           </div>
                         </div>
@@ -246,4 +291,10 @@ export function AdminAssetsSection({
       <Pagination currentPage={assetPage} totalPages={assetTotalPages} onPageChange={onAssetPageChange} />
     </section>
   );
+}
+
+function formatModelOptionLabel(asset: ModelAsset, formatFileSize: (size: number) => string) {
+  const versionLabel = asset.versionLabel?.trim() || '라벨 없음';
+  const activeSuffix = asset.active ? ' · 활성' : '';
+  return `${versionLabel} · ${asset.originalFileName} · ${formatFileSize(asset.size)}${activeSuffix}`;
 }

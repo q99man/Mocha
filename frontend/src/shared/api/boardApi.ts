@@ -36,13 +36,13 @@ export async function getBoardOverview(): Promise<BoardOverview> {
   return fetchJson<BoardOverview>('/api/board/posts/overview');
 }
 
-export async function getMyBoardPosts(page = 1, size = 4): Promise<BoardPostListResponse> {
+export async function getMyBoardPosts(page = 1, size = 10): Promise<BoardPostListResponse> {
   return fetchJson<BoardPostListResponse>(`/api/board/posts/me?page=${page}&size=${size}`);
 }
 
 export async function getMyBoardPostsBySource(
   page = 1,
-  size = 4,
+  size = 10,
   sourceType?: 'ALL' | BoardPostSourceType,
 ): Promise<BoardPostListResponse> {
   const searchParams = new URLSearchParams({

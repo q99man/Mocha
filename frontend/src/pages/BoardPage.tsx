@@ -7,7 +7,7 @@ import { buildAuthModalHref } from '../shared/auth/authModalUtils';
 import { Pagination } from '../shared/components/Pagination';
 import type { BoardCategory, BoardPostSummary } from '../shared/types/board';
 
-const POSTS_PER_PAGE = 20;
+const POSTS_PER_PAGE = 10;
 
 const CATEGORY_OPTIONS: Array<{ value: 'ALL' | BoardCategory; label: string }> = [
   { value: 'ALL', label: '전체' },
@@ -211,7 +211,6 @@ export function BoardPage() {
                     <Link className="board-compact-row__title-link" to={`/board/${post.id}`}>
                       {post.title}
                     </Link>
-                    {post.pinned ? <span className="board-compact-row__pin">상단 고정</span> : null}
                   </div>
 
                   <div className="board-compact-row__date">{formatDate(post.updatedAt)}</div>

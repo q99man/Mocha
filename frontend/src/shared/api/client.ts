@@ -136,8 +136,8 @@ export async function deleteJson(path: string): Promise<void> {
 }
 
 export function resolveApiUrl(path: string): string {
-  if (/^https?:\/\//.test(path)) {
+  if (/^[a-z][a-z\d+\-.]*:/i.test(path) || path.startsWith('//')) {
     return path;
   }
-  return `${API_BASE_URL}${path}`;
+  return path.startsWith('/') ? `${API_BASE_URL}${path}` : `${API_BASE_URL}/${path}`;
 }
