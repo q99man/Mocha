@@ -40,6 +40,8 @@ backend/.gradle-dist/
 frontend/*.tsbuildinfo
 frontend/vite.config.js
 frontend/vite.config.d.ts
+frontend/scratch/
+frontend/src/scratch_*.json
 
 # Python / MediaPipe bridge
 mediapipe-bridge/.venv/

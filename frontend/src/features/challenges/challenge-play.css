@@ -3334,16 +3334,32 @@
   }
 
   .song-select {
-    grid-template-columns: 1fr;
+    display: flex;
+    flex-direction: column;
     min-height: auto;
+    gap: 16px;
   }
 
   .song-select__detail {
-    max-height: 50vh;
+    max-height: none;
+    min-height: 300px;
+    height: 40vh;
   }
 
   .song-select__list-pane {
-    max-height: 50vh;
+    max-height: none;
+    flex: 1;
+    min-height: 500px;
+  }
+
+  .song-select__filter-bar {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    white-space: nowrap;
+  }
+
+  .song-select__filter-tab {
+    flex-shrink: 0;
   }
 
   .song-select__item {

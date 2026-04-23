@@ -2,6 +2,8 @@ import { Fragment } from 'react';
 
 import {
   IconAdd,
+  IconChevronDown,
+  IconChevronUp,
   IconDelete,
   IconSave,
   IconStatus,
@@ -205,6 +207,7 @@ export function AdminAssetsSection({
                           onToggleAssetRow(asset.id);
                         }}
                       >
+                        {isExpanded ? <IconChevronUp /> : <IconChevronDown />}
                         <span>{isExpanded ? '닫기' : '상세'}</span>
                       </button>
                     </div>

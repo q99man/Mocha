@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom';
 
 import {
   IconAnalyze,
+  IconChevronDown,
+  IconChevronUp,
   IconDelete,
   IconEdit,
   IconStatus,
@@ -205,6 +207,7 @@ export function AdminChallengesSection({
                           onToggleChallengeRow(challenge.id);
                         }}
                       >
+                        {isExpanded ? <IconChevronUp /> : <IconChevronDown />}
                         <span>{isExpanded ? '닫기' : '상세'}</span>
                       </button>
                       <button

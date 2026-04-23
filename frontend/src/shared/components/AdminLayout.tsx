@@ -29,6 +29,8 @@ export function AdminLayout() {
   const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
   const [layoutToast, setLayoutToast] = useState<LayoutToast | null>(null);
 
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
   const activeTab = useMemo(() => {
     const params = new URLSearchParams(location.search);
     const tab = params.get('tab');
@@ -37,6 +39,10 @@ export function AdminLayout() {
     }
     return 'challenges';
   }, [location.search]);
+
+  useEffect(() => {
+    setIsMobileMenuOpen(false);
+  }, [location.pathname, location.search]);
 
   useEffect(() => {
     const compactToast = (location.state as LayoutLocationState)?.compactToast;
@@ -90,6 +96,45 @@ export function AdminLayout() {
     }
   }
 
+  const mobileMenuOverlay = (
+    <div className={`mobile-menu-overlay ${isMobileMenuOpen ? 'is-open' : ''}`}>
+      <div className="mobile-menu-overlay__backdrop" onClick={() => setIsMobileMenuOpen(false)} />
+      <div className="mobile-menu-overlay__panel">
+        <div className="mobile-menu-overlay__header">
+          <strong>Mocha Admin</strong>
+          <button type="button" onClick={() => setIsMobileMenuOpen(false)} aria-label="메뉴 닫기">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+          </button>
+        </div>
+        <nav className="mobile-menu-overlay__nav">
+          {ADMIN_NAV_ITEMS.map((item) => (
+            <Link
+              key={item.tab}
+              className={activeTab === item.tab ? 'active' : undefined}
+              to={`/admin?tab=${item.tab}`}
+            >
+              {item.label}
+            </Link>
+          ))}
+          <Link to="/">공개 화면으로</Link>
+        </nav>
+        <div className="mobile-menu-overlay__actions">
+          <span className="mobile-menu-overlay__account">{user?.displayName ?? '관리자'}</span>
+          <button
+            className="stage-nav__utility"
+            type="button"
+            onClick={() => {
+              setIsMobileMenuOpen(false);
+              setLogoutConfirmOpen(true);
+            }}
+          >
+            로그아웃
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
   return (
     <div className="app-shell app-shell--glass">
       <div className="app-shell__ambient" aria-hidden="true" />
@@ -98,6 +143,15 @@ export function AdminLayout() {
         <button className="app-header-glass__brand admin-header-brand" type="button" onClick={() => navigate('/admin')}>
           <span className="app-header-glass__eyebrow">운영 콘솔</span>
           <strong>Mocha Admin</strong>
+        </button>
+
+        <button
+          className="mobile-menu-trigger"
+          type="button"
+          onClick={() => setIsMobileMenuOpen(true)}
+          aria-label="메뉴 열기"
+        >
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
         </button>
 
         <nav className="app-header-glass__nav" aria-label="관리자 메뉴">
@@ -148,6 +202,7 @@ export function AdminLayout() {
         type={layoutToast?.type ?? 'success'}
         onClose={() => setLayoutToast(null)}
       />
+      {mobileMenuOverlay}
     </div>
   );
 }

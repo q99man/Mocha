@@ -2,6 +2,7 @@ package com.motionchallenge.global.config;
 
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Arrays;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.servlet.config.annotation.CorsRegistry;
@@ -11,26 +12,29 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 @Configuration
 public class WebConfig implements WebMvcConfigurer {
 
-    private final String[] allowedOrigins;
+    private final String[] allowedOriginPatterns;
     private final String localStorageRoot;
 
     public WebConfig(
-            @Value("${app.cors.allowed-origins:http://localhost:5173}") String allowedOrigins,
+            @Value("${app.cors.allowed-origins:http://localhost:*,http://127.0.0.1:*}") String allowedOrigins,
             @Value("${app.storage.local-root:uploads}") String localStorageRoot) {
-        this.allowedOrigins = allowedOrigins.split(",");
+        this.allowedOriginPatterns = Arrays.stream(allowedOrigins.split(","))
+                .map(String::trim)
+                .filter(origin -> !origin.isEmpty())
+                .toArray(String[]::new);
         this.localStorageRoot = localStorageRoot;
     }
 
     @Override
     public void addCorsMappings(CorsRegistry registry) {
         registry.addMapping("/api/**")
-                .allowedOrigins(allowedOrigins)
+                .allowedOriginPatterns(allowedOriginPatterns)
                 .allowedMethods("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS")
                 .allowedHeaders("*")
                 .allowCredentials(true);
 
         registry.addMapping("/uploads/**")
-                .allowedOrigins(allowedOrigins)
+                .allowedOriginPatterns(allowedOriginPatterns)
                 .allowedMethods("GET", "OPTIONS")
                 .allowedHeaders("*")
                 .allowCredentials(true);

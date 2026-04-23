@@ -46,12 +46,17 @@ export function AppLayout() {
   const [logoutBusy, setLogoutBusy] = useState(false);
   const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
   const [layoutToast, setLayoutToast] = useState<LayoutToast | null>(null);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const navItems = [
     ...BASE_NAV_ITEMS,
     ...(isAuthenticated && !isAdmin ? [{ to: '/mypage', label: '마이페이지' }] : []),
     ...(isAdmin ? [{ to: '/admin', label: '관리' }] : []),
   ];
+
+  useEffect(() => {
+    setIsMobileMenuOpen(false);
+  }, [location.pathname]);
 
   useEffect(() => {
     document.body.classList.toggle('body--play-fullscreen', isImmersivePlayRoute);
@@ -133,6 +138,55 @@ export function AppLayout() {
     );
   }
 
+  const mobileMenuOverlay = (
+    <div className={`mobile-menu-overlay ${isMobileMenuOpen ? 'is-open' : ''}`}>
+      <div className="mobile-menu-overlay__backdrop" onClick={() => setIsMobileMenuOpen(false)} />
+      <div className="mobile-menu-overlay__panel">
+        <div className="mobile-menu-overlay__header">
+          <strong>Mocha</strong>
+          <button type="button" onClick={() => setIsMobileMenuOpen(false)} aria-label="메뉴 닫기">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+          </button>
+        </div>
+        <nav className="mobile-menu-overlay__nav">
+          {navItems.map((item) => (
+            <NavLink key={item.to} to={item.to} end={item.to === '/'}>
+              {item.label}
+            </NavLink>
+          ))}
+        </nav>
+        <div className="mobile-menu-overlay__actions">
+          {isAuthenticated ? (
+            <>
+              <span className="mobile-menu-overlay__account">{user?.displayName ?? '사용자'}</span>
+              <button
+                className="stage-nav__utility"
+                type="button"
+                onClick={() => {
+                  setIsMobileMenuOpen(false);
+                  setLogoutConfirmOpen(true);
+                }}
+              >
+                로그아웃
+              </button>
+            </>
+          ) : (
+            <button
+              className="stage-nav__cta"
+              type="button"
+              onClick={() => {
+                setIsMobileMenuOpen(false);
+                navigate(buildAuthModalHref(location, { redirectPath: buildPathWithSearch(location.pathname, location.search) }));
+              }}
+            >
+              로그인
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+
   const logoutConfirmDialog = (
     <CompactConfirmDialog
       open={logoutConfirmOpen}
@@ -164,6 +218,15 @@ export function AppLayout() {
               <h1>Mocha</h1>
             </div>
           </Link>
+
+          <button
+            className="mobile-menu-trigger"
+            type="button"
+            onClick={() => setIsMobileMenuOpen(true)}
+            aria-label="메뉴 열기"
+          >
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+          </button>
 
           <div className="stage-topbar__actions stage-topbar__actions--landing">
             {isAdmin ? (
@@ -211,6 +274,7 @@ export function AppLayout() {
 
         {layoutToastElement}
         {logoutConfirmDialog}
+        {mobileMenuOverlay}
       </div>
     );
   }
@@ -224,6 +288,15 @@ export function AppLayout() {
           <Link className="app-header-glass__brand" to="/">
             <strong>Mocha</strong>
           </Link>
+
+          <button
+            className="mobile-menu-trigger"
+            type="button"
+            onClick={() => setIsMobileMenuOpen(true)}
+            aria-label="메뉴 열기"
+          >
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+          </button>
 
           <nav className="app-header-glass__nav" aria-label="주요 메뉴">
             {navItems.map((item) => (
@@ -279,6 +352,7 @@ export function AppLayout() {
 
       {layoutToastElement}
       {logoutConfirmDialog}
+      {mobileMenuOverlay}
     </div>
   );
 }
