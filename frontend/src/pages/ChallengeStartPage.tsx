@@ -3,11 +3,6 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 
 import '../features/challenges/challenge-play.css';
 import { formatDifficulty } from '../features/challenges/difficulty';
-import {
-  buildPlayJudgementCue,
-  buildPlayJudgementTimeline,
-  buildPreviewJudgementEvaluation,
-} from '../features/challenges/playJudgement';
 import { createAttempt, uploadAttemptVideo } from '../shared/api/attemptApi';
 import { getChallengeById } from '../shared/api/challengeApi';
 import { resolveApiUrl } from '../shared/api/client';
@@ -17,7 +12,6 @@ import type { Challenge } from '../shared/types/challenge';
 
 type FlowMode = 'camera' | 'test';
 type PlayState = 'idle' | 'countdown' | 'playing' | 'clear' | 'analyzing' | 'result';
-type JudgementCue = ReturnType<typeof buildPlayJudgementCue>;
 
 const RECORDING_MIME_CANDIDATES = [
   'video/webm;codecs=vp9,opus',
@@ -44,7 +38,6 @@ export function ChallengeStartPage() {
   const [savingResult, setSavingResult] = useState(false);
   const [resultAttempt, setResultAttempt] = useState<AttemptSummary | null>(null);
   const [resultError, setResultError] = useState<string | null>(null);
-  const [judgementCue, setJudgementCue] = useState<JudgementCue | null>(null);
   const [exitPromptOpen, setExitPromptOpen] = useState(false);
 
   const cameraVideoRef = useRef<HTMLVideoElement | null>(null);
@@ -52,7 +45,6 @@ export function ChallengeStartPage() {
   const refVideoRef = useRef<HTMLVideoElement | null>(null);
   const progressIntervalRef = useRef<number | null>(null);
   const transitionTimeoutRef = useRef<number | null>(null);
-  const judgementTimeoutRef = useRef<number | null>(null);
   const countdownIntervalRef = useRef<number | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recordingChunksRef = useRef<Blob[]>([]);
@@ -96,10 +88,6 @@ export function ChallengeStartPage() {
     if (transitionTimeoutRef.current) {
       window.clearTimeout(transitionTimeoutRef.current);
       transitionTimeoutRef.current = null;
-    }
-    if (judgementTimeoutRef.current) {
-      window.clearTimeout(judgementTimeoutRef.current);
-      judgementTimeoutRef.current = null;
     }
     if (countdownIntervalRef.current) {
       window.clearInterval(countdownIntervalRef.current);
@@ -200,7 +188,6 @@ export function ChallengeStartPage() {
     setSavingResult(false);
     setResultAttempt(null);
     setResultError(null);
-    setJudgementCue(null);
   }, [clearPlaybackTimers, discardRecording, stopCamera, stopReferenceVideo]);
 
   useEffect(() => {
@@ -363,11 +350,6 @@ export function ChallengeStartPage() {
 
   const handlePlayComplete = useCallback(() => {
     stopReferenceVideo();
-    if (judgementTimeoutRef.current) {
-      window.clearTimeout(judgementTimeoutRef.current);
-      judgementTimeoutRef.current = null;
-    }
-    setJudgementCue(null);
     setPlayState('clear');
 
     transitionTimeoutRef.current = window.setTimeout(() => {
@@ -391,7 +373,6 @@ export function ChallengeStartPage() {
     clearPlaybackTimers();
     setResultAttempt(null);
     setResultError(null);
-    setJudgementCue(null);
     setProgress(0);
     setCountdownNumber(3);
 
@@ -435,33 +416,12 @@ export function ChallengeStartPage() {
       }
 
       const durationSec = challenge?.durationSec ?? 30;
-      const judgementTimeline = buildPlayJudgementTimeline(durationSec, flowMode);
       const startedAt = Date.now();
-      let nextJudgementIndex = 0;
-      let combo = 0;
 
       progressIntervalRef.current = window.setInterval(() => {
         const elapsed = (Date.now() - startedAt) / 1000;
         const percent = Math.min(100, (elapsed / durationSec) * 100);
         setProgress(percent);
-
-        const elapsedMs = elapsed * 1000;
-        while (nextJudgementIndex < judgementTimeline.length && elapsedMs >= judgementTimeline[nextJudgementIndex].triggerMs) {
-          combo += 1;
-          const planItem = judgementTimeline[nextJudgementIndex];
-          const evaluation = buildPreviewJudgementEvaluation(planItem, flowMode);
-          const cue = buildPlayJudgementCue(planItem, combo, evaluation);
-
-          setJudgementCue(cue);
-          if (judgementTimeoutRef.current) {
-            window.clearTimeout(judgementTimeoutRef.current);
-          }
-          judgementTimeoutRef.current = window.setTimeout(() => {
-            setJudgementCue((current) => (current?.id === cue.id ? null : current));
-          }, cue.windowMs);
-
-          nextJudgementIndex += 1;
-        }
 
         if (percent >= 100) {
           if (progressIntervalRef.current) {
@@ -559,6 +519,25 @@ export function ChallengeStartPage() {
       : resultAttempt?.resultSummary ?? '카메라 업로드와 자동채점이 연결되지 않아 임시 결과 화면을 표시하고 있습니다.');
   const scoreDelta = resultAttempt?.scoreDeltaFromPrevious;
   const isNewRecord = scoreDelta != null && scoreDelta > 0;
+  const playDurationSec = challenge?.durationSec ?? 30;
+  const playElapsedSec = Math.min(playDurationSec, Math.floor((progress / 100) * playDurationSec));
+  const playRemainingSec = Math.max(0, playDurationSec - playElapsedSec);
+  const railReaction = useMemo(() => {
+    if (playState !== 'playing') {
+      return null;
+    }
+    if (progress >= 90) {
+      return { key: '90', label: '🔥', percent: 90 };
+    }
+    if (progress >= 62) {
+      return { key: '62', label: '👏', percent: 62 };
+    }
+    if (progress >= 32) {
+      return { key: '32', label: '✨', percent: 32 };
+    }
+
+    return null;
+  }, [playState, progress]);
   const analysisSteps = [
     '플레이 구간을 정리하고 있습니다.',
     flowMode === 'test'
@@ -774,34 +753,26 @@ export function ChallengeStartPage() {
           </div>
         </div>
 
-        <div className="play-stage__beat-lane" aria-hidden="true">
-          {Array.from({ length: 6 }, (_, laneIndex) => (
-            <span
-              key={laneIndex}
-              className={`play-stage__beat-lane-slot${
-                judgementCue?.lane === laneIndex ? ' is-active' : ''
-              }${judgementCue?.lane === laneIndex ? ` is-${judgementCue.tone}` : ''}${
-                judgementCue?.lane === laneIndex && judgementCue.accent ? ' is-accent' : ''
-              }`}
-            />
-          ))}
-        </div>
-
-        {playState === 'playing' && judgementCue ? (
-          <>
-            <div className={`play-stage__judgement-flash play-stage__judgement-flash--${judgementCue.tone}`} />
-            <div className={`play-stage__judgement play-stage__judgement--${judgementCue.tone}`} key={judgementCue.id}>
-              <span className="play-stage__judgement-second">{String(judgementCue.second + 1).padStart(2, '0')} SEC</span>
-              <strong>{judgementCue.label}</strong>
-              <span className="play-stage__judgement-guide">{judgementCue.guide}</span>
-              <span className="play-stage__judgement-meta">
-                {judgementCue.source === 'timeline-preview' ? 'TIMELINE PREVIEW' : 'MOTION ANALYSIS'} ·{' '}
-                {formatOffsetMs(judgementCue.offsetMs)}
-              </span>
-              <span className="play-stage__judgement-combo">{judgementCue.combo} COMBO</span>
+        <div
+          className={`play-stage__play-rail${playState === 'playing' ? ' is-active' : ''}`}
+          aria-label={`플레이 진행 ${formatPlayClock(playElapsedSec)} / ${formatPlayClock(playDurationSec)}`}
+        >
+          <span className="play-stage__rail-mode">{flowMode === 'test' ? 'TEST' : 'REC'}</span>
+          <div className="play-stage__rail-main">
+            <div className="play-stage__rail-track" aria-hidden="true">
+              <div className="play-stage__rail-fill" style={{ width: `${progress}%` }} />
+              <span className="play-stage__rail-beat play-stage__rail-beat--one" />
+              <span className="play-stage__rail-beat play-stage__rail-beat--two" />
+              <span className="play-stage__rail-beat play-stage__rail-beat--three" />
+              {railReaction ? (
+                <span className="play-stage__rail-reaction" key={railReaction.key} style={{ left: `${railReaction.percent}%` }}>
+                  {railReaction.label}
+                </span>
+              ) : null}
             </div>
-          </>
-        ) : null}
+          </div>
+          <span className="play-stage__rail-time">{formatPlayClock(playRemainingSec)}</span>
+        </div>
 
         {playState === 'idle' ? (
           <div className="play-stage__overlay">
@@ -863,21 +834,21 @@ export function ChallengeStartPage() {
             aria-labelledby="play-stage-exit-title"
             aria-describedby="play-stage-exit-description"
           >
-            <span className="play-stage__confirm-kicker">Challenge paused</span>
-            <h2 id="play-stage-exit-title">현재 도전을 중단할까요?</h2>
+            <span className="play-stage__confirm-kicker">Challenge stopped</span>
+            <h2 id="play-stage-exit-title">도전이 중단되었습니다</h2>
             <p id="play-stage-exit-description">
-              진행 중인 도전은 정리되었습니다. 여기서 챌린지 목록으로 나가거나, 같은 챌린지를 다시 시작할 수 있습니다.
+              진행 중인 도전은 이미 정리되었습니다. 여기서 챌린지 목록으로 나가거나, 같은 챌린지를 처음부터 다시 시작할 수 있습니다.
             </p>
             <div className="play-stage__confirm-actions">
               <button type="button" className="play-stage__confirm-btn play-stage__confirm-btn--secondary" onClick={handleExitPromptConfirmExit}>
-                종료
+                목록으로
               </button>
               <button type="button" className="play-stage__confirm-btn" onClick={handleExitPromptConfirmRetry}>
                 재도전
               </button>
             </div>
             <button type="button" className="play-stage__confirm-link" onClick={handleExitPromptClose}>
-              계속 화면에 머무르기
+              중단된 화면에 머무르기
             </button>
           </div>
         </div>
@@ -927,10 +898,10 @@ function formatAreaLabel(value: AttemptSummary['strongestArea'] | undefined) {
   return value;
 }
 
-function formatOffsetMs(offsetMs: number) {
-  if (offsetMs === 0) {
-    return 'ON TIME';
-  }
+function formatPlayClock(totalSeconds: number) {
+  const seconds = Math.max(0, Math.floor(totalSeconds));
+  const minutes = Math.floor(seconds / 60);
+  const remainder = seconds % 60;
 
-  return `${offsetMs > 0 ? '+' : ''}${offsetMs}ms`;
+  return `${String(minutes).padStart(2, '0')}:${String(remainder).padStart(2, '0')}`;
 }

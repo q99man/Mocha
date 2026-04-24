@@ -38,7 +38,7 @@ public class SecurityConfig {
                 .logout(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(authorize -> authorize
                         .requestMatchers("/api/auth/**", "/uploads/**", "/actuator/health").permitAll()
-                        .requestMatchers("/api/attempts/**", "/api/scoring/async-pending-completion").authenticated()
+                        .requestMatchers("/api/attempts/**").authenticated()
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         .anyRequest().permitAll());
 

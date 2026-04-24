@@ -3,6 +3,7 @@ import type { Dispatch, SetStateAction } from 'react';
 import { ReviewStars } from '../reviews/ReviewStars';
 import type { Review, ReviewInput } from '../../shared/types/review';
 import type { Challenge } from '../../shared/types/challenge';
+import { IconArrowLeft, IconEdit } from '../../shared/components/AdminIcons';
 
 type ChallengeReviewsPaneProps = {
   selectedChallenge: Challenge | null;
@@ -72,14 +73,17 @@ export function ChallengeReviewsPane({
           {canWriteReview ? (
             <button
               type="button"
-              className={`song-select__panel-btn${reviewFormOpen ? ' is-active' : ''}`}
+              className={`song-select__panel-btn song-select__panel-btn--icon-mobile${reviewFormOpen ? ' is-active' : ''}`}
+              title={reviewFormOpen ? '작성 닫기' : '후기 작성'}
               onClick={onToggleReviewForm}
             >
-              {reviewFormOpen ? '작성 닫기' : '후기 작성'}
+              <IconEdit className="song-select__panel-btn-icon" />
+              <span>{reviewFormOpen ? '작성 닫기' : '후기 작성'}</span>
             </button>
           ) : null}
-          <button type="button" className="song-select__panel-btn" onClick={onOpenListPanel}>
-            목록으로
+          <button type="button" className="song-select__panel-btn song-select__panel-btn--icon-mobile" onClick={onOpenListPanel} title="목록으로">
+            <IconArrowLeft className="song-select__panel-btn-icon" />
+            <span>목록으로</span>
           </button>
         </div>
       </div>
@@ -88,10 +92,6 @@ export function ChallengeReviewsPane({
         <div className="song-select__review-notice">로그인 후 도전한 챌린지에만 후기를 작성할 수 있습니다.</div>
       ) : !hasAttemptedSelectedChallenge ? (
         <div className="song-select__review-notice">내가 도전한 챌린지에만 후기를 작성할 수 있습니다.</div>
-      ) : hasMyReview ? (
-        <div className="song-select__review-notice song-select__review-notice--done">
-          이 챌린지에는 이미 후기를 작성했습니다.
-        </div>
       ) : null}
 
       {reviewFormOpen ? (

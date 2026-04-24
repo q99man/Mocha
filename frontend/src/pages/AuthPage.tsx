@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 
 import { AuthModal } from '../shared/auth/AuthModal';
-import { buildPathWithSearch, resolveAuthFeedback, resolveAuthMode, sanitizeAuthRedirectPath, type AuthMode } from '../shared/auth/authModalUtils';
+import { resolveAuthFeedback, resolveAuthMode, sanitizeAuthRedirectPath, type AuthMode } from '../shared/auth/authModalUtils';
 
 export function AuthPage() {
   const navigate = useNavigate();
@@ -25,13 +25,12 @@ export function AuthPage() {
       feedback={authFeedback}
       onClose={handleClose}
       onModeChange={(nextMode: AuthMode) => {
-        const nextPath = buildPathWithSearch(location.pathname, location.search);
         const nextQuery = new URLSearchParams();
         nextQuery.set('mode', nextMode);
         if (redirectTarget) {
           nextQuery.set('redirect', redirectTarget);
         }
-        navigate(`${nextPath}?${nextQuery.toString()}`, { replace: true });
+        navigate(`${location.pathname}?${nextQuery.toString()}`, { replace: true });
       }}
     />
   );

@@ -1,5 +1,4 @@
-import { Navigate, createBrowserRouter } from 'react-router-dom';
-import { AdminLayout } from '../shared/components/AdminLayout';
+import { Navigate, createBrowserRouter, Outlet } from 'react-router-dom';
 import { AppLayout } from '../shared/components/AppLayout';
 import { RequireAuth } from '../shared/auth/RequireAuth';
 import { RequireAdmin } from '../shared/auth/RequireAdmin';
@@ -80,27 +79,27 @@ export const router = createBrowserRouter([
           </RequireAuth>
         ),
       },
-    ],
-  },
-  {
-    path: '/admin',
-    element: (
-      <RequireAdmin>
-        <AdminLayout />
-      </RequireAdmin>
-    ),
-    children: [
       {
-        index: true,
-        element: <AdminHubPage />,
-      },
-      {
-        path: 'model-assets',
-        element: <Navigate to="/admin?tab=models" replace />,
-      },
-      {
-        path: 'challenges/:id/analysis',
-        element: <AdminChallengeAnalysisPage />,
+        path: 'admin',
+        element: (
+          <RequireAdmin>
+            <Outlet />
+          </RequireAdmin>
+        ),
+        children: [
+          {
+            index: true,
+            element: <AdminHubPage />,
+          },
+          {
+            path: 'model-assets',
+            element: <Navigate to="/admin?tab=models" replace />,
+          },
+          {
+            path: 'challenges/:id/analysis',
+            element: <AdminChallengeAnalysisPage />,
+          },
+        ],
       },
     ],
   },

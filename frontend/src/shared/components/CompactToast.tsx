@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 
 type CompactToastProps = {
   message: string | null;
@@ -8,15 +8,21 @@ type CompactToastProps = {
 };
 
 export function CompactToast({ message, type = 'success', onClose, duration = 3500 }: CompactToastProps) {
+  const onCloseRef = useRef(onClose);
+
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
+
   useEffect(() => {
     if (!message) return;
 
     const timer = setTimeout(() => {
-      onClose();
+      onCloseRef.current();
     }, duration);
 
     return () => clearTimeout(timer);
-  }, [message, duration, onClose]);
+  }, [message, duration]);
 
   if (!message) return null;
 

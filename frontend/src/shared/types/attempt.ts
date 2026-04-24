@@ -157,8 +157,3 @@ export type AttemptVideoProcessingJobProgress = {
   elapsedSeconds: number;
 };
 
-export type AsyncPendingCompletionRequest = {
-  challengeId: number;
-  trackingId?: string;
-  notes?: string;
-};

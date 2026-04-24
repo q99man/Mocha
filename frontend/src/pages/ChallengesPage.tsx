@@ -36,7 +36,7 @@ type ChallengeReviewConfirmState =
 export function ChallengesPage() {
   const navigate = useNavigate();
   const { user, isAuthenticated, isLoading: authLoading } = useAuth();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [challenges, setChallenges] = useState<Challenge[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -473,14 +473,37 @@ export function ChallengesPage() {
   }
 
   function openReviewsPanel(challengeId?: number) {
+    const targetChallengeId = typeof challengeId === 'number' ? challengeId : selectedId;
+
     if (typeof challengeId === 'number') {
       handleItemClick(challengeId);
     }
+
+    setSearchParams(
+      (current) => {
+        const next = new URLSearchParams(current);
+        next.set('panel', 'reviews');
+        if (targetChallengeId != null) {
+          next.set('challengeId', String(targetChallengeId));
+        }
+        return next;
+      },
+    );
     setActivePanel('reviews');
     setReviewError(null);
   }
 
   function openListPanel() {
+    setSearchParams(
+      (current) => {
+        const next = new URLSearchParams(current);
+        next.delete('panel');
+        if (selectedId != null) {
+          next.set('challengeId', String(selectedId));
+        }
+        return next;
+      },
+    );
     setActivePanel('list');
   }
 

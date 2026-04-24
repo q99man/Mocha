@@ -1397,7 +1397,7 @@
 
 .lp-hero {
   min-height: 820px;
-  padding: 84px 44px 42px;
+  padding: 42px 44px 21px;
 }
 
 .lp-hero__copy {
@@ -1679,7 +1679,7 @@
   align-items: center;
   justify-content: center;
   min-height: 100vh;
-  padding: 168px 0 84px;
+  padding: 84px 0 42px;
   background: #ffffff !important;
   box-shadow: none !important;
 }
@@ -1755,7 +1755,7 @@
 }
 
 .lp-main .lp-section {
-  padding: 110px 0;
+  padding: 55px 0;
 }
 
 .lp-section__header {
@@ -2171,12 +2171,12 @@
   align-content: center;
   gap: 18px;
   min-height: 300px;
-  padding: 36px;
+  padding: 18px;
   text-align: center;
 }
 
 .lp-footer {
-  padding: 96px 0 36px;
+  padding: 48px 0 18px;
 }
 
 .lp-footer__top {
@@ -2248,7 +2248,7 @@
   }
 
   .lp-main .lp-section {
-    padding: 92px 0;
+    padding: 46px 0;
   }
 
   .lp-feature-grid,
@@ -2394,7 +2394,7 @@
   }
 
   .lp-footer {
-    padding-top: 80px;
+    padding-top: 40px;
   }
 
   .lp-showcase__title {
@@ -2563,7 +2563,7 @@
   }
   
   .lp-hero {
-    padding: 60px 20px 40px;
+    padding: 80px 20px 20px;
     min-height: auto;
   }
   
@@ -2587,7 +2587,7 @@
   }
 
   .lp-section {
-    padding: 24px 16px;
+    padding: 12px 16px;
   }
 
   .lp-section__header h3 {

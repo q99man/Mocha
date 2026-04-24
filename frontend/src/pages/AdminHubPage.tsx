@@ -828,13 +828,16 @@ export function AdminHubPage() {
   }
 
   function handleTabChange(tab: DashboardTab) {
+    if (tab === activeTab) {
+      return;
+    }
+
     setSearchParams(
       (current) => {
         const next = new URLSearchParams(current);
         next.set('tab', tab);
         return next;
       },
-      { replace: true },
     );
   }
 
@@ -860,7 +863,6 @@ export function AdminHubPage() {
           <div className="board-detail-compact__toolbar mypage-compact-header">
             <div>
               <h2 className="board-classic-title">운영 허브</h2>
-              <p className="board-classic-summary">각 메뉴의 관리 기능을 허브 안에서 바로 처리하고, 목록은 최대한 게시판처럼 압축했습니다.</p>
             </div>
 
             <div className="inline-actions">
@@ -1152,6 +1154,7 @@ export function AdminHubPage() {
                   <span className="board-classic-badge">전체 {boardOverview?.totalCount ?? 0}</span>
                   <span className="board-classic-badge is-warning">공지 {boardOverview?.noticeCount ?? 0}</span>
                   <span className="board-classic-badge is-info">자유 {boardOverview?.freeCount ?? 0}</span>
+                  <span className="board-classic-badge is-danger">질문 {boardOverview?.qnaCount ?? 0}</span>
                   <span className="board-classic-badge is-success">후기 {boardOverview?.reviewCount ?? 0}</span>
                 </div>
               </div>

@@ -8,5 +8,6 @@ public record BoardOverviewResponse(
         long noticeCount,
         long freeCount,
         long reviewCount,
+        long qnaCount,
         List<BoardChallengeReviewSummaryResponse> topReviewChallenges) {
 }

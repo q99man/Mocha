@@ -1,6 +1,5 @@
 ﻿import { fetchJson, postFormData, postJson } from './client';
 import type {
-  AsyncPendingCompletionRequest,
   AttemptCreateRequest,
   AttemptSummary,
   AttemptVideoProcessingJobProgress,
@@ -79,24 +78,3 @@ export async function uploadAttemptVideo(request: AttemptVideoUploadRequest): Pr
   }
 }
 
-export async function completeAsyncPendingAttempt(
-  request: AsyncPendingCompletionRequest,
-): Promise<AttemptVideoResult> {
-  try {
-    return await postJson<AttemptVideoResult, AsyncPendingCompletionRequest>(
-      '/api/scoring/async-pending-completion',
-      request,
-    );
-  } catch (error) {
-    if (error instanceof Error && error.message === NOT_FOUND_MESSAGE) {
-      throw new Error('대기 중인 업로드 정보를 찾을 수 없습니다.');
-    }
-    if (error instanceof Error && error.message === BAD_REQUEST_MESSAGE) {
-      throw new Error('트래킹 ID 또는 대기 상태가 올바르지 않습니다.');
-    }
-    if (error instanceof Error && error.message === SERVER_ERROR_MESSAGE) {
-      throw new Error('대기 업로드 완료 처리 중 서버 오류가 발생했습니다. 다시 시도해 주세요.');
-    }
-    throw new Error('대기 중인 업로드를 완료 처리하지 못했습니다.');
-  }
-}

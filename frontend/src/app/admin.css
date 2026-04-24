@@ -105,13 +105,11 @@
 }
 
 @media (max-width: 760px) {
-  .admin-action-button span {
-    display: none !important;
-  }
   .admin-action-button {
-    padding: 8px !important;
+    padding: 8px 10px !important;
     min-width: 36px !important;
     justify-content: center !important;
+    gap: 6px !important;
   }
 }
 
@@ -412,7 +410,7 @@
     minmax(14rem, 2.4fr)
     minmax(4rem, 0.35fr)
     minmax(4.75rem, 0.4fr)
-    minmax(13.5rem, 0.78fr);
+    minmax(228px, 0.85fr);
 }
 
 .admin-hub-compact-table__head--members,
@@ -851,11 +849,16 @@
 
 .admin-shell-compact {
   gap: 14px;
+  overflow: visible !important;
 }
 
 .admin-shell-compact__toolbar {
   align-items: start;
   gap: 12px;
+  padding: 12px 16px;
+  margin: 4px 0 10px 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 .admin-shell-compact__tabs {
@@ -875,7 +878,16 @@
 }
 
 .admin-shell-compact__section {
+  display: flex;
+  flex-direction: column;
   gap: 12px;
+  min-height: 640px; /* Default height for 10 items + filters to prevent dropdown clipping */
+}
+
+@media (max-width: 760px) {
+  .admin-shell-compact__section {
+    min-height: auto;
+  }
 }
 
 .admin-shell-compact__filters {

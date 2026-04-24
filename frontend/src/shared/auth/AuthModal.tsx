@@ -196,7 +196,8 @@ export function AuthModal({
           ? await login({ email, password })
           : await register({ email, password, displayName: normalizedDisplayName });
 
-      const nextTarget = resolvedRedirectTarget.startsWith('/admin') && session.role !== 'ADMIN' ? '/' : resolvedRedirectTarget;
+      const requestedTarget = redirectTarget ?? (session.role === 'ADMIN' ? '/admin' : '/mypage');
+      const nextTarget = requestedTarget.startsWith('/admin') && session.role !== 'ADMIN' ? '/' : requestedTarget;
       navigate(nextTarget, {
         replace: true,
         state: {
@@ -273,7 +274,6 @@ export function AuthModal({
       ) : (
         <div className="glass-auth-card__surface">
           {error ? <p className="glass-auth-card__message glass-auth-card__message--error">{error}</p> : null}
-          {redirectTarget ? <p className="glass-auth-card__hint">인증이 끝나면 요청했던 화면으로 자동 복귀합니다.</p> : null}
 
           <div className="glass-segmented-control">
             {(['login', 'register'] as AuthMode[]).map((candidate) => (

@@ -82,5 +82,6 @@ export type BoardOverview = {
   noticeCount: number;
   reviewCount: number;
   freeCount: number;
+  qnaCount: number;
   topReviewChallenges: BoardChallengeReviewSummary[];
 };

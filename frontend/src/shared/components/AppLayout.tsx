@@ -209,107 +209,38 @@ export function AppLayout() {
     />
   );
 
-  if (isLandingRoute) {
-    return (
-      <div className="stage-shell stage-shell--landing">
-        <header className={`stage-topbar stage-topbar--landing${isLandingTopbarScrolled ? ' is-scrolled' : ''}`}>
-          <Link className="stage-topbar__brand stage-topbar__brand--landing" to="/">
-            <div className="stage-topbar__title-row stage-topbar__title-row--landing">
-              <h1>Mocha</h1>
-            </div>
-          </Link>
-
-          <button
-            className="mobile-menu-trigger"
-            type="button"
-            onClick={() => setIsMobileMenuOpen(true)}
-            aria-label="메뉴 열기"
-          >
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
-          </button>
-
-          <div className="stage-topbar__actions stage-topbar__actions--landing">
-            {isAdmin ? (
-              <NavLink className="stage-nav__utility" to="/admin">
-                관리자
-              </NavLink>
-            ) : null}
-            {isAuthenticated && !isAdmin ? (
-              <NavLink className="stage-nav__utility" to="/mypage">
-                마이페이지
-              </NavLink>
-            ) : null}
-            {isAuthenticated ? (
-              <button
-                className="stage-nav__utility"
-                type="button"
-                onClick={() => setLogoutConfirmOpen(true)}
-                disabled={logoutBusy}
-              >
-                로그아웃
-              </button>
-            ) : (
-              <NavLink className="stage-nav__cta" to={buildAuthModalHref(location, { redirectPath: '/challenges' })}>
-                시작하기
-              </NavLink>
-            )}
-          </div>
-        </header>
-
-        <main className="stage-main stage-main--landing">
-          <Outlet />
-        </main>
-
-        {authMode ? (
-          <AuthModal
-            mode={authMode}
-            redirectTarget={authRedirect}
-            feedback={authFeedback}
-            onClose={closeAuthModal}
-            onModeChange={(nextMode: AuthMode) => {
-              navigate(buildAuthModalHref(location, { mode: nextMode, redirectPath: authRedirect }), { replace: true });
-            }}
-          />
-        ) : null}
-
-        {layoutToastElement}
-        {logoutConfirmDialog}
-        {mobileMenuOverlay}
-      </div>
-    );
-  }
-
   return (
-    <div className="app-shell app-shell--glass">
-      <div className="app-shell__ambient" aria-hidden="true" />
+    <>
+      {isLandingRoute ? (
+        <div className="stage-shell stage-shell--landing">
+          <header className={`stage-topbar stage-topbar--landing${isLandingTopbarScrolled ? ' is-scrolled' : ''}`}>
+            <Link className="stage-topbar__brand stage-topbar__brand--landing" to="/">
+              <div className="stage-topbar__title-row stage-topbar__title-row--landing">
+                <h1>Mocha</h1>
+              </div>
+            </Link>
 
-      {!isImmersivePlayRoute ? (
-        <header className="app-header-glass">
-          <Link className="app-header-glass__brand" to="/">
-            <strong>Mocha</strong>
-          </Link>
+            <button
+              className="mobile-menu-trigger"
+              type="button"
+              onClick={() => setIsMobileMenuOpen(true)}
+              aria-label="메뉴 열기"
+            >
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+            </button>
 
-          <button
-            className="mobile-menu-trigger"
-            type="button"
-            onClick={() => setIsMobileMenuOpen(true)}
-            aria-label="메뉴 열기"
-          >
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
-          </button>
-
-          <nav className="app-header-glass__nav" aria-label="주요 메뉴">
-            {navItems.map((item) => (
-              <NavLink key={item.to} to={item.to} end={item.to === '/'}>
-                {item.label}
-              </NavLink>
-            ))}
-          </nav>
-
-          <div className="app-header-glass__actions">
-            {isAuthenticated ? (
-              <>
-                <span className="app-header-glass__account">{user?.displayName ?? '사용자'}</span>
+            <div className="stage-topbar__actions stage-topbar__actions--landing">
+              {isAdmin ? (
+                <NavLink className="stage-nav__utility" to="/admin">
+                  관리자
+                </NavLink>
+              ) : null}
+              {isAuthenticated && !isAdmin ? (
+                <NavLink className="stage-nav__utility" to="/mypage">
+                  마이페이지
+                </NavLink>
+              ) : null}
+              {isAuthenticated ? (
                 <button
                   className="stage-nav__utility"
                   type="button"
@@ -318,26 +249,86 @@ export function AppLayout() {
                 >
                   로그아웃
                 </button>
-              </>
-            ) : (
+              ) : (
+                <NavLink className="stage-nav__cta" to={buildAuthModalHref(location, { redirectPath: location.pathname })}>
+                  로그인
+                </NavLink>
+              )}
+            </div>
+          </header>
+
+          <main className="stage-main stage-main--landing">
+            <Outlet />
+          </main>
+
+
+        </div>
+      ) : (
+        <div className="app-shell app-shell--glass">
+          <div className="app-shell__ambient" aria-hidden="true" />
+
+          {!isImmersivePlayRoute ? (
+            <header className="app-header-glass">
+              <Link className="app-header-glass__brand" to="/">
+                <strong>Mocha</strong>
+              </Link>
+
               <button
-                className="stage-nav__cta"
+                className="mobile-menu-trigger"
                 type="button"
-                onClick={() =>
-                  navigate(buildAuthModalHref(location, { redirectPath: buildPathWithSearch(location.pathname, location.search) }))
-                }
+                onClick={() => setIsMobileMenuOpen(true)}
+                aria-label="메뉴 열기"
               >
-                로그인
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
               </button>
-            )}
-          </div>
-        </header>
-      ) : null}
 
-      <main className="app-main-glass">
-        <Outlet />
-      </main>
+              <nav className="app-header-glass__nav" aria-label="주요 메뉴">
+                {navItems.map((item) => (
+                  <NavLink key={item.to} to={item.to} end={item.to === '/'}>
+                    {item.label}
+                  </NavLink>
+                ))}
+              </nav>
 
+              <div className="app-header-glass__actions">
+                {isAuthenticated ? (
+                  <>
+                    <span className="app-header-glass__account">{user?.displayName ?? '사용자'}</span>
+                    <button
+                      className="stage-nav__utility"
+                      type="button"
+                      onClick={() => setLogoutConfirmOpen(true)}
+                      disabled={logoutBusy}
+                    >
+                      로그아웃
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    className="stage-nav__cta"
+                    type="button"
+                    onClick={() =>
+                      navigate(buildAuthModalHref(location, { redirectPath: buildPathWithSearch(location.pathname, location.search) }))
+                    }
+                  >
+                    로그인
+                  </button>
+                )}
+              </div>
+            </header>
+          ) : null}
+
+          <main className="app-main-glass">
+            <Outlet />
+          </main>
+
+
+        </div>
+      )}
+
+      {layoutToastElement}
+      {logoutConfirmDialog}
+      {mobileMenuOverlay}
       {authMode ? (
         <AuthModal
           mode={authMode}
@@ -349,10 +340,6 @@ export function AppLayout() {
           }}
         />
       ) : null}
-
-      {layoutToastElement}
-      {logoutConfirmDialog}
-      {mobileMenuOverlay}
-    </div>
+    </>
   );
 }

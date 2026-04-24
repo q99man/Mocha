@@ -4581,7 +4581,7 @@ main {
 
 .glass-toolbar__main {
   flex: 1;
-  min-width: 320px;
+  min-width: min(320px, 100%);
   display: flex;
   flex-direction: column;
   gap: 14px;
@@ -5619,9 +5619,15 @@ main {
   font-size: 0.82rem;
 }
 
+.board-compact-col--category,
+.board-compact-col--views,
+.board-compact-col--comments,
 .board-compact-row__category,
 .board-compact-row__views,
 .board-compact-row__comments {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   text-align: center;
 }
 

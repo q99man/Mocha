@@ -75,6 +75,7 @@ public class BoardService {
         long generalCount = boardPostRepository.countBySourceTypeWithMember(BoardPostSourceType.GENERAL);
         long noticeCount = boardPostRepository.countByCategory(BoardCategory.NOTICE);
         long freeCount = boardPostRepository.countByCategory(BoardCategory.FREE);
+        long qnaCount = boardPostRepository.countByCategory(BoardCategory.QNA);
 
         List<BoardChallengeReviewSummaryResponse> topReviewChallenges = boardPostRepository.findTopChallengeReviewSummaries(
                         BoardPostSourceType.REVIEW_SYNC,
@@ -83,7 +84,7 @@ public class BoardService {
                 .map(this::toChallengeReviewSummary)
                 .toList();
 
-        return new BoardOverviewResponse(totalCount, generalCount, noticeCount, freeCount, reviewCount, topReviewChallenges);
+        return new BoardOverviewResponse(totalCount, generalCount, noticeCount, freeCount, reviewCount, qnaCount, topReviewChallenges);
     }
 
     public BoardPostListResponse getMyPosts(int page, int size, BoardPostSourceType sourceType) {
