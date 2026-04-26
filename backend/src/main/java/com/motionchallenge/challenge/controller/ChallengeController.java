@@ -10,6 +10,7 @@ import jakarta.validation.Valid;
 import java.util.List;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -38,6 +39,11 @@ public class ChallengeController {
         return challengeService.getPopularChallenges();
     }
 
+    @GetMapping("/likes/me")
+    public List<ChallengeResponse> getMyLikedChallenges() {
+        return challengeService.getMyLikedChallenges();
+    }
+
     @GetMapping("/{id}")
     public ResponseEntity<ChallengeResponse> getChallenge(@PathVariable Long id) {
         return challengeService.getChallenge(id)
@@ -62,5 +68,15 @@ public class ChallengeController {
             @PathVariable Long id,
             @Valid @RequestBody ReviewUpsertRequest request) {
         return reviewService.createReview(id, request);
+    }
+
+    @PostMapping("/{id}/likes")
+    public ChallengeResponse likeChallenge(@PathVariable Long id) {
+        return challengeService.likeChallenge(id);
+    }
+
+    @DeleteMapping("/{id}/likes")
+    public ChallengeResponse unlikeChallenge(@PathVariable Long id) {
+        return challengeService.unlikeChallenge(id);
     }
 }

@@ -135,6 +135,14 @@ export async function deleteJson(path: string): Promise<void> {
   }
 }
 
+export async function deleteJsonResponse<TResponse>(path: string): Promise<TResponse> {
+  return requestJson<TResponse>({
+    path,
+    method: 'DELETE',
+    credentials: 'include',
+  });
+}
+
 export function resolveApiUrl(path: string): string {
   if (/^[a-z][a-z\d+\-.]*:/i.test(path) || path.startsWith('//')) {
     return path;

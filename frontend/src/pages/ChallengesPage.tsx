@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 
 import '../features/challenges/challenge-play.css';
 import { CameraSetupModal } from '../features/challenges/CameraSetupModal';
@@ -7,10 +7,11 @@ import { ChallengeDetailHero } from '../features/challenges/ChallengeDetailHero'
 import { ChallengeListPane } from '../features/challenges/ChallengeListPane';
 import { ChallengeReviewsPane } from '../features/challenges/ChallengeReviewsPane';
 import { getAttempts } from '../shared/api/attemptApi';
-import { getChallenges } from '../shared/api/challengeApi';
+import { getChallenges, likeChallenge, unlikeChallenge } from '../shared/api/challengeApi';
 import { resolveApiUrl } from '../shared/api/client';
 import { createChallengeReview, getChallengeReviews, removeReview, updateReview } from '../shared/api/reviewApi';
 import { useAuth } from '../shared/auth/AuthProvider';
+import { buildAuthModalHref, buildPathWithSearch } from '../shared/auth/authModalUtils';
 import { CompactConfirmDialog } from '../shared/components/CompactConfirmDialog';
 import { CompactToast } from '../shared/components/CompactToast';
 import { Pagination } from '../shared/components/Pagination';
@@ -35,6 +36,7 @@ type ChallengeReviewConfirmState =
 
 export function ChallengesPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user, isAuthenticated, isLoading: authLoading } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const [challenges, setChallenges] = useState<Challenge[]>([]);
@@ -64,6 +66,8 @@ export function ChallengesPage() {
   const [reviewEditError, setReviewEditError] = useState<string | null>(null);
   const [reviewEditSuccess, setReviewEditSuccess] = useState<string | null>(null);
   const [confirmState, setConfirmState] = useState<ChallengeReviewConfirmState>({ type: 'none' });
+  const [likeBusyIds, setLikeBusyIds] = useState<Set<number>>(() => new Set());
+  const [likeFeedbackError, setLikeFeedbackError] = useState<string | null>(null);
 
   const previewVideoRef = useRef<HTMLVideoElement | null>(null);
   const fadeTimerRef = useRef<number | null>(null);
@@ -284,7 +288,7 @@ export function ChallengesPage() {
       selectedChallengeReviews.some((review) => review.mine || (user != null && review.memberId === user.id)),
   );
   const canWriteReview = Boolean(selectedChallenge && isAuthenticated && hasAttemptedSelectedChallenge && !hasMyReview);
-  const activeReviewFeedbackError = reviewSubmitError || reviewEditError;
+  const activeReviewFeedbackError = reviewSubmitError || reviewEditError || likeFeedbackError;
   const activeReviewFeedbackSuccess = reviewSubmitSuccess || reviewEditSuccess;
 
   function clearReviewFeedback() {
@@ -292,6 +296,13 @@ export function ChallengesPage() {
     setReviewSubmitSuccess(null);
     setReviewEditError(null);
     setReviewEditSuccess(null);
+    setLikeFeedbackError(null);
+  }
+
+  function updateChallengeFromResponse(updatedChallenge: Challenge) {
+    setChallenges((current) =>
+      current.map((challenge) => (challenge.id === updatedChallenge.id ? updatedChallenge : challenge)),
+    );
   }
 
   function updateChallengeReviewStats(challengeId: number, reviews: Review[]) {
@@ -563,6 +574,46 @@ export function ChallengesPage() {
     setReviewSubmitSuccess(null);
   }
 
+  async function handleToggleLike(challengeId: number) {
+    if (authLoading) {
+      return;
+    }
+
+    if (!isAuthenticated) {
+      void navigate(
+        buildAuthModalHref(location, { redirectPath: buildPathWithSearch(location.pathname, location.search) }),
+      );
+      return;
+    }
+
+    const challenge = challenges.find((item) => item.id === challengeId);
+    if (!challenge || likeBusyIds.has(challengeId)) {
+      return;
+    }
+
+    setLikeFeedbackError(null);
+    setLikeBusyIds((current) => {
+      const next = new Set(current);
+      next.add(challengeId);
+      return next;
+    });
+
+    try {
+      const updatedChallenge = challenge.likedByCurrentMember
+        ? await unlikeChallenge(challengeId)
+        : await likeChallenge(challengeId);
+      updateChallengeFromResponse(updatedChallenge);
+    } catch (likeError) {
+      setLikeFeedbackError(likeError instanceof Error ? likeError.message : '좋아요를 반영하지 못했습니다.');
+    } finally {
+      setLikeBusyIds((current) => {
+        const next = new Set(current);
+        next.delete(challengeId);
+        return next;
+      });
+    }
+  }
+
   function closeReviewForm() {
     setReviewFormOpen(false);
     setReviewForm(INITIAL_REVIEW_FORM);
@@ -791,6 +842,8 @@ export function ChallengesPage() {
                   setModalChallengeId(challengeId);
                 }}
                 onOpenReviews={openReviewsPanel}
+                onToggleLike={handleToggleLike}
+                likeBusyIds={likeBusyIds}
                 formatDuration={formatDuration}
                 formatDifficulty={formatDifficulty}
               />

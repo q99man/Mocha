@@ -31,6 +31,8 @@ export type Challenge = {
   referenceAnalyzedAt: string | null;
   reviewCount: number;
   averageRating: number | null;
+  likeCount: number;
+  likedByCurrentMember: boolean;
   latestRetrySummary: ChallengeLatestRetrySummary | null;
 };
 

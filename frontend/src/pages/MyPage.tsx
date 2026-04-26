@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { formatDifficulty } from '../features/challenges/difficulty';
 import { MyPageAccountTab } from '../features/mypage/MyPageAccountTab';
 import { MyPageAttemptsTab } from '../features/mypage/MyPageAttemptsTab';
+import { MyPageLikedChallengesTab } from '../features/mypage/MyPageLikedChallengesTab';
 import { MyPagePostsTab } from '../features/mypage/MyPagePostsTab';
 import { MyPageReviewsTab } from '../features/mypage/MyPageReviewsTab';
 import { getAttempts } from '../shared/api/attemptApi';
@@ -14,20 +15,22 @@ import {
   removeBoardPost,
   updateBoardPost,
 } from '../shared/api/boardApi';
-import { getChallenges } from '../shared/api/challengeApi';
+import { getChallenges, getMyLikedChallenges, unlikeChallenge } from '../shared/api/challengeApi';
 import { getMyReviews, removeReview, updateReview } from '../shared/api/reviewApi';
 import { useAuth } from '../shared/auth/AuthProvider';
 import { CompactConfirmDialog } from '../shared/components/CompactConfirmDialog';
 import { CompactToast } from '../shared/components/CompactToast';
 import type { AttemptSummary } from '../shared/types/attempt';
 import type { BoardPost, BoardPostInput, BoardPostSummary } from '../shared/types/board';
+import type { Challenge } from '../shared/types/challenge';
 import type { Review, ReviewInput } from '../shared/types/review';
 
-type MyPageTab = 'ATTEMPTS' | 'POSTS' | 'REVIEWS' | 'ACCOUNT';
+type MyPageTab = 'ATTEMPTS' | 'POSTS' | 'REVIEWS' | 'LIKES' | 'ACCOUNT';
 
 const ATTEMPTS_PER_PAGE = 10;
 const REVIEWS_PER_PAGE = 10;
 const POSTS_PER_PAGE = 10;
+const LIKES_PER_PAGE = 10;
 
 const INITIAL_POST_FORM: BoardPostInput = {
   category: 'FREE',
@@ -57,6 +60,7 @@ export function MyPage() {
   const { user } = useAuth();
   const [attempts, setAttempts] = useState<AttemptSummary[]>([]);
   const [reviews, setReviews] = useState<Review[]>([]);
+  const [likedChallenges, setLikedChallenges] = useState<Challenge[]>([]);
   const [posts, setPosts] = useState<BoardPostSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [postsLoading, setPostsLoading] = useState(true);
@@ -64,6 +68,7 @@ export function MyPage() {
   const [attemptPage, setAttemptPage] = useState(1);
   const [reviewPage, setReviewPage] = useState(1);
   const [postPage, setPostPage] = useState(1);
+  const [likedPage, setLikedPage] = useState(1);
   const [activeTab, setActiveTab] = useState<MyPageTab>('ATTEMPTS');
   const [postTotalCount, setPostTotalCount] = useState(0);
   const [challengeDifficultyById, setChallengeDifficultyById] = useState<Record<number, string>>({});
@@ -87,6 +92,9 @@ export function MyPage() {
   const [reviewBusy, setReviewBusy] = useState(false);
   const [reviewActionError, setReviewActionError] = useState<string | null>(null);
   const [reviewActionSuccess, setReviewActionSuccess] = useState<string | null>(null);
+  const [likeActionError, setLikeActionError] = useState<string | null>(null);
+  const [likeActionSuccess, setLikeActionSuccess] = useState<string | null>(null);
+  const [unlikeBusyIds, setUnlikeBusyIds] = useState<Set<number>>(() => new Set());
   const [confirmState, setConfirmState] = useState<MyPageConfirmState>({ type: 'none' });
 
   async function fetchPostsPage(page: number) {
@@ -117,9 +125,10 @@ export function MyPage() {
       setError(null);
 
       try {
-        const [attemptResponse, reviewResponse, challengeResponse] = await Promise.all([
+        const [attemptResponse, reviewResponse, likedChallengeResponse, challengeResponse] = await Promise.all([
           getAttempts(),
           getMyReviews(),
+          getMyLikedChallenges(),
           getChallenges(),
         ]);
 
@@ -129,6 +138,7 @@ export function MyPage() {
 
         setAttempts(attemptResponse);
         setReviews(reviewResponse);
+        setLikedChallenges(likedChallengeResponse);
         setChallengeDifficultyById(
           Object.fromEntries(
             challengeResponse.map((challenge) => [challenge.id, formatDifficulty(challenge.difficulty)]),
@@ -200,6 +210,7 @@ export function MyPage() {
   const attemptTotalPages = Math.max(1, Math.ceil(latestAttempts.length / ATTEMPTS_PER_PAGE));
   const reviewTotalPages = Math.max(1, Math.ceil(reviews.length / REVIEWS_PER_PAGE));
   const postTotalPages = Math.max(1, Math.ceil(postTotalCount / POSTS_PER_PAGE));
+  const likedTotalPages = Math.max(1, Math.ceil(likedChallenges.length / LIKES_PER_PAGE));
 
   useEffect(() => {
     if (attemptPage > attemptTotalPages) {
@@ -225,6 +236,12 @@ export function MyPage() {
     }
   }, [postPage, postTotalPages]);
 
+  useEffect(() => {
+    if (likedPage > likedTotalPages) {
+      setLikedPage(likedTotalPages);
+    }
+  }, [likedPage, likedTotalPages]);
+
   const pagedAttempts = useMemo(() => {
     const startIndex = (attemptPage - 1) * ATTEMPTS_PER_PAGE;
     return latestAttempts.slice(startIndex, startIndex + ATTEMPTS_PER_PAGE);
@@ -235,14 +252,20 @@ export function MyPage() {
     return reviews.slice(startIndex, startIndex + REVIEWS_PER_PAGE);
   }, [reviewPage, reviews]);
 
+  const pagedLikedChallenges = useMemo(() => {
+    const startIndex = (likedPage - 1) * LIKES_PER_PAGE;
+    return likedChallenges.slice(startIndex, startIndex + LIKES_PER_PAGE);
+  }, [likedChallenges, likedPage]);
+
   const tabOptions = useMemo(
     () => [
       { key: 'ATTEMPTS' as const, label: '내 기록', count: latestAttempts.length },
       { key: 'POSTS' as const, label: '내 게시글', count: postTotalCount },
       { key: 'REVIEWS' as const, label: '내 후기', count: reviews.length },
+      { key: 'LIKES' as const, label: '좋아요', count: likedChallenges.length },
       { key: 'ACCOUNT' as const, label: '내 계정' },
     ],
-    [latestAttempts.length, postTotalCount, reviews.length],
+    [latestAttempts.length, postTotalCount, reviews.length, likedChallenges.length],
   );
 
   const tabSummary = useMemo(() => {
@@ -255,17 +278,22 @@ export function MyPage() {
     if (activeTab === 'ACCOUNT') {
       return '내 정보, 비밀번호, 회원탈퇴';
     }
+    if (activeTab === 'LIKES') {
+      return `좋아요한 챌린지 ${likedChallenges.length}개`;
+    }
     return `내 후기 ${reviews.length}개`;
-  }, [activeTab, latestAttempts.length, postTotalCount, reviews.length]);
+  }, [activeTab, latestAttempts.length, postTotalCount, reviews.length, likedChallenges.length]);
 
-  const activeActionError = postActionError || reviewActionError;
-  const activeActionSuccess = postActionSuccess || reviewActionSuccess;
+  const activeActionError = postActionError || reviewActionError || likeActionError;
+  const activeActionSuccess = postActionSuccess || reviewActionSuccess || likeActionSuccess;
 
   function clearActionFeedback() {
     setPostActionError(null);
     setPostActionSuccess(null);
     setReviewActionError(null);
     setReviewActionSuccess(null);
+    setLikeActionError(null);
+    setLikeActionSuccess(null);
   }
 
   function resetInlineStates() {
@@ -279,6 +307,8 @@ export function MyPage() {
     setPostActionSuccess(null);
     setReviewActionError(null);
     setReviewActionSuccess(null);
+    setLikeActionError(null);
+    setLikeActionSuccess(null);
     setConfirmState({ type: 'none' });
   }
 
@@ -293,6 +323,36 @@ export function MyPage() {
     setPostActionSuccess(null);
     setReviewActionError(null);
     setReviewActionSuccess(null);
+    setLikeActionError(null);
+    setLikeActionSuccess(null);
+  }
+
+  async function handleUnlikeChallenge(challengeId: number) {
+    if (unlikeBusyIds.has(challengeId)) {
+      return;
+    }
+
+    setLikeActionError(null);
+    setLikeActionSuccess(null);
+    setUnlikeBusyIds((current) => {
+      const next = new Set(current);
+      next.add(challengeId);
+      return next;
+    });
+
+    try {
+      await unlikeChallenge(challengeId);
+      setLikedChallenges((current) => current.filter((challenge) => challenge.id !== challengeId));
+      setLikeActionSuccess('좋아요를 취소했습니다.');
+    } catch (likeError) {
+      setLikeActionError(likeError instanceof Error ? likeError.message : '좋아요를 취소하지 못했습니다.');
+    } finally {
+      setUnlikeBusyIds((current) => {
+        const next = new Set(current);
+        next.delete(challengeId);
+        return next;
+      });
+    }
   }
 
   async function handlePostRowToggle(postId: number) {
@@ -698,6 +758,19 @@ export function MyPage() {
           />
         ) : null}
 
+        {activeTab === 'LIKES' ? (
+          <MyPageLikedChallengesTab
+            pagedChallenges={pagedLikedChallenges}
+            likedPage={likedPage}
+            likedTotalPages={likedTotalPages}
+            unlikeBusyIds={unlikeBusyIds}
+            onLikedPageChange={setLikedPage}
+            onUnlikeChallenge={handleUnlikeChallenge}
+            formatDuration={formatDuration}
+            formatDifficulty={formatDifficulty}
+          />
+        ) : null}
+
         {activeTab === 'ACCOUNT' ? <MyPageAccountTab /> : null}
       </section>
 
@@ -801,6 +874,16 @@ function formatDate(value: string) {
     hour: '2-digit',
     minute: '2-digit',
   });
+}
+
+function formatDuration(durationSec: number) {
+  if (durationSec < 60) {
+    return `${durationSec}초`;
+  }
+
+  const minutes = Math.floor(durationSec / 60);
+  const seconds = durationSec % 60;
+  return seconds === 0 ? `${minutes}분` : `${minutes}분 ${seconds}초`;
 }
 
 function buildExcerpt(content: string) {

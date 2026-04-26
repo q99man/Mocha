@@ -20,6 +20,8 @@ type ChallengeListPaneProps = {
   onItemFocus: (challengeId: number) => void;
   onItemDoubleClick: (challengeId: number) => void;
   onOpenReviews: (challengeId: number) => void;
+  onToggleLike: (challengeId: number) => void;
+  likeBusyIds: Set<number>;
   formatDuration: (durationSec: number) => string;
   formatDifficulty: (value: string) => string | number;
 };
@@ -36,6 +38,8 @@ export function ChallengeListPane({
   onItemFocus,
   onItemDoubleClick,
   onOpenReviews,
+  onToggleLike,
+  likeBusyIds,
   formatDuration,
   formatDifficulty,
 }: ChallengeListPaneProps) {
@@ -69,7 +73,11 @@ export function ChallengeListPane({
               tabIndex={selectedId === challenge.id ? 0 : -1}
               onClick={() => onItemClick(challenge.id)}
               onKeyDown={(event) => onItemKeyDown(event, challenge.id)}
-              onFocus={() => onItemFocus(challenge.id)}
+              onFocus={(event) => {
+                if (event.currentTarget === event.target) {
+                  onItemFocus(challenge.id);
+                }
+              }}
               onDoubleClick={() => onItemDoubleClick(challenge.id)}
             >
               <div className="song-select__item-thumb">
@@ -86,6 +94,23 @@ export function ChallengeListPane({
               </div>
 
               <div className="song-select__item-actions">
+                <button
+                  type="button"
+                  className={`song-select__item-like-btn${challenge.likedByCurrentMember ? ' song-select__item-like-btn--active' : ''}`}
+                  aria-pressed={challenge.likedByCurrentMember}
+                  title={challenge.likedByCurrentMember ? '좋아요 취소' : '좋아요'}
+                  disabled={likeBusyIds.has(challenge.id)}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    if (selectedId !== challenge.id) {
+                      onItemClick(challenge.id);
+                    }
+                    onToggleLike(challenge.id);
+                  }}
+                >
+                  <span aria-hidden="true">{challenge.likedByCurrentMember ? '♥' : '♡'}</span>
+                  <span>{challenge.likeCount}</span>
+                </button>
                 <span
                   className={`song-select__item-rating${challenge.reviewCount === 0 ? ' song-select__item-rating--empty' : ''}`}
                   title={formatRatingTitle(challenge)}

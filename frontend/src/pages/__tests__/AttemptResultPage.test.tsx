@@ -270,6 +270,8 @@ function buildChallenge() {
     referenceAnalyzedAt: '2026-04-20T10:00:00Z',
     reviewCount: 0,
     averageRating: null,
+    likeCount: 0,
+    likedByCurrentMember: false,
     latestRetrySummary: null,
   };
 }

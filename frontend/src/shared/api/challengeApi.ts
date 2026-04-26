@@ -1,4 +1,4 @@
-import { deleteJson, fetchJson, patchJson, postFormData, putFormData } from './client';
+import { deleteJson, deleteJsonResponse, fetchJson, patchJson, postFormData, postJson, putFormData } from './client';
 import type {
   Challenge,
   ChallengeAnalysisResult,
@@ -21,6 +21,10 @@ export async function getAdminChallenges(): Promise<Challenge[]> {
 
 export async function getAdminChallengeById(id: string | number): Promise<Challenge> {
   return fetchJson<Challenge>(`/api/admin/challenges/${id}`);
+}
+
+export async function getMyLikedChallenges(): Promise<Challenge[]> {
+  return fetchJson<Challenge[]>('/api/challenges/likes/me');
 }
 
 export async function createChallenge(input: ChallengeCreateInput): Promise<Challenge> {
@@ -54,6 +58,14 @@ export async function getAdminChallengeReferencePreview(id: string | number): Pr
 
 export async function deleteChallenge(id: number): Promise<void> {
   return deleteJson(`/api/admin/challenges/${id}`);
+}
+
+export async function likeChallenge(id: number): Promise<Challenge> {
+  return postJson<Challenge, Record<string, never>>(`/api/challenges/${id}/likes`, {});
+}
+
+export async function unlikeChallenge(id: number): Promise<Challenge> {
+  return deleteJsonResponse<Challenge>(`/api/challenges/${id}/likes`);
 }
 
 export async function updateChallengeActive(id: number, isActive: boolean): Promise<Challenge> {

@@ -3,7 +3,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { getAttempts } from '../../shared/api/attemptApi';
-import { getChallenges } from '../../shared/api/challengeApi';
+import { getChallenges, likeChallenge, unlikeChallenge } from '../../shared/api/challengeApi';
 import { createChallengeReview, getChallengeReviews } from '../../shared/api/reviewApi';
 import { useAuth } from '../../shared/auth/AuthProvider';
 import type { Challenge } from '../../shared/types/challenge';
@@ -15,6 +15,8 @@ vi.mock('../../shared/api/attemptApi', () => ({
 
 vi.mock('../../shared/api/challengeApi', () => ({
   getChallenges: vi.fn(),
+  likeChallenge: vi.fn(),
+  unlikeChallenge: vi.fn(),
 }));
 
 vi.mock('../../shared/api/reviewApi', () => ({
@@ -30,6 +32,8 @@ vi.mock('../../shared/auth/AuthProvider', () => ({
 
 const mockedGetAttempts = vi.mocked(getAttempts);
 const mockedGetChallenges = vi.mocked(getChallenges);
+const mockedLikeChallenge = vi.mocked(likeChallenge);
+const mockedUnlikeChallenge = vi.mocked(unlikeChallenge);
 const mockedCreateChallengeReview = vi.mocked(createChallengeReview);
 const mockedGetChallengeReviews = vi.mocked(getChallengeReviews);
 const mockedUseAuth = vi.mocked(useAuth);
@@ -65,6 +69,24 @@ describe('ChallengesPage', () => {
     mockedGetAttempts.mockResolvedValue([]);
     mockedCreateChallengeReview.mockResolvedValue(buildReview());
     mockedGetChallengeReviews.mockResolvedValue([]);
+    mockedLikeChallenge.mockImplementation(async (challengeId) =>
+      buildChallenge({
+        id: challengeId,
+        title: challengeId === 1 ? 'First Challenge' : 'Second Challenge',
+        fallbackThumbnailVideoUrl: challengeId === 1 ? '/uploads/first.mp4' : '/uploads/second.mp4',
+        likeCount: 1,
+        likedByCurrentMember: true,
+      }),
+    );
+    mockedUnlikeChallenge.mockImplementation(async (challengeId) =>
+      buildChallenge({
+        id: challengeId,
+        title: challengeId === 1 ? 'First Challenge' : 'Second Challenge',
+        fallbackThumbnailVideoUrl: challengeId === 1 ? '/uploads/first.mp4' : '/uploads/second.mp4',
+        likeCount: 0,
+        likedByCurrentMember: false,
+      }),
+    );
     mockedGetChallenges.mockResolvedValue([
       buildChallenge({ id: 1, title: 'First Challenge', fallbackThumbnailVideoUrl: '/uploads/first.mp4' }),
       buildChallenge({ id: 2, title: 'Second Challenge', fallbackThumbnailVideoUrl: '/uploads/second.mp4' }),
@@ -171,6 +193,85 @@ describe('ChallengesPage', () => {
       expect(firstRating?.textContent).toContain('4.0');
     });
   });
+
+  it('toggles a challenge like in place for an authenticated member', async () => {
+    mockedUseAuth.mockReturnValue({
+      user: {
+        id: 10,
+        email: 'member@example.com',
+        displayName: 'Member',
+        authProvider: 'LOCAL',
+        role: 'USER',
+        authenticated: true,
+      },
+      isAuthenticated: true,
+      isLoading: false,
+      isAdmin: false,
+      login: vi.fn(),
+      register: vi.fn(),
+      logout: vi.fn(),
+      refresh: vi.fn(),
+    });
+
+    const { container } = render(
+      <MemoryRouter initialEntries={['/challenges']}>
+        <Routes>
+          <Route path="/challenges" element={<ChallengesPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    await screen.findAllByText('First Challenge');
+
+    const likeButtons = container.querySelectorAll<HTMLButtonElement>('.song-select__item-like-btn');
+    expect(likeButtons).toHaveLength(2);
+    fireEvent.click(likeButtons[0]);
+
+    await waitFor(() => expect(mockedLikeChallenge).toHaveBeenCalledWith(1));
+    await waitFor(() => {
+      const updatedLikeButtons = container.querySelectorAll<HTMLButtonElement>('.song-select__item-like-btn');
+      expect(updatedLikeButtons[0].textContent).toContain('1');
+      expect(updatedLikeButtons[0].getAttribute('aria-pressed')).toBe('true');
+    });
+  });
+
+  it('keeps the left preview moving when liking an unselected challenge', async () => {
+    mockedUseAuth.mockReturnValue({
+      user: {
+        id: 10,
+        email: 'member@example.com',
+        displayName: 'Member',
+        authProvider: 'LOCAL',
+        role: 'USER',
+        authenticated: true,
+      },
+      isAuthenticated: true,
+      isLoading: false,
+      isAdmin: false,
+      login: vi.fn(),
+      register: vi.fn(),
+      logout: vi.fn(),
+      refresh: vi.fn(),
+    });
+
+    const { container } = render(
+      <MemoryRouter initialEntries={['/challenges']}>
+        <Routes>
+          <Route path="/challenges" element={<ChallengesPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    await screen.findAllByText('First Challenge');
+    await waitFor(() => expect(playMock).toHaveBeenCalledTimes(1));
+
+    const likeButtons = container.querySelectorAll<HTMLButtonElement>('.song-select__item-like-btn');
+    fireEvent.click(likeButtons[1]);
+
+    await waitFor(() => expect(mockedLikeChallenge).toHaveBeenCalledWith(2));
+    await waitFor(() => expect(playMock).toHaveBeenCalledTimes(2));
+    expect(container.querySelector('video')?.getAttribute('src')).toBe('http://localhost:8080/uploads/second.mp4');
+  });
 });
 
 function buildChallenge(overrides: Partial<Challenge> = {}): Challenge {
@@ -192,6 +293,8 @@ function buildChallenge(overrides: Partial<Challenge> = {}): Challenge {
     referenceAnalyzedAt: '2026-04-20T10:00:00Z',
     reviewCount: 0,
     averageRating: null,
+    likeCount: 0,
+    likedByCurrentMember: false,
     latestRetrySummary: null,
     ...overrides,
   };

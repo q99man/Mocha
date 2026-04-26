@@ -20,5 +20,7 @@ public record ChallengeResponse(
         LocalDateTime referenceAnalyzedAt,
         long reviewCount,
         Double averageRating,
+        long likeCount,
+        boolean likedByCurrentMember,
         ChallengeLatestRetrySummaryResponse latestRetrySummary) {
 }

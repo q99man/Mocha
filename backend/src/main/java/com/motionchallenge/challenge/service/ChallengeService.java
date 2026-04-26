@@ -18,9 +18,12 @@ import com.motionchallenge.challenge.dto.ChallengeReferencePosePreviewResponse;
 import com.motionchallenge.challenge.dto.ChallengeResponse;
 import com.motionchallenge.challenge.dto.ChallengeUpdateRequest;
 import com.motionchallenge.challenge.entity.Challenge;
+import com.motionchallenge.challenge.entity.ChallengeLike;
 import com.motionchallenge.challenge.entity.ChallengeMotionProfile;
 import com.motionchallenge.challenge.entity.ChallengeVideo;
 import com.motionchallenge.challenge.entity.ReferenceAnalysisStatus;
+import com.motionchallenge.challenge.repository.ChallengeLikeRepository;
+import com.motionchallenge.challenge.repository.ChallengeLikeRepository.ChallengeLikeStats;
 import com.motionchallenge.challenge.repository.ChallengeMotionProfileRepository;
 import com.motionchallenge.challenge.repository.ChallengeRepository;
 import com.motionchallenge.challenge.repository.ChallengeVideoRepository;
@@ -68,6 +71,7 @@ public class ChallengeService {
     private final MotionAnalysisService motionAnalysisService;
     private final ObjectMapper objectMapper;
     private final ReviewRepository reviewRepository;
+    private final ChallengeLikeRepository challengeLikeRepository;
     private final CurrentMemberService currentMemberService;
 
     public ChallengeService(
@@ -82,6 +86,7 @@ public class ChallengeService {
             MotionAnalysisService motionAnalysisService,
             ObjectMapper objectMapper,
             ReviewRepository reviewRepository,
+            ChallengeLikeRepository challengeLikeRepository,
             CurrentMemberService currentMemberService) {
         this.challengeRepository = challengeRepository;
         this.challengeCacheService = challengeCacheService;
@@ -94,6 +99,7 @@ public class ChallengeService {
         this.motionAnalysisService = motionAnalysisService;
         this.objectMapper = objectMapper;
         this.reviewRepository = reviewRepository;
+        this.challengeLikeRepository = challengeLikeRepository;
         this.currentMemberService = currentMemberService;
     }
 
@@ -126,6 +132,32 @@ public class ChallengeService {
     public Optional<ChallengeResponse> getAdminChallenge(Long id) {
         return challengeRepository.findById(id)
                 .map(challenge -> toAdminResponses(List.of(challenge)).get(0));
+    }
+
+    public List<ChallengeResponse> getMyLikedChallenges() {
+        Member member = currentMemberService.requireCurrentMember();
+        return toMemberResponses(challengeLikeRepository.findLikedActiveChallengesByMemberId(member.getId()), member.getId());
+    }
+
+    @Transactional
+    public ChallengeResponse likeChallenge(Long challengeId) {
+        Member member = currentMemberService.requireCurrentMember();
+        Challenge challenge = findActiveChallenge(challengeId);
+        if (!challengeLikeRepository.existsByChallengeIdAndMemberId(challengeId, member.getId())) {
+            challengeLikeRepository.save(new ChallengeLike(challenge, member));
+        }
+        challengeCacheService.evictPopularChallenges();
+        return toResponseForCurrentMember(challenge);
+    }
+
+    @Transactional
+    public ChallengeResponse unlikeChallenge(Long challengeId) {
+        Member member = currentMemberService.requireCurrentMember();
+        Challenge challenge = findActiveChallenge(challengeId);
+        challengeLikeRepository.findByChallengeIdAndMemberId(challengeId, member.getId())
+                .ifPresent(challengeLikeRepository::delete);
+        challengeCacheService.evictPopularChallenges();
+        return toResponseForCurrentMember(challenge);
     }
 
     public Optional<ChallengeReferencePosePreviewResponse> getReferencePosePreview(Long id) {
@@ -267,6 +299,7 @@ public class ChallengeService {
         if (!processingJobs.isEmpty()) {
             attemptProcessingJobRepository.deleteAllInBatch(processingJobs);
         }
+        challengeLikeRepository.deleteByChallengeId(challengeId);
         reviewRepository.deleteByChallengeId(challengeId);
         challengeMotionProfileRepository.deleteByChallengeId(challengeId);
         challengeVideoOptional.ifPresent(challengeVideoRepository::delete);
@@ -521,20 +554,24 @@ public class ChallengeService {
     }
 
     private List<ChallengeResponse> toPublicResponses(List<Challenge> challenges) {
-        return toResponses(challenges, Map.of());
+        return toResponses(challenges, Map.of(), Set.of());
     }
 
     private List<ChallengeResponse> toMemberResponses(List<Challenge> challenges, Long memberId) {
-        return toResponses(challenges, buildLatestRetrySummaryByChallengeIdForMember(challenges, memberId));
+        return toResponses(
+                challenges,
+                buildLatestRetrySummaryByChallengeIdForMember(challenges, memberId),
+                buildLikedChallengeIdsForMember(challenges, memberId));
     }
 
     private List<ChallengeResponse> toAdminResponses(List<Challenge> challenges) {
-        return toResponses(challenges, buildLatestRetrySummaryByChallengeId(challenges));
+        return toResponses(challenges, buildLatestRetrySummaryByChallengeId(challenges), Set.of());
     }
 
     private List<ChallengeResponse> toResponses(
             List<Challenge> challenges,
-            Map<Long, ChallengeLatestRetrySummaryResponse> retrySummaryByChallengeId) {
+            Map<Long, ChallengeLatestRetrySummaryResponse> retrySummaryByChallengeId,
+            Set<Long> likedChallengeIds) {
         if (challenges.isEmpty()) {
             return List.of();
         }
@@ -542,6 +579,7 @@ public class ChallengeService {
         Map<Long, ChallengeVideo> videoByChallengeId = buildChallengeVideoByChallengeId(challenges);
         Set<Long> profileReadyChallengeIds = buildProfileReadyChallengeIds(challenges);
         Map<Long, ChallengeReviewStats> reviewStatsByChallengeId = buildReviewStatsByChallengeId(challenges);
+        Map<Long, Long> likeCountByChallengeId = buildLikeCountByChallengeId(challenges);
 
         return challenges.stream()
                 .map(challenge -> toResponse(
@@ -549,6 +587,8 @@ public class ChallengeService {
                         videoByChallengeId.get(challenge.getId()),
                         profileReadyChallengeIds.contains(challenge.getId()),
                         reviewStatsByChallengeId.get(challenge.getId()),
+                        likeCountByChallengeId.getOrDefault(challenge.getId(), 0L),
+                        likedChallengeIds.contains(challenge.getId()),
                         retrySummaryByChallengeId.get(challenge.getId())))
                 .toList();
     }
@@ -558,6 +598,8 @@ public class ChallengeService {
             ChallengeVideo challengeVideo,
             boolean profileReady,
             ChallengeReviewStats reviewStats,
+            long likeCount,
+            boolean likedByCurrentMember,
             ChallengeLatestRetrySummaryResponse latestRetrySummary) {
         return new ChallengeResponse(
                 challenge.getId(),
@@ -577,6 +619,8 @@ public class ChallengeService {
                 challenge.getReferenceAnalyzedAt(),
                 reviewStats != null ? reviewStats.getReviewCount() : 0L,
                 reviewStats != null ? reviewStats.getAverageRating() : null,
+                likeCount,
+                likedByCurrentMember,
                 latestRetrySummary);
     }
 
@@ -607,6 +651,22 @@ public class ChallengeService {
             statsByChallengeId.put(stats.getChallengeId(), stats);
         }
         return statsByChallengeId;
+    }
+
+    private Map<Long, Long> buildLikeCountByChallengeId(List<Challenge> challenges) {
+        Set<Long> challengeIds = toChallengeIds(challenges);
+        Map<Long, Long> statsByChallengeId = new HashMap<>();
+        for (ChallengeLikeStats stats : challengeLikeRepository.findStatsByChallengeIdIn(challengeIds)) {
+            statsByChallengeId.put(stats.getChallengeId(), stats.getLikeCount());
+        }
+        return statsByChallengeId;
+    }
+
+    private Set<Long> buildLikedChallengeIdsForMember(List<Challenge> challenges, Long memberId) {
+        if (challenges.isEmpty()) {
+            return Set.of();
+        }
+        return new HashSet<>(challengeLikeRepository.findLikedChallengeIdsByMemberId(toChallengeIds(challenges), memberId));
     }
 
     private boolean isUsableReferenceProfile(ChallengeMotionProfile profile) {
