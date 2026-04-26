@@ -29,6 +29,8 @@ export type Challenge = {
   referenceMotionProfileReady: boolean;
   referenceVideoOriginalFileName: string | null;
   referenceAnalyzedAt: string | null;
+  reviewCount: number;
+  averageRating: number | null;
   latestRetrySummary: ChallengeLatestRetrySummary | null;
 };
 

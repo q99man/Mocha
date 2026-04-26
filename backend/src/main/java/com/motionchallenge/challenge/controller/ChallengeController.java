@@ -2,7 +2,6 @@ package com.motionchallenge.challenge.controller;
 
 import com.motionchallenge.challenge.dto.ChallengeReferencePosePreviewResponse;
 import com.motionchallenge.challenge.dto.ChallengeResponse;
-import com.motionchallenge.challenge.dto.MotionSessionStateResponse;
 import com.motionchallenge.challenge.service.ChallengeService;
 import com.motionchallenge.review.dto.ReviewResponse;
 import com.motionchallenge.review.dto.ReviewUpsertRequest;
@@ -42,13 +41,6 @@ public class ChallengeController {
     @GetMapping("/{id}")
     public ResponseEntity<ChallengeResponse> getChallenge(@PathVariable Long id) {
         return challengeService.getChallenge(id)
-                .map(ResponseEntity::ok)
-                .orElseGet(() -> ResponseEntity.notFound().build());
-    }
-
-    @GetMapping("/{id}/motion-session")
-    public ResponseEntity<MotionSessionStateResponse> getMotionSessionState(@PathVariable Long id) {
-        return challengeService.getMotionSessionState(id)
                 .map(ResponseEntity::ok)
                 .orElseGet(() -> ResponseEntity.notFound().build());
     }

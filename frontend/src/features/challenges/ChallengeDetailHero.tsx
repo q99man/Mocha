@@ -1,22 +1,29 @@
+import type { Ref } from 'react';
+
 import { ChallengeVisual } from './ChallengeVisual';
 import type { Challenge } from '../../shared/types/challenge';
 
 type ChallengeDetailHeroProps = {
   selectedChallenge: Challenge | null;
   resolvedPreviewUrl: string | null;
+  previewVideoRef?: Ref<HTMLVideoElement>;
   onOpenModal: (challengeId: number) => void;
 };
 
-export function ChallengeDetailHero({ selectedChallenge, resolvedPreviewUrl, onOpenModal }: ChallengeDetailHeroProps) {
+export function ChallengeDetailHero({
+  selectedChallenge,
+  resolvedPreviewUrl,
+  previewVideoRef,
+  onOpenModal,
+}: ChallengeDetailHeroProps) {
   return (
     <div className="song-select__detail song-select__detail--video-fill">
       {selectedChallenge && resolvedPreviewUrl ? (
         <video
+          ref={previewVideoRef}
           key={selectedChallenge.id}
           className="song-select__bg-video"
           src={resolvedPreviewUrl}
-          autoPlay
-          muted
           loop
           playsInline
           preload="auto"

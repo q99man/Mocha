@@ -43,7 +43,15 @@ export function CameraSetupModal({ challengeTitle, onConfirm, onClose }: CameraS
     setStatus('requesting');
 
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          width: { ideal: 720 },
+          height: { ideal: 1280 },
+          aspectRatio: { ideal: 9 / 16 },
+          facingMode: 'user',
+        },
+        audio: false,
+      });
       stopStream();
       streamRef.current = stream;
 

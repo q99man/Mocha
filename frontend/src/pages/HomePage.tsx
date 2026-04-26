@@ -21,7 +21,7 @@ export function HomePage() {
     async function loadLandingData() {
       const [challengeResponse, reviewResponse] = await Promise.all([
         getChallenges().catch(() => []),
-        getRecentReviews(6).catch(() => []),
+        getRecentReviews(60).catch(() => []),
       ]);
 
       if (active) {

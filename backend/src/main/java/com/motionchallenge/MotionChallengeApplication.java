@@ -12,4 +12,3 @@ public class MotionChallengeApplication {
         SpringApplication.run(MotionChallengeApplication.class, args);
     }
 }
-

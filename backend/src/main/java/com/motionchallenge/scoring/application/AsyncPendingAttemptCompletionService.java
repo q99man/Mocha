@@ -9,7 +9,6 @@ import com.motionchallenge.challenge.entity.Challenge;
 import com.motionchallenge.challenge.entity.ChallengeMotionProfile;
 import com.motionchallenge.challenge.repository.ChallengeMotionProfileRepository;
 import com.motionchallenge.challenge.repository.ChallengeRepository;
-import com.motionchallenge.challenge.service.MotionSessionRuntimeEventPublisher;
 import com.motionchallenge.member.entity.Member;
 import com.motionchallenge.video.service.StoredVideo;
 import com.motionchallenge.video.service.VideoStorageService;
@@ -40,7 +39,6 @@ public class AsyncPendingAttemptCompletionService {
     private final ChallengeMotionProfileRepository challengeMotionProfileRepository;
     private final AttemptVideoProcessingService attemptVideoProcessingService;
     private final AttemptProcessingJobStateService attemptProcessingJobStateService;
-    private final MotionSessionRuntimeEventPublisher motionSessionRuntimeEventPublisher;
     private final AttemptProcessingJobRepository attemptProcessingJobRepository;
     private final VideoStorageService videoStorageService;
 
@@ -49,14 +47,12 @@ public class AsyncPendingAttemptCompletionService {
             ChallengeMotionProfileRepository challengeMotionProfileRepository,
             AttemptVideoProcessingService attemptVideoProcessingService,
             AttemptProcessingJobStateService attemptProcessingJobStateService,
-            MotionSessionRuntimeEventPublisher motionSessionRuntimeEventPublisher,
             AttemptProcessingJobRepository attemptProcessingJobRepository,
             VideoStorageService videoStorageService) {
         this.challengeRepository = challengeRepository;
         this.challengeMotionProfileRepository = challengeMotionProfileRepository;
         this.attemptVideoProcessingService = attemptVideoProcessingService;
         this.attemptProcessingJobStateService = attemptProcessingJobStateService;
-        this.motionSessionRuntimeEventPublisher = motionSessionRuntimeEventPublisher;
         this.attemptProcessingJobRepository = attemptProcessingJobRepository;
         this.videoStorageService = videoStorageService;
     }
@@ -99,7 +95,6 @@ public class AsyncPendingAttemptCompletionService {
                     storedVideo,
                     normalizeNotes(notes, processingJob.getPendingNotes()));
 
-            motionSessionRuntimeEventPublisher.publishScoringCompleted(challengeId);
             attemptProcessingJobStateService.markCompleted(
                     resolvedTrackingId,
                     response.attemptId(),
@@ -118,10 +113,6 @@ public class AsyncPendingAttemptCompletionService {
                     FAILED_RUNTIME_STATE,
                     failureMessage);
 
-            motionSessionRuntimeEventPublisher.publishFailedRetryable(
-                    challengeId,
-                    FAILURE_CODE_ANALYSIS,
-                    failureMessage);
             throw exception;
         }
     }

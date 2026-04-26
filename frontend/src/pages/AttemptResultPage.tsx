@@ -656,7 +656,7 @@ function formatAreaLabel(value: string | null) {
     return '타이밍';
   }
   if (value === 'detection quality') {
-    return '검출';
+    return '검출 품질';
   }
 
   return value;

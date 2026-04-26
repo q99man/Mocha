@@ -119,4 +119,13 @@ public class Member extends BaseTimeEntity {
         this.providerUserId = providerUserId;
         this.passwordHash = null;
     }
+
+    public void withdraw(String anonymizedEmail, String anonymizedDisplayName, String disabledPasswordHash) {
+        this.email = anonymizedEmail;
+        this.displayName = anonymizedDisplayName;
+        this.passwordHash = disabledPasswordHash;
+        this.authProvider = MemberAuthProvider.LOCAL;
+        this.providerUserId = null;
+        this.role = MemberRole.USER;
+    }
 }

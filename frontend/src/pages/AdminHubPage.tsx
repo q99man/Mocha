@@ -1,4 +1,4 @@
-import { type Dispatch, type SetStateAction, useEffect, useMemo, useState } from 'react';
+import { Fragment, type Dispatch, type SetStateAction, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Link, useSearchParams } from 'react-router-dom';
 
@@ -18,7 +18,7 @@ import {
   updatePoseLandmarkerModel,
   uploadPoseLandmarkerModel,
 } from '../shared/api/adminApi';
-import { getBoardOverview, getBoardPosts, removeBoardPost } from '../shared/api/boardApi';
+import { getBoardOverview, getBoardPost, getBoardPosts, removeBoardPost } from '../shared/api/boardApi';
 import {
   analyzeChallengeReference,
   createChallenge,
@@ -49,7 +49,7 @@ import type {
   AdminMemberUpdateInput,
   ModelAsset,
 } from '../shared/types/admin';
-import type { BoardCategory, BoardOverview, BoardPostSourceType, BoardPostSummary } from '../shared/types/board';
+import type { BoardCategory, BoardOverview, BoardPost, BoardPostSourceType, BoardPostSummary } from '../shared/types/board';
 import type { Challenge } from '../shared/types/challenge';
 
 const initialChallengeForm = {
@@ -213,6 +213,10 @@ export function AdminHubPage() {
   const [deletingPostId, setDeletingPostId] = useState<number | null>(null);
   const [boardSuccess, setBoardSuccess] = useState<string | null>(null);
   const [boardError, setBoardError] = useState<string | null>(null);
+  const [expandedBoardPostId, setExpandedBoardPostId] = useState<number | null>(null);
+  const [boardPostDetailsById, setBoardPostDetailsById] = useState<Record<number, BoardPost>>({});
+  const [boardPostDetailLoadingId, setBoardPostDetailLoadingId] = useState<number | null>(null);
+  const [boardPostDetailError, setBoardPostDetailError] = useState<string | null>(null);
 
   const [confirmDialog, setConfirmDialog] = useState<ConfirmDialogState>({ kind: 'NONE' });
 
@@ -465,12 +469,53 @@ export function AdminHubPage() {
       }
       setBoardPosts(response.items);
       setBoardTotalCount(response.totalCount);
+      setExpandedBoardPostId((current) =>
+        current != null && response.items.some((post) => post.id === current) ? current : null,
+      );
     } catch (loadError) {
       setBoardError(loadError instanceof Error ? loadError.message : '게시글 목록을 불러오지 못했습니다.');
       setBoardPosts([]);
       setBoardTotalCount(0);
+      setExpandedBoardPostId(null);
     } finally {
       setBoardPostsLoading(false);
+    }
+  }
+
+  async function handleBoardPostToggle(postId: number) {
+    setBoardError(null);
+    setBoardPostDetailError(null);
+
+    if (expandedBoardPostId === postId) {
+      setExpandedBoardPostId(null);
+      return;
+    }
+
+    setExpandedBoardPostId(postId);
+    if (boardPostDetailsById[postId]) {
+      return;
+    }
+
+    setBoardPostDetailLoadingId(postId);
+    try {
+      const detail = await getBoardPost(postId);
+      setBoardPostDetailsById((current) => ({ ...current, [postId]: detail }));
+      setBoardPosts((current) =>
+        current.map((post) =>
+          post.id === postId
+            ? {
+                ...post,
+                viewCount: detail.viewCount,
+                commentCount: detail.commentCount,
+                updatedAt: detail.updatedAt,
+              }
+            : post,
+        ),
+      );
+    } catch (loadError) {
+      setBoardPostDetailError(loadError instanceof Error ? loadError.message : '게시글 상세를 불러오지 못했습니다.');
+    } finally {
+      setBoardPostDetailLoadingId(null);
     }
   }
 
@@ -779,6 +824,12 @@ export function AdminHubPage() {
     try {
       await removeBoardPost(post.id);
       setBoardSuccess(`게시글 삭제 완료: ${post.title}`);
+      setExpandedBoardPostId((current) => (current === post.id ? null : current));
+      setBoardPostDetailsById((current) => {
+        const next = { ...current };
+        delete next[post.id];
+        return next;
+      });
       const nextTotalCount = Math.max(0, boardTotalCount - 1);
       const nextPage = Math.min(boardPage, Math.max(1, Math.ceil(nextTotalCount / POSTS_PER_PAGE)));
       if (nextPage !== boardPage) {
@@ -1011,7 +1062,7 @@ export function AdminHubPage() {
                 <div className="board-detail-compact__meta">
                   <span className="board-classic-badge">{memberOverview?.totalCount ?? 0}명</span>
                   <span className="board-classic-badge is-pinned">관리자 {memberOverview?.adminCount ?? 0}명</span>
-                  <span className="board-classic-badge">회원 {memberOverview?.userCount ?? 0}명</span>
+                  <span className="board-classic-badge is-info">회원 {memberOverview?.userCount ?? 0}명</span>
                 </div>
               </div>
 
@@ -1225,8 +1276,11 @@ export function AdminHubPage() {
                     ) : (
                       boardPosts.map((post) => {
                         const editable = post.sourceType === 'GENERAL';
+                        const isExpanded = expandedBoardPostId === post.id;
+                        const detail = boardPostDetailsById[post.id];
                         return (
-                          <article className="admin-hub-compact-row admin-hub-compact-row--posts" key={post.id}>
+                          <Fragment key={post.id}>
+                          <article className={`admin-hub-compact-row admin-hub-compact-row--posts${isExpanded ? ' is-expanded' : ''}`}>
                             <div className="admin-hub-compact-row__status">
                               <span className={`board-classic-badge ${getCategoryBadgeClass(post)}`}>
                                 {post.pinned ? '고정' : toBoardCategoryLabel(post.category)}
@@ -1243,10 +1297,15 @@ export function AdminHubPage() {
                               {editable ? '수동 관리' : '후기 연동'}
                             </div>
                             <div className="admin-hub-compact-row__actions admin-action-group admin-action-group--row">
-                              <Link className="button-link button-link--secondary admin-hub-compact__action-btn admin-action-button" to={`/board/${post.id}`}>
+                              <button
+                                className="button-link button-link--secondary admin-hub-compact__action-btn admin-action-button"
+                                type="button"
+                                aria-expanded={isExpanded}
+                                onClick={() => void handleBoardPostToggle(post.id)}
+                              >
                                 <IconView />
-                                <span>보기</span>
-                              </Link>
+                                <span>{expandedBoardPostId === post.id ? '닫기' : '보기'}</span>
+                              </button>
                               {editable ? (
                                 <Link className="button-link button-link--secondary admin-hub-compact__action-btn admin-action-button" to={`/board/${post.id}/edit`}>
                                   <IconEdit />
@@ -1263,6 +1322,43 @@ export function AdminHubPage() {
                               </button>
                             </div>
                           </article>
+                          {isExpanded ? (
+                            <div className="admin-hub-compact__inline-detail admin-hub-compact__inline-detail--post">
+                              {boardPostDetailLoadingId === post.id ? (
+                                <div className="board-compact-empty board-empty-inline">
+                                  <p>게시글 상세를 불러오는 중입니다.</p>
+                                </div>
+                              ) : boardPostDetailError && !detail ? (
+                                <div className="board-compact-empty board-empty-inline">
+                                  <p>{boardPostDetailError}</p>
+                                </div>
+                              ) : detail ? (
+                                <>
+                                  <div className="admin-hub-compact__inline-header">
+                                    <div>
+                                      <strong>{detail.title}</strong>
+                                      <p>{detail.authorDisplayName} · {formatDateTime(detail.updatedAt)}</p>
+                                    </div>
+                                    <div className="admin-hub-compact__inline-meta">
+                                      <span className={`board-classic-badge ${getCategoryBadgeClass(detail)}`}>
+                                        {detail.pinned ? '고정' : toBoardCategoryLabel(detail.category)}
+                                      </span>
+                                      <span>댓글 {detail.commentCount}</span>
+                                      <span>조회 {detail.viewCount}</span>
+                                      {detail.reviewRating != null ? <span>별점 {detail.reviewRating.toFixed(1)}</span> : null}
+                                    </div>
+                                  </div>
+                                  {detail.challengeTitle ? (
+                                    <div className="admin-hub-compact__inline-meta">
+                                      <span>챌린지 {detail.challengeTitle}</span>
+                                    </div>
+                                  ) : null}
+                                  <div className="admin-hub-compact__post-content">{detail.content}</div>
+                                </>
+                              ) : null}
+                            </div>
+                          ) : null}
+                          </Fragment>
                         );
                       })
                     )}
@@ -1521,7 +1617,7 @@ function toBoardCategoryLabel(category: BoardPostSummary['category']) {
   }
 }
 
-function getCategoryBadgeClass(post: BoardPostSummary) {
+function getCategoryBadgeClass(post: Pick<BoardPostSummary, 'category' | 'pinned'>) {
   if (post.pinned) return 'is-warning';
   switch (post.category) {
     case 'NOTICE':

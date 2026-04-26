@@ -18,6 +18,15 @@ uploads/
 backend/uploads/
 build/test-uploads/
 
+# Local motion calibration videos
+motion-calibration/**/*.mp4
+motion-calibration/**/*.mov
+motion-calibration/**/*.m4v
+motion-calibration/**/*.webm
+motion-calibration/**/*.avi
+motion-calibration/**/analysis/*.json
+tmp/actual-upload-analysis*/
+
 # IDE
 .idea/
 .vscode/

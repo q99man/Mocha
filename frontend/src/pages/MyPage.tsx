@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import { formatDifficulty } from '../features/challenges/difficulty';
+import { MyPageAccountTab } from '../features/mypage/MyPageAccountTab';
 import { MyPageAttemptsTab } from '../features/mypage/MyPageAttemptsTab';
 import { MyPagePostsTab } from '../features/mypage/MyPagePostsTab';
 import { MyPageReviewsTab } from '../features/mypage/MyPageReviewsTab';
@@ -22,7 +23,7 @@ import type { AttemptSummary } from '../shared/types/attempt';
 import type { BoardPost, BoardPostInput, BoardPostSummary } from '../shared/types/board';
 import type { Review, ReviewInput } from '../shared/types/review';
 
-type MyPageTab = 'ATTEMPTS' | 'POSTS' | 'REVIEWS';
+type MyPageTab = 'ATTEMPTS' | 'POSTS' | 'REVIEWS' | 'ACCOUNT';
 
 const ATTEMPTS_PER_PAGE = 10;
 const REVIEWS_PER_PAGE = 10;
@@ -239,6 +240,7 @@ export function MyPage() {
       { key: 'ATTEMPTS' as const, label: '내 기록', count: latestAttempts.length },
       { key: 'POSTS' as const, label: '내 게시글', count: postTotalCount },
       { key: 'REVIEWS' as const, label: '내 후기', count: reviews.length },
+      { key: 'ACCOUNT' as const, label: '내 계정' },
     ],
     [latestAttempts.length, postTotalCount, reviews.length],
   );
@@ -249,6 +251,9 @@ export function MyPage() {
     }
     if (activeTab === 'POSTS') {
       return `내 게시글 ${postTotalCount}개`;
+    }
+    if (activeTab === 'ACCOUNT') {
+      return '내 정보, 비밀번호, 회원탈퇴';
     }
     return `내 후기 ${reviews.length}개`;
   }, [activeTab, latestAttempts.length, postTotalCount, reviews.length]);
@@ -623,7 +628,7 @@ export function MyPage() {
               type="button"
               onClick={() => setActiveTab(tab.key)}
             >
-              {tab.label} {tab.count}
+              {tab.count == null ? tab.label : `${tab.label} ${tab.count}`}
             </button>
           ))}
         </div>
@@ -692,6 +697,8 @@ export function MyPage() {
             formatDate={formatDate}
           />
         ) : null}
+
+        {activeTab === 'ACCOUNT' ? <MyPageAccountTab /> : null}
       </section>
 
       <CompactConfirmDialog

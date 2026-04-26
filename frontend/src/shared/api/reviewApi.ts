@@ -5,7 +5,7 @@ export async function getChallengeReviews(challengeId: string | number): Promise
   return fetchJson<Review[]>(`/api/challenges/${challengeId}/reviews`);
 }
 
-export async function getRecentReviews(limit = 6): Promise<Review[]> {
+export async function getRecentReviews(limit = 60): Promise<Review[]> {
   return fetchJson<Review[]>(`/api/reviews?limit=${limit}`);
 }
 

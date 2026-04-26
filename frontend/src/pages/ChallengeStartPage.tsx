@@ -104,6 +104,17 @@ export function ChallengeStartPage() {
     refVideoRef.current.currentTime = 0;
   }, []);
 
+  const playReferenceVideoFromStart = useCallback(async () => {
+    const video = refVideoRef.current;
+    if (!video) {
+      return;
+    }
+
+    video.pause();
+    video.currentTime = 0;
+    await video.play();
+  }, []);
+
   const stopCamera = useCallback(() => {
     if (cameraStreamRef.current) {
       cameraStreamRef.current.getTracks().forEach((track) => track.stop());
@@ -388,7 +399,7 @@ export function ChallengeStartPage() {
     setPlayState('countdown');
 
     let count = 3;
-    countdownIntervalRef.current = window.setInterval(() => {
+    countdownIntervalRef.current = window.setInterval(async () => {
       count -= 1;
       if (count > 0) {
         setCountdownNumber(count);
@@ -410,11 +421,16 @@ export function ChallengeStartPage() {
         return;
       }
 
-      setPlayState('playing');
-      if (refVideoRef.current) {
-        void refVideoRef.current.play();
+      try {
+        await playReferenceVideoFromStart();
+      } catch (playError) {
+        discardRecording();
+        setResultError(playError instanceof Error ? playError.message : '레퍼런스 영상을 재생하지 못했습니다.');
+        setPlayState('result');
+        return;
       }
 
+      setPlayState('playing');
       const durationSec = challenge?.durationSec ?? 30;
       const startedAt = Date.now();
 
@@ -438,8 +454,10 @@ export function ChallengeStartPage() {
     clearPlaybackTimers,
     flowMode,
     handlePlayComplete,
+    playReferenceVideoFromStart,
     requestCamera,
     startCameraRecording,
+    discardRecording,
   ]);
 
   const handleExit = useCallback(() => {
@@ -882,17 +900,17 @@ function formatDurationLabel(durationSec: number) {
 
 function formatAreaLabel(value: AttemptSummary['strongestArea'] | undefined) {
   if (!value) {
-    return 'None';
+    return '없음';
   }
 
   if (value === 'pose shape') {
-    return 'Pose shape';
+    return '포즈';
   }
   if (value === 'pose timing') {
-    return 'Timing';
+    return '타이밍';
   }
   if (value === 'detection quality') {
-    return 'Detection quality';
+    return '검출 품질';
   }
 
   return value;

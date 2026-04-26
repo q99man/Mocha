@@ -18,5 +18,7 @@ public record ChallengeResponse(
         boolean referenceMotionProfileReady,
         String referenceVideoOriginalFileName,
         LocalDateTime referenceAnalyzedAt,
+        long reviewCount,
+        Double averageRating,
         ChallengeLatestRetrySummaryResponse latestRetrySummary) {
 }

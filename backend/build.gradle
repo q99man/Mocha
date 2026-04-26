@@ -44,4 +44,5 @@ dependencies {
 tasks.named('test') {
     useJUnitPlatform()
     systemProperty 'file.encoding', 'UTF-8'
+    systemProperty 'mocha.cleanSetCalibration', System.getProperty('mocha.cleanSetCalibration', 'false')
 }

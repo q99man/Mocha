@@ -91,13 +91,19 @@ def analyze_with_mediapipe(payload: AnalyzeRequest) -> AnalyzeResponse:
             f"Failed to open source video: {video_path}",
         )
 
-    fps = cap.get(cv2.CAP_PROP_FPS) or 0.0
-    total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT) or 0)
-    duration_ms = (
-        int((total_frames / fps) * 1000)
-        if fps > 0 and total_frames > 0
-        else max(4_000, min(90_000, payload.sourceVideo.size // 12))
-    )
+    video_metadata = resolve_video_metadata(cap, payload.sourceVideo.size)
+    fps = video_metadata["fps"]
+    total_frames = video_metadata["total_frames"]
+    duration_ms = video_metadata["duration_ms"]
+    use_capture_timestamps = bool(video_metadata["use_capture_timestamps"])
+    cap.release()
+    cap = cv2.VideoCapture(str(video_path))
+    if not cap.isOpened():
+        raise bridge_error(
+            400,
+            "VIDEO_REOPEN_FAILED",
+            f"Failed to reopen source video after metadata scan: {video_path}",
+        )
 
     model_path = resolve_pose_landmarker_model_path()
     if not model_path.exists():
@@ -171,7 +177,13 @@ def analyze_with_mediapipe(payload: AnalyzeRequest) -> AnalyzeResponse:
 
             rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb_frame)
-            timestamp_ms = int((frame_index / fps) * 1000) if fps > 0 else processed_frames * 33
+            timestamp_ms = resolve_frame_timestamp_ms(
+                cap,
+                frame_index,
+                processed_frames,
+                fps,
+                use_capture_timestamps,
+            )
             result = pose_landmarker.detect_for_video(mp_image, timestamp_ms)
             if result.pose_landmarks:
                 frames_with_pose += 1
@@ -250,6 +262,7 @@ def analyze_with_mediapipe(payload: AnalyzeRequest) -> AnalyzeResponse:
             "samplingMode": "full-span-targets" if target_frame_indices else "interval-fallback",
             "samplingFrameTargets": target_frame_indices,
             "totalFrames": total_frames,
+            "metadataSource": video_metadata["metadata_source"],
             "processedFrames": processed_frames,
             "framesWithPose": frames_with_pose,
             "analysisSummary": analysis_summary,
@@ -409,6 +422,83 @@ def summarize_landmarks(
         "focusProfile": focus_profile,
         "scoreSpots": score_spots,
     }
+
+
+def resolve_video_metadata(cap: Any, source_size: int) -> dict[str, Any]:
+    raw_fps = float(cap.get(cv2_prop("CAP_PROP_FPS")) or 0.0)
+    raw_total_frames = int(cap.get(cv2_prop("CAP_PROP_FRAME_COUNT")) or 0)
+    metadata_valid = 1.0 <= raw_fps <= 240.0 and raw_total_frames > 0
+
+    if metadata_valid:
+        return {
+            "fps": raw_fps,
+            "total_frames": raw_total_frames,
+            "duration_ms": max(1, int((raw_total_frames / raw_fps) * 1000)),
+            "use_capture_timestamps": False,
+            "metadata_source": "container-properties",
+        }
+
+    scanned_frames, last_timestamp_ms = scan_video_timestamps(cap)
+    cap.set(cv2_prop("CAP_PROP_POS_FRAMES"), 0)
+    cap.set(cv2_prop("CAP_PROP_POS_MSEC"), 0)
+
+    if scanned_frames > 0 and last_timestamp_ms > 0:
+        duration_ms = max(1, int(round(last_timestamp_ms)))
+        resolved_fps = scanned_frames / max(duration_ms / 1000.0, 0.001)
+        return {
+            "fps": clamp(resolved_fps, 1.0, 240.0),
+            "total_frames": scanned_frames,
+            "duration_ms": duration_ms,
+            "use_capture_timestamps": True,
+            "metadata_source": "timestamp-scan",
+        }
+
+    fallback_duration_ms = max(4_000, min(90_000, source_size // 12))
+    fallback_frames = raw_total_frames if raw_total_frames > 0 else 0
+    fallback_fps = raw_fps if 1.0 <= raw_fps <= 240.0 else 30.0
+    return {
+        "fps": fallback_fps,
+        "total_frames": fallback_frames,
+        "duration_ms": fallback_duration_ms,
+        "use_capture_timestamps": False,
+        "metadata_source": "size-fallback",
+    }
+
+
+def scan_video_timestamps(cap: Any) -> tuple[int, float]:
+    frame_count = 0
+    last_timestamp_ms = 0.0
+    while True:
+        ok, _frame = cap.read()
+        if not ok:
+            break
+        frame_count += 1
+        timestamp_ms = float(cap.get(cv2_prop("CAP_PROP_POS_MSEC")) or 0.0)
+        if timestamp_ms > last_timestamp_ms:
+            last_timestamp_ms = timestamp_ms
+    return frame_count, last_timestamp_ms
+
+
+def resolve_frame_timestamp_ms(
+    cap: Any,
+    frame_index: int,
+    processed_frames: int,
+    fps: float,
+    use_capture_timestamps: bool,
+) -> int:
+    if use_capture_timestamps:
+        timestamp_ms = float(cap.get(cv2_prop("CAP_PROP_POS_MSEC")) or 0.0)
+        if timestamp_ms > 0:
+            return int(round(timestamp_ms))
+    if fps > 0:
+        return int((frame_index / fps) * 1000)
+    return processed_frames * 33
+
+
+def cv2_prop(name: str) -> int:
+    import cv2  # type: ignore
+
+    return int(getattr(cv2, name))
 
 
 def compute_motion_energy(

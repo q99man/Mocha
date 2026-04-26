@@ -63,7 +63,6 @@ export function MyPagePostsTab({
   return (
     <>
       <div className="mypage-inline-toolbar">
-        <p className="mypage-inline-toolbar__note">게시글 항목을 누르면 아래에서 바로 상세보기와 수정이 열립니다.</p>
         <div className="admin-action-group admin-action-group--inline">
           <button className="button-link button-link--compact admin-action-button" type="button" onClick={onStartCreatePost}>
             <IconAdd />

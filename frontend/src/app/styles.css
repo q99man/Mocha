@@ -70,6 +70,7 @@ body.body--modal-open {
 
 body.body--play-fullscreen .app-header-glass,
 body.body--play-fullscreen .app-shell__ambient,
+body.body--play-fullscreen .mobile-bottom-nav,
 body.body--play-fullscreen .stage-topbar {
   display: none !important;
 }
@@ -4266,24 +4267,24 @@ main {
 
 .app-header-glass {
   position: sticky;
-  top: 14px;
+  top: 10px;
   z-index: 40;
   display: grid;
   grid-template-columns: auto 1fr auto;
   align-items: center;
-  gap: 16px;
+  gap: 14px;
   width: min(1320px, calc(100% - 32px));
   margin: 0 auto;
-  padding: 12px 16px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  padding: 8px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 999px;
   background:
-    linear-gradient(145deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.03)),
-    rgba(10, 10, 10, 0.64);
-  backdrop-filter: blur(18px) saturate(120%);
+    linear-gradient(145deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.025)),
+    rgba(10, 10, 10, 0.72);
+  backdrop-filter: blur(14px) saturate(112%);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.06),
-    0 20px 40px rgba(0, 0, 0, 0.2);
+    0 14px 28px rgba(0, 0, 0, 0.18);
 }
 
 .app-header-glass__brand,
@@ -4298,8 +4299,8 @@ main {
 }
 
 .app-header-glass__brand strong {
-  font-size: 1.32rem;
-  letter-spacing: 0.02em;
+  font-size: 1.14rem;
+  letter-spacing: 0;
 }
 
 
@@ -4321,8 +4322,8 @@ main {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 40px;
-  padding: 0 16px;
+  min-height: 36px;
+  padding: 0 14px;
   border-radius: 999px;
   color: rgba(255, 255, 255, 0.68);
   transition:
@@ -4335,6 +4336,10 @@ main {
 .app-header-glass__nav a:hover {
   background: rgba(255, 255, 255, 0.08);
   color: #ffffff;
+}
+
+.app-header-glass__nav a.active {
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
 }
 
 .app-header-glass__actions {
@@ -7440,16 +7445,230 @@ main {
   margin-bottom: 4px;
 }
 
+.mobile-bottom-nav {
+  position: fixed;
+  right: 12px;
+  bottom: calc(12px + env(safe-area-inset-bottom));
+  left: 12px;
+  z-index: 80;
+  display: none;
+  align-items: center;
+  justify-content: space-around;
+  gap: 4px;
+  min-height: 64px;
+  padding: 7px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 24px;
+  background: rgba(8, 8, 8, 0.86);
+  backdrop-filter: blur(18px) saturate(118%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 18px 38px rgba(0, 0, 0, 0.34);
+}
+
+.mobile-bottom-nav__item {
+  position: relative;
+  display: grid;
+  min-width: 0;
+  min-height: 50px;
+  flex: 1 1 0;
+  place-items: center;
+  gap: 3px;
+  padding: 6px 4px;
+  border: 0;
+  border-radius: 18px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.58);
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 650;
+  letter-spacing: 0;
+  text-decoration: none;
+  cursor: pointer;
+  transition:
+    background 180ms ease,
+    color 180ms ease,
+    transform 180ms ease;
+}
+
+.mobile-bottom-nav__item.active,
+.mobile-bottom-nav__item:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+}
+
+.mobile-bottom-nav__item:active {
+  transform: translateY(1px);
+}
+
+.mobile-bottom-nav__icon {
+  width: 21px;
+  height: 21px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.9;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.mypage-account-tab {
+  display: grid;
+  gap: 12px;
+}
+
+.mypage-account-tab__toolbar {
+  margin-top: 2px;
+}
+
+.mypage-account-tab__section {
+  display: grid;
+  gap: 12px;
+  padding: 14px 16px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.mypage-account-tab__section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.mypage-account-tab__section-head span {
+  display: inline-flex;
+  min-height: 26px;
+  align-items: center;
+  padding: 0 9px;
+  border: 1px solid rgba(255, 221, 138, 0.18);
+  border-radius: 999px;
+  background: rgba(255, 221, 138, 0.08);
+  color: rgba(255, 221, 138, 0.86);
+  font-size: 0.74rem;
+  font-weight: 650;
+}
+
+.mypage-account-tab__form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.mypage-account-tab__form .inline-actions {
+  grid-column: 1 / -1;
+  justify-content: flex-end;
+}
+
+.mypage-account-tab__readonly-field strong {
+  display: flex;
+  min-height: 42px;
+  align-items: center;
+  padding: 10px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.025);
+  color: rgba(255, 255, 255, 0.68);
+  font-size: 0.88rem;
+  font-weight: 500;
+}
+
+.mypage-account-tab__danger-actions {
+  display: flex;
+  align-items: end;
+  gap: 12px;
+}
+
+.mypage-account-tab__danger-actions .mypage-inline-field {
+  flex: 1 1 260px;
+}
+
+.mypage-account-tab__danger-actions .inline-actions {
+  flex-shrink: 0;
+}
+
+.mypage-account-tab__danger-actions input[type="password"] {
+  min-height: 42px;
+  height: 42px;
+  resize: none;
+}
+
+.mypage-account-tab__section--danger {
+  border-color: rgba(255, 110, 110, 0.18);
+  background: rgba(255, 110, 110, 0.035);
+}
+
+.button-link--danger {
+  border-color: rgba(255, 110, 110, 0.28);
+  background: rgba(255, 110, 110, 0.1);
+  color: #ffb7b7;
+}
+
+.button-link--danger:hover {
+  border-color: rgba(255, 110, 110, 0.42);
+  background: rgba(255, 110, 110, 0.16);
+  color: #ffffff;
+}
+
+.app-header-glass {
+  border-color: rgba(255, 221, 138, 0.12);
+  background:
+    linear-gradient(145deg, rgba(255, 221, 138, 0.055), rgba(255, 255, 255, 0.02)),
+    rgba(10, 10, 10, 0.76);
+}
+
+.app-header-glass__brand strong {
+  color: #fff7df;
+}
+
+.app-header-glass__nav a:hover,
+.app-header-glass__nav a.active {
+  background: rgba(255, 221, 138, 0.1);
+  color: #ffdd8a;
+}
+
+.app-header-glass__nav a.active {
+  box-shadow: inset 0 0 0 1px rgba(255, 221, 138, 0.24);
+}
+
+.stage-nav__utility {
+  border-color: rgba(255, 221, 138, 0.12);
+  background: rgba(255, 221, 138, 0.045);
+  color: rgba(255, 243, 195, 0.76);
+}
+
+.stage-nav__utility:hover {
+  border-color: rgba(255, 221, 138, 0.26);
+  background: rgba(255, 221, 138, 0.1);
+  color: #ffdd8a;
+}
+
+.stage-nav__cta {
+  border-color: rgba(255, 221, 138, 0.72);
+  background: #ffdd8a;
+  color: #17120a;
+  box-shadow: 0 10px 24px rgba(255, 221, 138, 0.12);
+}
+
+.stage-nav__cta:hover {
+  border-color: #fff3c3;
+  background: #fff3c3;
+  color: #17120a;
+  box-shadow: 0 12px 28px rgba(255, 221, 138, 0.16);
+}
+
 @media (max-width: 768px) {
   .app-header-glass {
-    display: flex;
-    justify-content: space-between;
+    display: none;
+  }
+
+  .app-main-glass {
+    padding-top: 14px;
+    padding-bottom: calc(104px + env(safe-area-inset-bottom));
   }
   
   .stage-topbar {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
+    display: none;
   }
 
   .app-header-glass__nav,
@@ -7462,6 +7681,39 @@ main {
     display: flex;
     align-items: center;
     justify-content: center;
+  }
+
+  .mobile-bottom-nav {
+    display: flex;
+  }
+
+  .mypage-account-tab__toolbar {
+    align-items: center;
+    flex-direction: row;
+  }
+
+  .mypage-account-tab__toolbar .button-link {
+    margin-left: auto;
+  }
+
+  .mypage-account-tab__form {
+    grid-template-columns: 1fr;
+  }
+
+  .mypage-account-tab__danger-actions {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .mypage-account-tab__section {
+    gap: 10px;
+    padding: 12px 14px;
+  }
+
+  .mypage-account-tab__danger-actions input[type="password"] {
+    min-height: 40px;
+    height: 40px;
   }
 
   /* Notice Board Mobile Refinements */

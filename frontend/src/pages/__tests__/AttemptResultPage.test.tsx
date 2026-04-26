@@ -268,6 +268,8 @@ function buildChallenge() {
     referenceMotionProfileReady: true,
     referenceVideoOriginalFileName: 'reference.mp4',
     referenceAnalyzedAt: '2026-04-20T10:00:00Z',
+    reviewCount: 0,
+    averageRating: null,
     latestRetrySummary: null,
   };
 }

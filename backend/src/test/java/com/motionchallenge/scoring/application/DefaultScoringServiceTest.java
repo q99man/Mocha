@@ -552,7 +552,8 @@ class DefaultScoringServiceTest {
         ScoringResult result = scoringService.calculateScore(referenceProfile, attemptAnalysis);
 
         assertThat(result.poseSimilarity()).isGreaterThanOrEqualTo(99);
-        assertThat(result.timingSimilarity()).isLessThan(85);
+        assertThat(result.timingSimilarity()).isLessThan(90);
+        assertThat(result.timingSimilarity()).isLessThan(result.poseSimilarity());
         assertThat(result.weakestArea()).isEqualTo("pose timing");
     }
 

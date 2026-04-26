@@ -65,11 +65,13 @@ export function ChallengesPage() {
   const [reviewEditSuccess, setReviewEditSuccess] = useState<string | null>(null);
   const [confirmState, setConfirmState] = useState<ChallengeReviewConfirmState>({ type: 'none' });
 
-  const audioRef = useRef<HTMLVideoElement | null>(null);
+  const previewVideoRef = useRef<HTMLVideoElement | null>(null);
   const fadeTimerRef = useRef<number | null>(null);
   const selectDebounceRef = useRef<number | null>(null);
   const firstPreviewStartedRef = useRef(false);
+  const previewPlaybackTokenRef = useRef(0);
   const challengeItemRefs = useRef<Record<number, HTMLDivElement | null>>({});
+  const [previewPlaybackRequest, setPreviewPlaybackRequest] = useState<{ challengeId: number; token: number } | null>(null);
 
   const selectedChallengeIdFromQuery = Number(searchParams.get('challengeId') ?? '');
   const modalChallenge = useMemo(
@@ -114,7 +116,7 @@ export function ChallengesPage() {
     return () => {
       active = false;
     };
-  }, [selectedChallengeIdFromQuery]);
+  }, []);
 
   useEffect(() => {
     setActivePanel(searchParams.get('panel') === 'reviews' ? 'reviews' : 'list');
@@ -173,9 +175,8 @@ export function ChallengesPage() {
       if (selectDebounceRef.current) {
         window.clearTimeout(selectDebounceRef.current);
       }
-      if (audioRef.current) {
-        audioRef.current.pause();
-        audioRef.current.src = '';
+      if (previewVideoRef.current) {
+        previewVideoRef.current.pause();
       }
     };
   }, []);
@@ -293,6 +294,24 @@ export function ChallengesPage() {
     setReviewEditSuccess(null);
   }
 
+  function updateChallengeReviewStats(challengeId: number, reviews: Review[]) {
+    const reviewCount = reviews.length;
+    const averageRating =
+      reviewCount > 0 ? reviews.reduce((total, review) => total + review.rating, 0) / reviewCount : null;
+
+    setChallenges((current) =>
+      current.map((challenge) =>
+        challenge.id === challengeId
+          ? {
+              ...challenge,
+              reviewCount,
+              averageRating,
+            }
+          : challenge,
+      ),
+    );
+  }
+
   useEffect(() => {
     if (!selectedChallenge || activePanel !== 'reviews') {
       return;
@@ -333,8 +352,8 @@ export function ChallengesPage() {
   }, [activePanel, reviewsByChallengeId, selectedChallenge]);
 
   const fadeOutAudio = useCallback(() => {
-    const audio = audioRef.current;
-    if (!audio || audio.paused) {
+    const video = previewVideoRef.current;
+    if (!video || video.paused) {
       return Promise.resolve();
     }
 
@@ -343,31 +362,31 @@ export function ChallengesPage() {
         window.clearInterval(fadeTimerRef.current);
       }
 
-      const step = Math.max(audio.volume / (AUDIO_FADE_MS / 30), 0.05);
+      const step = Math.max(video.volume / (AUDIO_FADE_MS / 30), 0.05);
       fadeTimerRef.current = window.setInterval(() => {
-        if (!audioRef.current) {
+        if (!previewVideoRef.current) {
           resolve();
           return;
         }
 
-        if (audio.volume - step <= 0) {
-          audio.volume = 0;
-          audio.pause();
+        if (video.volume - step <= 0) {
+          video.volume = 0;
+          video.pause();
           if (fadeTimerRef.current) {
             window.clearInterval(fadeTimerRef.current);
           }
           fadeTimerRef.current = null;
           resolve();
         } else {
-          audio.volume = Math.max(0, audio.volume - step);
+          video.volume = Math.max(0, video.volume - step);
         }
       }, 30);
     });
   }, []);
 
   const playPreviewAudio = useCallback(async (src: string, options?: { autoplay?: boolean }) => {
-    const audio = audioRef.current;
-    if (!audio) {
+    const video = previewVideoRef.current;
+    if (!video) {
       return;
     }
 
@@ -376,30 +395,32 @@ export function ChallengesPage() {
       fadeTimerRef.current = null;
     }
 
-    audio.src = src;
-    audio.loop = true;
-    audio.currentTime = 0;
-    audio.volume = 0;
-    audio.muted = Boolean(options?.autoplay);
+    if (video.currentSrc !== src && video.src !== src) {
+      video.src = src;
+    }
+    video.loop = true;
+    video.currentTime = 0;
+    video.volume = 0;
+    video.muted = Boolean(options?.autoplay);
 
     try {
-      await audio.play();
+      await video.play();
     } catch {
       return;
     }
 
     if (options?.autoplay) {
       window.setTimeout(() => {
-        if (audioRef.current) {
-          audioRef.current.muted = false;
+        if (previewVideoRef.current) {
+          previewVideoRef.current.muted = false;
         }
       }, 80);
     }
 
     const step = AUDIO_TARGET_VOLUME / (AUDIO_FADE_MS / 30);
     fadeTimerRef.current = window.setInterval(() => {
-      const currentAudio = audioRef.current;
-      if (!currentAudio) {
+      const currentVideo = previewVideoRef.current;
+      if (!currentVideo) {
         if (fadeTimerRef.current) {
           window.clearInterval(fadeTimerRef.current);
           fadeTimerRef.current = null;
@@ -407,38 +428,56 @@ export function ChallengesPage() {
         return;
       }
 
-      if (currentAudio.volume + step >= AUDIO_TARGET_VOLUME) {
-        currentAudio.volume = AUDIO_TARGET_VOLUME;
+      if (currentVideo.volume + step >= AUDIO_TARGET_VOLUME) {
+        currentVideo.volume = AUDIO_TARGET_VOLUME;
         if (fadeTimerRef.current) {
           window.clearInterval(fadeTimerRef.current);
           fadeTimerRef.current = null;
         }
       } else {
-        currentAudio.volume = Math.min(AUDIO_TARGET_VOLUME, currentAudio.volume + step);
+        currentVideo.volume = Math.min(AUDIO_TARGET_VOLUME, currentVideo.volume + step);
       }
     }, 30);
   }, []);
 
-  const handleItemClick = useCallback(
-    (challengeId: number) => {
-      setSelectedId(challengeId);
-
+  const queuePreviewPlayback = useCallback(
+    (challengeId: number, delayMs = 200) => {
       if (selectDebounceRef.current) {
         window.clearTimeout(selectDebounceRef.current);
       }
 
       selectDebounceRef.current = window.setTimeout(() => {
-        const challenge = challenges.find((item) => item.id === challengeId);
-        const videoUrl = challenge?.guideVideoUrl ?? challenge?.fallbackThumbnailVideoUrl ?? null;
-
-        if (videoUrl) {
-          void fadeOutAudio().then(() => playPreviewAudio(resolveApiUrl(videoUrl)));
-        } else {
-          void fadeOutAudio();
-        }
-      }, 200);
+        previewPlaybackTokenRef.current += 1;
+        setPreviewPlaybackRequest({
+          challengeId,
+          token: previewPlaybackTokenRef.current,
+        });
+      }, delayMs);
     },
-    [challenges, fadeOutAudio, playPreviewAudio],
+    [],
+  );
+
+  useEffect(() => {
+    if (!previewPlaybackRequest || !selectedChallenge || previewPlaybackRequest.challengeId !== selectedChallenge.id) {
+      return;
+    }
+
+    setPreviewPlaybackRequest(null);
+
+    const videoUrl = selectedChallenge.guideVideoUrl ?? selectedChallenge.fallbackThumbnailVideoUrl ?? null;
+    if (videoUrl) {
+      void fadeOutAudio().then(() => playPreviewAudio(resolveApiUrl(videoUrl)));
+    } else {
+      void fadeOutAudio();
+    }
+  }, [fadeOutAudio, playPreviewAudio, previewPlaybackRequest, selectedChallenge]);
+
+  const handleItemClick = useCallback(
+    (challengeId: number) => {
+      setSelectedId(challengeId);
+      queuePreviewPlayback(challengeId);
+    },
+    [queuePreviewPlayback],
   );
 
   function handleItemKeyDown(event: KeyboardEvent<HTMLElement>, challengeId: number) {
@@ -476,7 +515,13 @@ export function ChallengesPage() {
     const targetChallengeId = typeof challengeId === 'number' ? challengeId : selectedId;
 
     if (typeof challengeId === 'number') {
-      handleItemClick(challengeId);
+      const previewPaused = previewVideoRef.current?.paused ?? true;
+      if (challengeId !== selectedId) {
+        setSelectedId(challengeId);
+      }
+      if (challengeId !== selectedId || previewPaused) {
+        queuePreviewPlayback(challengeId, 0);
+      }
     }
 
     setSearchParams(
@@ -566,11 +611,13 @@ export function ChallengesPage() {
         rating: reviewForm.rating,
         content: trimmedContent,
       });
+      const nextReviews = [createdReview, ...selectedChallengeReviews];
 
       setReviewsByChallengeId((current) => ({
         ...current,
-        [selectedChallenge.id]: [createdReview, ...(current[selectedChallenge.id] ?? [])],
+        [selectedChallenge.id]: nextReviews,
       }));
+      updateChallengeReviewStats(selectedChallenge.id, nextReviews);
       setReviewFormOpen(false);
       setReviewForm(INITIAL_REVIEW_FORM);
       setReviewSubmitSuccess('후기를 등록했습니다.');
@@ -601,13 +648,15 @@ export function ChallengesPage() {
         rating: reviewEditForm.rating,
         content: trimmedContent,
       });
+      const nextReviews = selectedChallengeReviews.map((review) =>
+        review.id === reviewId ? updatedReview : review,
+      );
 
       setReviewsByChallengeId((current) => ({
         ...current,
-        [selectedChallenge.id]: (current[selectedChallenge.id] ?? []).map((review) =>
-          review.id === reviewId ? updatedReview : review,
-        ),
+        [selectedChallenge.id]: nextReviews,
       }));
+      updateChallengeReviewStats(selectedChallenge.id, nextReviews);
       setEditingReviewId(null);
       setReviewEditForm(INITIAL_REVIEW_FORM);
       setReviewEditSuccess('후기를 수정했습니다.');
@@ -642,10 +691,13 @@ export function ChallengesPage() {
 
     try {
       await removeReview(reviewId);
+      const nextReviews = selectedChallengeReviews.filter((review) => review.id !== reviewId);
+
       setReviewsByChallengeId((current) => ({
         ...current,
-        [selectedChallenge.id]: (current[selectedChallenge.id] ?? []).filter((review) => review.id !== reviewId),
+        [selectedChallenge.id]: nextReviews,
       }));
+      updateChallengeReviewStats(selectedChallenge.id, nextReviews);
       setEditingReviewId(null);
       setReviewEditForm(INITIAL_REVIEW_FORM);
       setReviewEditSuccess('후기를 삭제했습니다.');
@@ -708,12 +760,11 @@ export function ChallengesPage() {
 
   return (
     <div className="glass-page">
-      <video ref={audioRef} style={{ display: 'none' }} playsInline preload="auto" />
-
       <div className="song-select">
         <ChallengeDetailHero
           selectedChallenge={selectedChallenge}
           resolvedPreviewUrl={resolvedPreviewUrl}
+          previewVideoRef={previewVideoRef}
           onOpenModal={setModalChallengeId}
         />
 

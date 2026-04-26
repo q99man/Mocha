@@ -26,7 +26,7 @@ public class ReviewController {
     }
 
     @GetMapping
-    public List<ReviewResponse> getRecentReviews(@RequestParam(defaultValue = "6") int limit) {
+    public List<ReviewResponse> getRecentReviews(@RequestParam(defaultValue = "60") int limit) {
         return reviewService.getRecentReviews(limit);
     }
 

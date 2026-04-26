@@ -1,5 +1,8 @@
 package com.motionchallenge.member.controller;
 
+import com.motionchallenge.member.dto.AccountPasswordChangeRequest;
+import com.motionchallenge.member.dto.AccountProfileUpdateRequest;
+import com.motionchallenge.member.dto.AccountWithdrawalRequest;
 import com.motionchallenge.member.dto.AuthLoginRequest;
 import com.motionchallenge.member.dto.AuthRegisterRequest;
 import com.motionchallenge.member.dto.MemberSessionResponse;
@@ -12,6 +15,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -56,5 +61,28 @@ public class AuthController {
         return authService.getCurrentSession(authentication)
                 .map(ResponseEntity::ok)
                 .orElseGet(() -> ResponseEntity.status(HttpStatus.UNAUTHORIZED).build());
+    }
+
+    @PatchMapping("/me")
+    public MemberSessionResponse updateProfile(
+            @Valid @RequestBody AccountProfileUpdateRequest request,
+            HttpServletRequest httpRequest,
+            HttpServletResponse httpResponse) {
+        return authService.updateAccountProfile(request, httpRequest, httpResponse);
+    }
+
+    @PatchMapping("/me/password")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void changePassword(@Valid @RequestBody AccountPasswordChangeRequest request) {
+        authService.changeAccountPassword(request);
+    }
+
+    @DeleteMapping("/me")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void withdraw(
+            @RequestBody AccountWithdrawalRequest request,
+            HttpServletRequest httpRequest,
+            HttpServletResponse httpResponse) {
+        authService.withdrawAccount(request, httpRequest, httpResponse);
     }
 }

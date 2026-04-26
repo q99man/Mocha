@@ -125,20 +125,29 @@ public class DefaultScoringService implements ScoringService {
         double stabilityDifference = calculateScoreSpotCompositionDifference(reference, attempt, matches);
 
         int poseSimilarity = convertDifferenceToSimilarity(poseDifference, 130.0, 100);
-        int timingSimilarity = convertDifferenceToSimilarity(timingDifference, 140.0, 100);
+        int timingSimilarity = convertDifferenceToSimilarity(timingDifference, 50.0, 100);
         int stabilitySimilarity = convertDifferenceToSimilarity(stabilityDifference, 135.0, 100);
 
         double weightedScore = poseSimilarity * 0.63 + timingSimilarity * 0.27 + stabilitySimilarity * 0.10;
         int score = clamp((int) Math.round(weightedScore), 0, 100);
+        boolean lowConfidenceAttempt = isLowConfidenceAttempt(reference, attempt);
         score = applyPrimaryAxisCap(score, poseSimilarity, timingSimilarity);
         score = applyDiscriminationCurve(score, poseSimilarity, timingSimilarity);
         score = applyScoreSpotBalancePenalty(score, poseSimilarity, timingSimilarity);
         if (reference.hasAnalysisSummary() && attempt.hasAnalysisSummary()) {
-            score = applyStabilityTieBreaker(score, stabilitySimilarity);
+            score = applyScoreSpotStabilityTieBreaker(score, poseSimilarity, timingSimilarity, stabilitySimilarity);
         }
+        score = applyScoreSpotPoseCeiling(score, poseSimilarity);
+        score = applyMotionEnergyFloor(score, reference, attempt);
+        score = applyLowConfidenceCap(score, lowConfidenceAttempt);
 
         String strongestArea = resolveStrongestArea(poseSimilarity, timingSimilarity, stabilitySimilarity);
-        String weakestArea = resolveWeakestArea(poseSimilarity, timingSimilarity, stabilitySimilarity);
+        if (lowConfidenceAttempt && AREA_QUALITY.equals(strongestArea)) {
+            strongestArea = resolveStrongestNonQualityArea(poseSimilarity, timingSimilarity);
+        }
+        String weakestArea = lowConfidenceAttempt
+                ? AREA_QUALITY
+                : resolveWeakestArea(poseSimilarity, timingSimilarity, stabilitySimilarity);
         String summary = buildSummary(
                 score,
                 strongestArea,
@@ -795,12 +804,12 @@ public class DefaultScoringService implements ScoringService {
     private int resolveScoreSpotWindowMs(ParsedMotionProfile reference, ScoreSpot scoreSpot) {
         int spanMs = Math.max(0, scoreSpot.windowEndMs() - scoreSpot.windowStartMs());
         if (spanMs > 0) {
-            return clamp((int) Math.round(spanMs * 0.62), 120, 260);
+            return clamp((int) Math.round(spanMs * 0.84), 180, 920);
         }
         if (reference.scoreSpots().size() <= 1) {
-            return clamp((int) Math.round(Math.max(reference.durationMs(), 420L) * 0.18), 120, 260);
+            return clamp((int) Math.round(Math.max(reference.durationMs(), 420L) * 0.18), 180, 920);
         }
-        return clamp((int) Math.round((reference.durationMs() / (double) reference.scoreSpots().size()) * 0.55), 120, 260);
+        return clamp((int) Math.round((reference.durationMs() / (double) reference.scoreSpots().size()) * 0.84), 180, 920);
     }
 
     private FrameLandmarkSet selectAlignedFrame(List<FrameLandmarkSet> frames, int index, int totalComparisons) {
@@ -854,7 +863,9 @@ public class DefaultScoringService implements ScoringService {
                 attemptAnchor,
                 attemptFrame.qualityScore(),
                 1.0);
-        return comparePoseDescriptors(referenceDescriptor, attemptDescriptor, resolvePoseFeatureWeights(focusProfile, ratio, focusRegion));
+        Map<Integer, Double> featureWeights = resolvePoseFeatureWeights(focusProfile, ratio, focusRegion);
+        featureWeights = applyFeatureVisibilityWeights(featureWeights, referenceFrame.points(), attemptFrame.points());
+        return comparePoseDescriptors(referenceDescriptor, attemptDescriptor, featureWeights);
     }
 
     private LandmarkAnchor buildAnchor(Map<String, LandmarkPoint> points) {
@@ -1033,6 +1044,26 @@ public class DefaultScoringService implements ScoringService {
         return score;
     }
 
+    private int applyScoreSpotStabilityTieBreaker(
+            int score,
+            int poseSimilarity,
+            int timingSimilarity,
+            int stabilitySimilarity) {
+        if (stabilitySimilarity >= 95 && poseSimilarity >= 85 && timingSimilarity >= 78) {
+            return clamp(score + 2, 0, 100);
+        }
+        if (stabilitySimilarity >= 90 && poseSimilarity >= 84 && timingSimilarity >= 76) {
+            return clamp(score + 1, 0, 100);
+        }
+        if (stabilitySimilarity <= 80) {
+            return clamp(score - 2, 0, 100);
+        }
+        if (stabilitySimilarity <= 86) {
+            return clamp(score - 1, 0, 100);
+        }
+        return score;
+    }
+
     private int applyScoreSpotBalancePenalty(int score, int poseSimilarity, int timingSimilarity) {
         if (poseSimilarity < 46 && timingSimilarity - poseSimilarity >= 35) {
             return clamp(score - 2, 0, 100);
@@ -1041,6 +1072,70 @@ public class DefaultScoringService implements ScoringService {
             return clamp(score - 1, 0, 100);
         }
         return score;
+    }
+
+    private int applyScoreSpotPoseCeiling(int score, int poseSimilarity) {
+        if (poseSimilarity < 58) {
+            return Math.min(score, 32);
+        }
+        if (poseSimilarity < 64) {
+            return Math.min(score, 48);
+        }
+        if (poseSimilarity < 70) {
+            return Math.min(score, 64);
+        }
+        if (poseSimilarity < 78) {
+            return Math.min(score, 66);
+        }
+        return score;
+    }
+
+    private int applyMotionEnergyFloor(int score, ParsedMotionProfile reference, ParsedMotionProfile attempt) {
+        if (!reference.hasAnalysisSummary() || !attempt.hasAnalysisSummary()) {
+            return score;
+        }
+
+        double referenceMean = reference.signals().motionEnergyMean();
+        double referencePeak = reference.signals().motionEnergyPeak();
+        if (referenceMean < 0.025 && referencePeak < 0.08) {
+            return score;
+        }
+
+        double attemptMean = attempt.signals().motionEnergyMean();
+        double attemptPeak = attempt.signals().motionEnergyPeak();
+        boolean veryLowMean = attemptMean < Math.max(0.018, referenceMean * 0.25);
+        boolean weakMean = attemptMean < Math.max(0.006, referenceMean * 0.14);
+        boolean weakPeak = attemptPeak < Math.max(0.025, referencePeak * 0.14);
+        if (weakMean && weakPeak) {
+            return Math.min(score, 12);
+        }
+        if (veryLowMean) {
+            return Math.min(score, 18);
+        }
+
+        if (weakMean || weakPeak) {
+            return Math.min(score, 38);
+        }
+
+        return score;
+    }
+
+    private int applyLowConfidenceCap(int score, boolean lowConfidenceAttempt) {
+        return lowConfidenceAttempt ? Math.min(score, 44) : score;
+    }
+
+    private boolean isLowConfidenceAttempt(ParsedMotionProfile reference, ParsedMotionProfile attempt) {
+        if (!reference.hasAnalysisSummary() || !attempt.hasAnalysisSummary()) {
+            return false;
+        }
+
+        double visibilityGap = reference.averageVisibility() - attempt.averageVisibility();
+        double spreadGap = attempt.signals().visibilitySpread() - reference.signals().visibilitySpread();
+        double coverageGap = reference.detectionCoverage() - attempt.detectionCoverage();
+        boolean visibilityDropped = attempt.averageVisibility() < 0.78 || visibilityGap > 0.16;
+        boolean visibilityIsUneven = spreadGap > 0.16;
+        boolean coverageDropped = coverageGap > 0.04;
+        return visibilityDropped && (visibilityIsUneven || coverageDropped);
     }
 
     private String buildSummary(
@@ -1133,7 +1228,8 @@ public class DefaultScoringService implements ScoringService {
                         Math.abs(reference.signals().lowerBodySymmetry() - attempt.signals().lowerBodySymmetry()),
                         Math.abs(reference.signals().fullBodySymmetry() - attempt.signals().fullBodySymmetry())));
         gaps.put("팔 각도", average(elbowGap(reference, attempt), wristReachGap(reference, attempt)));
-        gaps.put("하체 각도", average(kneeGap(reference, attempt), ankleReachGap(reference, attempt)));
+        double lowerBodyHintWeight = lowerBodyVisibilityHintWeight(reference, attempt);
+        gaps.put("하체 각도", average(kneeGap(reference, attempt), ankleReachGap(reference, attempt)) * lowerBodyHintWeight);
         gaps.put(
                 "가동 범위",
                 average(
@@ -1230,6 +1326,49 @@ public class DefaultScoringService implements ScoringService {
         return average(
                 relativePointGap(reference.frames(), attempt.frames(), "left_ankle"),
                 relativePointGap(reference.frames(), attempt.frames(), "right_ankle"));
+    }
+
+    private double lowerBodyVisibilityHintWeight(ParsedMotionProfile reference, ParsedMotionProfile attempt) {
+        double referenceVisibility = averagePointVisibility(
+                reference,
+                "left_knee",
+                "right_knee",
+                "left_ankle",
+                "right_ankle",
+                "left_foot_index",
+                "right_foot_index");
+        double attemptVisibility = averagePointVisibility(
+                attempt,
+                "left_knee",
+                "right_knee",
+                "left_ankle",
+                "right_ankle",
+                "left_foot_index",
+                "right_foot_index");
+        double visibility = Math.min(referenceVisibility, attemptVisibility);
+        if (visibility < 0.25) {
+            return 0.18;
+        }
+        if (visibility < 0.45) {
+            return 0.36;
+        }
+        if (visibility < 0.62) {
+            return 0.62;
+        }
+        return 1.0;
+    }
+
+    private double averagePointVisibility(ParsedMotionProfile profile, String... pointNames) {
+        List<Double> visibilities = new ArrayList<>();
+        for (FrameLandmarkSet frame : profile.frames()) {
+            for (String pointName : pointNames) {
+                LandmarkPoint point = frame.points().get(pointName);
+                if (point != null) {
+                    visibilities.add(point.visibility());
+                }
+            }
+        }
+        return average(visibilities);
     }
 
     private double jointGap(
@@ -1368,6 +1507,10 @@ public class DefaultScoringService implements ScoringService {
             return AREA_TIMING;
         }
         return AREA_QUALITY;
+    }
+
+    private String resolveStrongestNonQualityArea(int poseSimilarity, int timingSimilarity) {
+        return poseSimilarity >= timingSimilarity ? AREA_POSE : AREA_TIMING;
     }
 
     private String resolveWeakestArea(int poseSimilarity, int timingSimilarity, int stabilitySimilarity) {
@@ -1537,6 +1680,65 @@ public class DefaultScoringService implements ScoringService {
             featureWeights.put(index, clampDouble(baseWeight * resolveFocusRegionFeatureMultiplier(index, focusRegion), 0.55, 3.40));
         }
         return featureWeights;
+    }
+
+    private Map<Integer, Double> applyFeatureVisibilityWeights(
+            Map<Integer, Double> featureWeights,
+            Map<String, LandmarkPoint> referencePoints,
+            Map<String, LandmarkPoint> attemptPoints) {
+        Map<Integer, Double> adjustedWeights = new HashMap<>();
+        featureWeights.forEach((index, weight) -> adjustedWeights.put(
+                index,
+                weight * resolveFeatureVisibilityMultiplier(index, referencePoints, attemptPoints)));
+        return adjustedWeights;
+    }
+
+    private double resolveFeatureVisibilityMultiplier(
+            int featureIndex,
+            Map<String, LandmarkPoint> referencePoints,
+            Map<String, LandmarkPoint> attemptPoints) {
+        double visibility = switch (featureIndex) {
+            case 0 -> featureVisibility(referencePoints, attemptPoints, "left_shoulder", "right_shoulder", "nose");
+            case 1 -> featureVisibility(referencePoints, attemptPoints, "left_shoulder", "right_shoulder", "left_hip", "right_hip");
+            case 2 -> featureVisibility(referencePoints, attemptPoints, "left_shoulder", "left_elbow", "left_wrist");
+            case 3 -> featureVisibility(referencePoints, attemptPoints, "right_shoulder", "right_elbow", "right_wrist");
+            case 4 -> featureVisibility(referencePoints, attemptPoints, "left_hip", "left_knee", "left_ankle");
+            case 5 -> featureVisibility(referencePoints, attemptPoints, "right_hip", "right_knee", "right_ankle");
+            case 6 -> featureVisibility(referencePoints, attemptPoints, "left_shoulder", "left_wrist");
+            case 7 -> featureVisibility(referencePoints, attemptPoints, "right_shoulder", "right_wrist");
+            case 8 -> featureVisibility(referencePoints, attemptPoints, "left_hip", "left_ankle");
+            case 9 -> featureVisibility(referencePoints, attemptPoints, "right_hip", "right_ankle");
+            case 10 -> featureVisibility(referencePoints, attemptPoints, "left_wrist", "right_wrist");
+            case 11 -> featureVisibility(referencePoints, attemptPoints, "left_ankle", "right_ankle");
+            default -> 1.0;
+        };
+
+        if (visibility < 0.25) {
+            return 0.24;
+        }
+        if (visibility < 0.45) {
+            return 0.44;
+        }
+        if (visibility < 0.62) {
+            return 0.68;
+        }
+        return 1.0;
+    }
+
+    private double featureVisibility(
+            Map<String, LandmarkPoint> referencePoints,
+            Map<String, LandmarkPoint> attemptPoints,
+            String... pointNames) {
+        List<Double> visibilities = new ArrayList<>();
+        for (String pointName : pointNames) {
+            LandmarkPoint referencePoint = referencePoints.get(pointName);
+            LandmarkPoint attemptPoint = attemptPoints.get(pointName);
+            if (referencePoint == null || attemptPoint == null) {
+                continue;
+            }
+            visibilities.add(Math.min(referencePoint.visibility(), attemptPoint.visibility()));
+        }
+        return average(visibilities);
     }
 
     private double resolveFocusRegionFeatureMultiplier(int featureIndex, String focusRegion) {
@@ -1777,6 +1979,10 @@ public class DefaultScoringService implements ScoringService {
             count++;
         }
         return count == 0 ? 0.0 : total / count;
+    }
+
+    private double average(List<Double> values) {
+        return values.stream().mapToDouble(Double::doubleValue).average().orElse(0.0);
     }
 
     private double averageVisibility(Map<String, LandmarkPoint> points, String... pointNames) {

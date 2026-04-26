@@ -46,10 +46,6 @@ export function MyPageReviewsTab({
 }: MyPageReviewsTabProps) {
   return (
     <>
-      <div className="mypage-inline-toolbar">
-        <p className="mypage-inline-toolbar__note">후기 항목을 누르면 아래에서 상세보기, 수정, 삭제가 바로 열립니다.</p>
-      </div>
-
       {pagedReviews.length === 0 ? (
         <div className="glass-panel glass-panel--nested glass-panel--empty">
           <strong>작성한 후기가 아직 없습니다.</strong>

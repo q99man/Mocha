@@ -193,7 +193,7 @@ class AuthIntegrationTest {
     }
 
     @Test
-    void challengeRetrySummaryAndMotionSessionAreScopedToCurrentMember() throws Exception {
+    void challengeRetrySummaryIsScopedToCurrentMember() throws Exception {
         MvcResult adminResult = mockMvc.perform(post("/api/auth/register")
                         .contentType("application/json")
                         .content("""
@@ -261,11 +261,6 @@ class AuthIntegrationTest {
         mockMvc.perform(get("/api/challenges/{id}", challenge.getId()).session(memberSession))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.latestRetrySummary").doesNotExist());
-
-        mockMvc.perform(get("/api/challenges/{id}/motion-session", challenge.getId()).session(memberSession))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.latestAttemptId").doesNotExist())
-                .andExpect(jsonPath("$.scoreAvailable").value(false));
     }
 
     @Test

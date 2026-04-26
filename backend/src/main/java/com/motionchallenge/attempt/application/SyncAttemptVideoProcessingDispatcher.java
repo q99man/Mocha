@@ -1,6 +1,5 @@
 package com.motionchallenge.attempt.application;
 
-import com.motionchallenge.challenge.service.MotionSessionRuntimeEventPublisher;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
@@ -13,18 +12,13 @@ public class SyncAttemptVideoProcessingDispatcher implements AttemptVideoProcess
             "현재 MVP에서는 업로드 직후 동기 처리로 분석과 채점을 바로 완료합니다.";
 
     private final AttemptVideoProcessingService attemptVideoProcessingService;
-    private final MotionSessionRuntimeEventPublisher motionSessionRuntimeEventPublisher;
 
-    public SyncAttemptVideoProcessingDispatcher(
-            AttemptVideoProcessingService attemptVideoProcessingService,
-            MotionSessionRuntimeEventPublisher motionSessionRuntimeEventPublisher) {
+    public SyncAttemptVideoProcessingDispatcher(AttemptVideoProcessingService attemptVideoProcessingService) {
         this.attemptVideoProcessingService = attemptVideoProcessingService;
-        this.motionSessionRuntimeEventPublisher = motionSessionRuntimeEventPublisher;
     }
 
     @Override
     public AttemptResultResponse dispatch(AttemptVideoProcessingCommand command) {
-        motionSessionRuntimeEventPublisher.publishAnalysisInProgress(command.challenge().getId());
         AttemptResultResponse response = attemptVideoProcessingService.processUploadedAttempt(
                 command.challenge(),
                 command.member(),

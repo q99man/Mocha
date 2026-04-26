@@ -60,6 +60,14 @@ app:
     popular-challenges-ttl-seconds: ${POPULAR_CHALLENGES_CACHE_TTL:300}
   storage:
     local-root: ${APP_STORAGE_LOCAL_ROOT:uploads}
+  video:
+    audio-normalization:
+      enabled: ${APP_VIDEO_AUDIO_NORMALIZATION_ENABLED:true}
+      ffmpeg-path: ${APP_VIDEO_FFMPEG_PATH:ffmpeg}
+      target-lufs: ${APP_VIDEO_AUDIO_TARGET_LUFS:-16}
+      true-peak: ${APP_VIDEO_AUDIO_TRUE_PEAK:-1.5}
+      loudness-range: ${APP_VIDEO_AUDIO_LOUDNESS_RANGE:11}
+      timeout-seconds: ${APP_VIDEO_AUDIO_NORMALIZATION_TIMEOUT_SECONDS:180}
   attempt:
     video-processing-mode: ${APP_ATTEMPT_VIDEO_PROCESSING_MODE:sync-inline}
     async-pending-auto-complete-enabled: ${APP_ATTEMPT_ASYNC_PENDING_AUTO_COMPLETE_ENABLED:false}

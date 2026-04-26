@@ -1,3 +1,4 @@
+import { useMemo, type CSSProperties } from 'react';
 import { Link } from 'react-router-dom';
 
 import type { Review } from '../../shared/types/review';
@@ -7,12 +8,13 @@ type LandingUseCaseSectionProps = {
   reviews: Review[];
 };
 
+type ReviewRow = 'left' | 'right';
+
 export function LandingUseCaseSection({ reviews }: LandingUseCaseSectionProps) {
-  const firstRow = reviews.filter((_, index) => index % 2 === 0);
-  const secondRow = reviews.filter((_, index) => index % 2 === 1);
-  const firstRowLoop = firstRow.length > 1 ? [...firstRow, ...firstRow] : firstRow;
+  const distributedReviews = useMemo(() => distributeReviews(reviews), [reviews]);
+  const firstRow = distributedReviews.filter((_, index) => index % 2 === 0);
+  const secondRow = distributedReviews.filter((_, index) => index % 2 === 1);
   const secondRowSource = secondRow.length > 0 ? secondRow : firstRow;
-  const secondRowLoop = secondRowSource.length > 1 ? [...secondRowSource, ...secondRowSource] : secondRowSource;
 
   return (
     <section className="lp-section lp-section--light" id="use-case">
@@ -24,25 +26,15 @@ export function LandingUseCaseSection({ reviews }: LandingUseCaseSectionProps) {
         <div className="lp-review-marquee">
           <div className="lp-review-marquee__viewport">
             <div className="lp-review-marquee__track lp-review-marquee__track--left">
-              {firstRowLoop.map((review, index) => (
-                <ReviewCard
-                  key={`${review.id}-left-${index < firstRow.length ? 'base' : 'clone'}`}
-                  review={review}
-                  ariaHidden={firstRow.length > 1 && index >= firstRow.length}
-                />
-              ))}
+              <ReviewCardGroup reviews={firstRow} row="left" clone={false} />
+              {firstRow.length > 1 ? <ReviewCardGroup reviews={firstRow} row="left" clone /> : null}
             </div>
           </div>
 
           <div className="lp-review-marquee__viewport">
             <div className="lp-review-marquee__track lp-review-marquee__track--right">
-              {secondRowLoop.map((review, index) => (
-                <ReviewCard
-                  key={`${review.id}-right-${index < secondRowSource.length ? 'base' : 'clone'}`}
-                  review={review}
-                  ariaHidden={secondRowSource.length > 1 && index >= secondRowSource.length}
-                />
-              ))}
+              <ReviewCardGroup reviews={secondRowSource} row="right" clone={false} />
+              {secondRowSource.length > 1 ? <ReviewCardGroup reviews={secondRowSource} row="right" clone /> : null}
             </div>
           </div>
         </div>
@@ -55,12 +47,28 @@ export function LandingUseCaseSection({ reviews }: LandingUseCaseSectionProps) {
   );
 }
 
+function ReviewCardGroup({ reviews, row, clone }: { reviews: Review[]; row: ReviewRow; clone: boolean }) {
+  return (
+    <div className="lp-review-marquee__group" aria-hidden={clone}>
+      {reviews.map((review, index) => (
+        <ReviewCard
+          key={`${review.id}-${row}-${clone ? 'clone' : 'base'}`}
+          review={review}
+          ariaHidden={clone}
+          offset={getReviewOffset(review, index, row)}
+        />
+      ))}
+    </div>
+  );
+}
+
 type ReviewCardProps = {
   review: Review;
   ariaHidden: boolean;
+  offset: number;
 };
 
-function ReviewCard({ review, ariaHidden }: ReviewCardProps) {
+function ReviewCard({ review, ariaHidden, offset }: ReviewCardProps) {
   return (
     <Link
       className="lp-usecase-grid__card lp-review-card lp-panel-glass"
@@ -68,6 +76,7 @@ function ReviewCard({ review, ariaHidden }: ReviewCardProps) {
       aria-hidden={ariaHidden}
       aria-label={`${review.challengeTitle} 챌린지 후기 보러가기`}
       tabIndex={ariaHidden ? -1 : undefined}
+      style={{ '--review-offset': `${offset}px` } as CSSProperties}
     >
       <div className="lp-review-card__top">
         <div className="lp-review-card__meta">
@@ -87,6 +96,24 @@ function ReviewCard({ review, ariaHidden }: ReviewCardProps) {
       </div>
     </Link>
   );
+}
+
+function distributeReviews(reviews: Review[]) {
+  const seed = Math.floor(Math.random() * 2147483647);
+  return [...reviews].sort((left, right) => {
+    const leftScore = hashReview(left.id, left.challengeId + seed);
+    const rightScore = hashReview(right.id, right.challengeId + seed);
+    return leftScore - rightScore;
+  });
+}
+
+function getReviewOffset(review: Review, index: number, row: ReviewRow) {
+  const offsets = row === 'left' ? [-6, 3, -2, 7, -4, 1, 5, -7, 2, -5, 0] : [4, -6, 2, -3, 7, -1, 5, -5, 0, 6, -2];
+  return offsets[(hashReview(review.id, index * 3 + (row === 'left' ? 17 : 31)) + index) % offsets.length];
+}
+
+function hashReview(id: number, salt: number) {
+  return Math.abs((id * 1103515245 + salt * 12345) % 2147483647);
 }
 
 function formatReviewDate(value: string) {

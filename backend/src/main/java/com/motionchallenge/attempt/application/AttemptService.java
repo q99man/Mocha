@@ -10,7 +10,6 @@ import com.motionchallenge.challenge.entity.ChallengeMotionProfile;
 import com.motionchallenge.challenge.entity.ReferenceAnalysisStatus;
 import com.motionchallenge.challenge.repository.ChallengeMotionProfileRepository;
 import com.motionchallenge.challenge.repository.ChallengeRepository;
-import com.motionchallenge.challenge.service.MotionSessionRuntimeEventPublisher;
 import com.motionchallenge.member.entity.Member;
 import com.motionchallenge.member.service.CurrentMemberService;
 import com.motionchallenge.motion.service.MotionAnalysisModeSupport;
@@ -58,7 +57,6 @@ public class AttemptService {
     private final SimpleScoringPreviewService simpleScoringPreviewService;
     private final VideoStorageService videoStorageService;
     private final AttemptVideoProcessingDispatcher attemptVideoProcessingDispatcher;
-    private final MotionSessionRuntimeEventPublisher motionSessionRuntimeEventPublisher;
     private final AttemptAsyncPendingProperties asyncPendingProperties;
     private final AttemptJudgementTimelineService attemptJudgementTimelineService;
     private final AttemptFinalFeedbackService attemptFinalFeedbackService;
@@ -73,7 +71,6 @@ public class AttemptService {
             SimpleScoringPreviewService simpleScoringPreviewService,
             VideoStorageService videoStorageService,
             AttemptVideoProcessingDispatcher attemptVideoProcessingDispatcher,
-            MotionSessionRuntimeEventPublisher motionSessionRuntimeEventPublisher,
             AttemptAsyncPendingProperties asyncPendingProperties,
             AttemptJudgementTimelineService attemptJudgementTimelineService,
             AttemptFinalFeedbackService attemptFinalFeedbackService,
@@ -86,7 +83,6 @@ public class AttemptService {
         this.simpleScoringPreviewService = simpleScoringPreviewService;
         this.videoStorageService = videoStorageService;
         this.attemptVideoProcessingDispatcher = attemptVideoProcessingDispatcher;
-        this.motionSessionRuntimeEventPublisher = motionSessionRuntimeEventPublisher;
         this.asyncPendingProperties = asyncPendingProperties;
         this.attemptJudgementTimelineService = attemptJudgementTimelineService;
         this.attemptFinalFeedbackService = attemptFinalFeedbackService;
@@ -222,17 +218,13 @@ public class AttemptService {
                     "레퍼런스 분석이 실제 MediaPipe 결과가 아닙니다. 관리자에서 레퍼런스 분석을 다시 실행해 주세요.");
         }
 
-        motionSessionRuntimeEventPublisher.publishUploadInProgress(challenge.getId());
         try {
             StoredVideo storedVideo;
             try {
                 storedVideo = videoStorageService.storeAttemptVideo(challenge.getId(), request.getAttemptVideo());
             } catch (RuntimeException exception) {
-                markRetryableFailure(challenge.getId(), FAILURE_CODE_UPLOAD_STORAGE, exception);
                 throw exception;
             }
-
-            motionSessionRuntimeEventPublisher.publishUploadStored(challenge.getId());
 
             try {
                 AttemptResultResponse response = attemptVideoProcessingDispatcher.dispatch(new AttemptVideoProcessingCommand(
@@ -241,14 +233,8 @@ public class AttemptService {
                         referenceProfile,
                         storedVideo,
                         request.getNotes()));
-                if (response.processingComplete()) {
-                    motionSessionRuntimeEventPublisher.publishScoringCompleted(challenge.getId());
-                } else {
-                    motionSessionRuntimeEventPublisher.publishUploadPending(challenge.getId());
-                }
                 return response;
             } catch (RuntimeException exception) {
-                markRetryableFailure(challenge.getId(), resolvePipelineFailureCode(exception), exception);
                 throw exception;
             }
         } catch (RuntimeException exception) {
@@ -811,24 +797,6 @@ public class AttemptService {
         }
 
         return notes;
-    }
-
-    private void markRetryableFailure(Long challengeId, String failureCode, RuntimeException exception) {
-        motionSessionRuntimeEventPublisher.publishFailedRetryable(
-                challengeId,
-                failureCode,
-                exception.getMessage() == null || exception.getMessage().isBlank()
-                        ? DEFAULT_FAILURE_MESSAGE
-                        : exception.getMessage());
-    }
-
-    private String resolvePipelineFailureCode(RuntimeException exception) {
-        String simpleName = exception.getClass().getSimpleName();
-        if (simpleName.contains("Score")) {
-            return FAILURE_CODE_SCORING;
-        }
-
-        return FAILURE_CODE_ANALYSIS;
     }
 
     private String resolveCompletionStrategy(AttemptProcessingJob processingJob) {

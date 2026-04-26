@@ -86,6 +86,13 @@ export function ChallengeListPane({
               </div>
 
               <div className="song-select__item-actions">
+                <span
+                  className={`song-select__item-rating${challenge.reviewCount === 0 ? ' song-select__item-rating--empty' : ''}`}
+                  title={formatRatingTitle(challenge)}
+                >
+                  <span aria-hidden="true">★</span>
+                  <span>{formatAverageRating(challenge)}</span>
+                </span>
                 <button
                   type="button"
                   className="song-select__item-review-btn"
@@ -103,4 +110,20 @@ export function ChallengeListPane({
       </div>
     </>
   );
+}
+
+function formatAverageRating(challenge: Challenge) {
+  if (challenge.reviewCount === 0 || challenge.averageRating == null) {
+    return '0.0';
+  }
+
+  return `${challenge.averageRating.toFixed(1)}`;
+}
+
+function formatRatingTitle(challenge: Challenge) {
+  if (challenge.reviewCount === 0 || challenge.averageRating == null) {
+    return '아직 등록된 후기가 없습니다.';
+  }
+
+  return `평균 별점 ${challenge.averageRating.toFixed(1)}/5.0 · 후기 ${challenge.reviewCount}개`;
 }

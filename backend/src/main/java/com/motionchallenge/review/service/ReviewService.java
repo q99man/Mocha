@@ -25,6 +25,8 @@ import org.springframework.web.server.ResponseStatusException;
 @Transactional(readOnly = true)
 public class ReviewService {
 
+    private static final int MAX_RECENT_REVIEW_LIMIT = 60;
+
     private final ReviewRepository reviewRepository;
     private final ChallengeRepository challengeRepository;
     private final AttemptRepository attemptRepository;
@@ -61,7 +63,7 @@ public class ReviewService {
     }
 
     public List<ReviewResponse> getRecentReviews(int limit) {
-        int safeLimit = Math.max(1, Math.min(limit, 12));
+        int safeLimit = Math.max(1, Math.min(limit, MAX_RECENT_REVIEW_LIMIT));
         return toResponses(reviewRepository.findRecentWithMemberAndChallenge(PageRequest.of(0, safeLimit)), null);
     }
 

@@ -17,7 +17,6 @@ import com.motionchallenge.challenge.dto.ChallengeReferencePosePointResponse;
 import com.motionchallenge.challenge.dto.ChallengeReferencePosePreviewResponse;
 import com.motionchallenge.challenge.dto.ChallengeResponse;
 import com.motionchallenge.challenge.dto.ChallengeUpdateRequest;
-import com.motionchallenge.challenge.dto.MotionSessionStateResponse;
 import com.motionchallenge.challenge.entity.Challenge;
 import com.motionchallenge.challenge.entity.ChallengeMotionProfile;
 import com.motionchallenge.challenge.entity.ChallengeVideo;
@@ -30,6 +29,7 @@ import com.motionchallenge.motion.service.MotionAnalysisModeSupport;
 import com.motionchallenge.motion.service.MotionAnalysisService;
 import com.motionchallenge.member.entity.Member;
 import com.motionchallenge.member.service.CurrentMemberService;
+import com.motionchallenge.review.repository.ReviewRepository.ChallengeReviewStats;
 import com.motionchallenge.review.repository.ReviewRepository;
 import com.motionchallenge.video.service.StoredVideo;
 import com.motionchallenge.video.service.VideoStorageService;
@@ -59,8 +59,6 @@ public class ChallengeService {
 
     private final ChallengeRepository challengeRepository;
     private final ChallengeCacheService challengeCacheService;
-    private final MotionSessionStateFactory motionSessionStateFactory;
-    private final MotionSessionRuntimeResolver motionSessionRuntimeResolver;
     private final ChallengeVideoRepository challengeVideoRepository;
     private final ChallengeMotionProfileRepository challengeMotionProfileRepository;
     private final AttemptRepository attemptRepository;
@@ -75,8 +73,6 @@ public class ChallengeService {
     public ChallengeService(
             ChallengeRepository challengeRepository,
             ChallengeCacheService challengeCacheService,
-            MotionSessionStateFactory motionSessionStateFactory,
-            MotionSessionRuntimeResolver motionSessionRuntimeResolver,
             ChallengeVideoRepository challengeVideoRepository,
             ChallengeMotionProfileRepository challengeMotionProfileRepository,
             AttemptRepository attemptRepository,
@@ -89,8 +85,6 @@ public class ChallengeService {
             CurrentMemberService currentMemberService) {
         this.challengeRepository = challengeRepository;
         this.challengeCacheService = challengeCacheService;
-        this.motionSessionStateFactory = motionSessionStateFactory;
-        this.motionSessionRuntimeResolver = motionSessionRuntimeResolver;
         this.challengeVideoRepository = challengeVideoRepository;
         this.challengeMotionProfileRepository = challengeMotionProfileRepository;
         this.attemptRepository = attemptRepository;
@@ -172,43 +166,6 @@ public class ChallengeService {
         ChallengeVideo challengeVideo = challengeVideoOptional.get();
         ChallengeMotionProfile motionProfile = motionProfileOptional.get();
         return Optional.of(toReferencePosePreview(challenge, challengeVideo, motionProfile));
-    }
-
-    public Optional<MotionSessionStateResponse> getMotionSessionState(Long id) {
-        return challengeRepository.findByIdAndIsActiveTrue(id)
-                .map(challenge -> {
-                    boolean referenceVideoUploaded =
-                            challengeVideoRepository.findByChallengeId(challenge.getId()).isPresent();
-                    boolean referenceMotionProfileReady = challengeMotionProfileRepository.findByChallengeId(challenge.getId())
-                            .filter(this::isUsableReferenceProfile)
-                            .isPresent();
-                    Long currentMemberId = getCurrentMemberIdOrNull();
-                    Optional<Attempt> latestAttempt = currentMemberId == null
-                            ? Optional.empty()
-                            : attemptRepository.findTopByChallengeIdAndMemberIdOrderByCreatedAtDescIdDesc(
-                                    challenge.getId(),
-                                    currentMemberId);
-                    Optional<AttemptProcessingJob> latestProcessingJob = currentMemberId == null
-                            ? Optional.empty()
-                            : attemptProcessingJobRepository.findTopByChallengeIdAndMemberIdOrderByUpdatedAtDesc(
-                                    challenge.getId(),
-                                    currentMemberId);
-                    boolean latestAttemptVideoUploaded = latestAttempt
-                            .map(attempt -> attemptVideoRepository.findByAttemptId(attempt.getId()).isPresent())
-                            .orElse(false);
-                    MotionSessionRuntimeContext runtimeContext = motionSessionRuntimeResolver.resolve(
-                            challenge.getId(),
-                            referenceMotionProfileReady,
-                            latestAttempt,
-                            latestAttemptVideoUploaded,
-                            latestProcessingJob);
-
-                    return motionSessionStateFactory.createState(
-                            challenge,
-                            referenceVideoUploaded,
-                            referenceMotionProfileReady,
-                            runtimeContext);
-                });
     }
 
     @Transactional
@@ -584,12 +541,14 @@ public class ChallengeService {
 
         Map<Long, ChallengeVideo> videoByChallengeId = buildChallengeVideoByChallengeId(challenges);
         Set<Long> profileReadyChallengeIds = buildProfileReadyChallengeIds(challenges);
+        Map<Long, ChallengeReviewStats> reviewStatsByChallengeId = buildReviewStatsByChallengeId(challenges);
 
         return challenges.stream()
                 .map(challenge -> toResponse(
                         challenge,
                         videoByChallengeId.get(challenge.getId()),
                         profileReadyChallengeIds.contains(challenge.getId()),
+                        reviewStatsByChallengeId.get(challenge.getId()),
                         retrySummaryByChallengeId.get(challenge.getId())))
                 .toList();
     }
@@ -598,6 +557,7 @@ public class ChallengeService {
             Challenge challenge,
             ChallengeVideo challengeVideo,
             boolean profileReady,
+            ChallengeReviewStats reviewStats,
             ChallengeLatestRetrySummaryResponse latestRetrySummary) {
         return new ChallengeResponse(
                 challenge.getId(),
@@ -615,6 +575,8 @@ public class ChallengeService {
                 profileReady,
                 challengeVideo != null ? challengeVideo.getOriginalFileName() : null,
                 challenge.getReferenceAnalyzedAt(),
+                reviewStats != null ? reviewStats.getReviewCount() : 0L,
+                reviewStats != null ? reviewStats.getAverageRating() : null,
                 latestRetrySummary);
     }
 
@@ -636,6 +598,15 @@ public class ChallengeService {
             }
         }
         return readyChallengeIds;
+    }
+
+    private Map<Long, ChallengeReviewStats> buildReviewStatsByChallengeId(List<Challenge> challenges) {
+        Set<Long> challengeIds = toChallengeIds(challenges);
+        Map<Long, ChallengeReviewStats> statsByChallengeId = new HashMap<>();
+        for (ChallengeReviewStats stats : reviewRepository.findStatsByChallengeIdIn(challengeIds)) {
+            statsByChallengeId.put(stats.getChallengeId(), stats);
+        }
+        return statsByChallengeId;
     }
 
     private boolean isUsableReferenceProfile(ChallengeMotionProfile profile) {
@@ -898,4 +869,3 @@ public class ChallengeService {
     private record DeltaMetric(String label, int delta) {
     }
 }
-

@@ -21,3 +21,17 @@ export type RegisterInput = {
   password: string;
   displayName: string;
 };
+
+export type AccountProfileInput = {
+  displayName: string;
+};
+
+export type AccountPasswordInput = {
+  currentPassword: string;
+  newPassword: string;
+};
+
+export type AccountWithdrawalInput = {
+  currentPassword?: string;
+  confirmed: boolean;
+};

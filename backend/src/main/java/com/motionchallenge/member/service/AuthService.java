@@ -2,6 +2,9 @@ package com.motionchallenge.member.service;
 
 import com.motionchallenge.member.dto.AuthLoginRequest;
 import com.motionchallenge.member.dto.AuthRegisterRequest;
+import com.motionchallenge.member.dto.AccountPasswordChangeRequest;
+import com.motionchallenge.member.dto.AccountProfileUpdateRequest;
+import com.motionchallenge.member.dto.AccountWithdrawalRequest;
 import com.motionchallenge.member.dto.MemberSessionResponse;
 import com.motionchallenge.member.dto.OAuth2LoginResult;
 import com.motionchallenge.member.dto.OAuth2LoginStatus;
@@ -36,6 +39,7 @@ public class AuthService {
     private final MemberRepository memberRepository;
     private final PasswordEncoder passwordEncoder;
     private final AuthenticationManager authenticationManager;
+    private final CurrentMemberService currentMemberService;
     private final SecurityContextRepository securityContextRepository = new HttpSessionSecurityContextRepository();
     private final SecurityContextHolderStrategy securityContextHolderStrategy =
             SecurityContextHolder.getContextHolderStrategy();
@@ -43,10 +47,12 @@ public class AuthService {
     public AuthService(
             MemberRepository memberRepository,
             PasswordEncoder passwordEncoder,
-            AuthenticationManager authenticationManager) {
+            AuthenticationManager authenticationManager,
+            CurrentMemberService currentMemberService) {
         this.memberRepository = memberRepository;
         this.passwordEncoder = passwordEncoder;
         this.authenticationManager = authenticationManager;
+        this.currentMemberService = currentMemberService;
     }
 
     @Transactional
@@ -116,6 +122,58 @@ public class AuthService {
                 memberPrincipal.getAuthProvider().name(),
                 memberPrincipal.getRole().name(),
                 true));
+    }
+
+    @Transactional
+    public MemberSessionResponse updateAccountProfile(
+            AccountProfileUpdateRequest request,
+            HttpServletRequest httpRequest,
+            HttpServletResponse httpResponse) {
+        Member member = currentMemberService.requireCurrentMember();
+        String normalizedDisplayName = normalizeDisplayName(request.displayName());
+
+        member.updateProfile(member.getEmail(), normalizedDisplayName, member.getRole());
+        persistAuthenticatedSession(member, httpRequest, httpResponse);
+        return MemberSessionResponse.from(member);
+    }
+
+    @Transactional
+    public void changeAccountPassword(AccountPasswordChangeRequest request) {
+        Member member = currentMemberService.requireCurrentMember();
+        if (!member.isLocalAccount()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "소셜 로그인 계정은 비밀번호를 변경할 수 없습니다.");
+        }
+        if (!passwordEncoder.matches(request.currentPassword(), member.getPasswordHash())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "현재 비밀번호가 일치하지 않습니다.");
+        }
+
+        member.updatePasswordHash(passwordEncoder.encode(request.newPassword().trim()));
+    }
+
+    @Transactional
+    public void withdrawAccount(
+            AccountWithdrawalRequest request,
+            HttpServletRequest httpRequest,
+            HttpServletResponse httpResponse) {
+        if (!request.confirmed()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "회원탈퇴 확인이 필요합니다.");
+        }
+
+        Member member = currentMemberService.requireCurrentMember();
+        if (member.getRole() == MemberRole.ADMIN && memberRepository.countByRole(MemberRole.ADMIN) <= 1) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "최소 한 명의 관리자 계정은 유지되어야 합니다.");
+        }
+        if (member.isLocalAccount()
+                && (request.currentPassword() == null
+                || !passwordEncoder.matches(request.currentPassword(), member.getPasswordHash()))) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "현재 비밀번호가 일치하지 않습니다.");
+        }
+
+        member.withdraw(
+                "withdrawn-" + member.getId() + "@mocha.local",
+                "탈퇴회원",
+                passwordEncoder.encode("WITHDRAWN_ACCOUNT_" + member.getId() + "_" + System.nanoTime()));
+        logout(httpRequest, httpResponse);
     }
 
     private Authentication authenticateAndPersist(

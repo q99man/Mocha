@@ -15,10 +15,18 @@ import {
 import { CompactConfirmDialog } from './CompactConfirmDialog';
 import { CompactToast } from './CompactToast';
 
-const BASE_NAV_ITEMS = [
-  { to: '/', label: '홈' },
-  { to: '/challenges', label: '챌린지' },
-  { to: '/board', label: '게시판' },
+type NavIcon = 'home' | 'challenge' | 'board' | 'user' | 'admin';
+type NavItem = {
+  to: string;
+  label: string;
+  mobileLabel?: string;
+  icon: NavIcon;
+};
+
+const BASE_NAV_ITEMS: NavItem[] = [
+  { to: '/', label: '홈', icon: 'home' },
+  { to: '/challenges', label: '챌린지', icon: 'challenge' },
+  { to: '/board', label: '게시판', icon: 'board' },
 ];
 
 type LayoutToast = {
@@ -50,9 +58,10 @@ export function AppLayout() {
 
   const navItems = [
     ...BASE_NAV_ITEMS,
-    ...(isAuthenticated && !isAdmin ? [{ to: '/mypage', label: '마이페이지' }] : []),
-    ...(isAdmin ? [{ to: '/admin', label: '관리' }] : []),
+    ...(isAuthenticated && !isAdmin ? [{ to: '/mypage', label: '마이페이지', mobileLabel: '마이', icon: 'user' as const }] : []),
+    ...(isAdmin ? [{ to: '/admin', label: '관리', icon: 'admin' as const }] : []),
   ];
+  const showMobileBottomNav = !isImmersivePlayRoute;
 
   useEffect(() => {
     setIsMobileMenuOpen(false);
@@ -209,6 +218,37 @@ export function AppLayout() {
     />
   );
 
+  const mobileBottomNav = showMobileBottomNav ? (
+    <nav className="mobile-bottom-nav" aria-label="모바일 주요 메뉴">
+      {navItems.map((item) => (
+        <NavLink key={item.to} to={item.to} end={item.to === '/'} className="mobile-bottom-nav__item">
+          <MobileNavIcon icon={item.icon} />
+          <span>{item.mobileLabel ?? item.label}</span>
+        </NavLink>
+      ))}
+      {isAuthenticated ? (
+        <button
+          className="mobile-bottom-nav__item mobile-bottom-nav__item--button"
+          type="button"
+          onClick={() => setLogoutConfirmOpen(true)}
+          disabled={logoutBusy}
+        >
+          <MobileNavIcon icon="user" />
+          <span>로그아웃</span>
+        </button>
+      ) : (
+        <button
+          className="mobile-bottom-nav__item mobile-bottom-nav__item--button"
+          type="button"
+          onClick={() => navigate(buildAuthModalHref(location, { redirectPath: buildPathWithSearch(location.pathname, location.search) }))}
+        >
+          <MobileNavIcon icon="user" />
+          <span>로그인</span>
+        </button>
+      )}
+    </nav>
+  ) : null;
+
   return (
     <>
       {isLandingRoute ? (
@@ -329,6 +369,7 @@ export function AppLayout() {
       {layoutToastElement}
       {logoutConfirmDialog}
       {mobileMenuOverlay}
+      {mobileBottomNav}
       {authMode ? (
         <AuthModal
           mode={authMode}
@@ -341,5 +382,45 @@ export function AppLayout() {
         />
       ) : null}
     </>
+  );
+}
+
+function MobileNavIcon({ icon }: { icon: NavIcon }) {
+  if (icon === 'home') {
+    return (
+      <svg className="mobile-bottom-nav__icon" viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M4 10.5 12 4l8 6.5V20a1 1 0 0 1-1 1h-4.5v-6h-5v6H5a1 1 0 0 1-1-1v-9.5Z" />
+      </svg>
+    );
+  }
+
+  if (icon === 'challenge') {
+    return (
+      <svg className="mobile-bottom-nav__icon" viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M8 5.5v13l10-6.5-10-6.5Z" />
+      </svg>
+    );
+  }
+
+  if (icon === 'board') {
+    return (
+      <svg className="mobile-bottom-nav__icon" viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M5 5h14v14H5V5Zm3 4h8M8 12h8M8 15h5" />
+      </svg>
+    );
+  }
+
+  if (icon === 'admin') {
+    return (
+      <svg className="mobile-bottom-nav__icon" viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M12 3 5 6v5c0 4.2 2.7 7.8 7 10 4.3-2.2 7-5.8 7-10V6l-7-3Zm0 6v5M12 17h.01" />
+      </svg>
+    );
+  }
+
+  return (
+    <svg className="mobile-bottom-nav__icon" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm-7 9a7 7 0 0 1 14 0H5Z" />
+    </svg>
   );
 }

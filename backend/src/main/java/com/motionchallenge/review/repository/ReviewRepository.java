@@ -11,6 +11,14 @@ import org.springframework.data.repository.query.Param;
 
 public interface ReviewRepository extends JpaRepository<Review, Long> {
 
+    interface ChallengeReviewStats {
+        Long getChallengeId();
+
+        long getReviewCount();
+
+        Double getAverageRating();
+    }
+
     @Query("""
             select review
             from Review review
@@ -60,6 +68,16 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
             order by review.createdAt desc, review.id desc
             """)
     List<Review> findRecentWithMemberAndChallenge(Pageable pageable);
+
+    @Query("""
+            select review.challenge.id as challengeId,
+                   count(review) as reviewCount,
+                   avg(review.rating) as averageRating
+            from Review review
+            where review.challenge.id in :challengeIds
+            group by review.challenge.id
+            """)
+    List<ChallengeReviewStats> findStatsByChallengeIdIn(@Param("challengeIds") java.util.Collection<Long> challengeIds);
 
     boolean existsByMemberId(Long memberId);
 
