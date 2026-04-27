@@ -847,7 +847,12 @@ export function ChallengesPage() {
                 formatDuration={formatDuration}
                 formatDifficulty={formatDifficulty}
               />
-              <Pagination currentPage={challengePage} totalPages={challengeTotalPages} onPageChange={setChallengePage} />
+              <Pagination
+                className="song-select__pagination"
+                currentPage={challengePage}
+                totalPages={challengeTotalPages}
+                onPageChange={setChallengePage}
+              />
             </>
           ) : (
             <ChallengeReviewsPane

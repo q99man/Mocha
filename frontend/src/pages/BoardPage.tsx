@@ -47,7 +47,10 @@ export function BoardPage() {
   }, [searchParams]);
 
   useEffect(() => {
-    const nextParams = new URLSearchParams();
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.delete('page');
+    nextParams.delete('category');
+    nextParams.delete('keyword');
 
     if (currentPage > 1) {
       nextParams.set('page', String(currentPage));

@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useMemo, useState } from 'react';
+import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 
@@ -108,6 +108,7 @@ export function AuthModal({
   const [error, setError] = useState<string | null>(null);
   const [visibleFeedback, setVisibleFeedback] = useState<AuthFeedback | null>(feedback);
   const [socialPreviewProvider, setSocialPreviewProvider] = useState<SocialAuthProvider>(feedback?.provider ?? 'KAKAO');
+  const modalPanelRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     setActiveMode(mode);
@@ -151,6 +152,74 @@ export function AuthModal({
       document.removeEventListener('keydown', handleEscape);
     };
   }, [onClose, standalone]);
+
+  useEffect(() => {
+    if (standalone) {
+      return;
+    }
+
+    const panel = modalPanelRef.current;
+    if (!panel) {
+      return;
+    }
+    const modalPanel = panel;
+
+    const previouslyFocusedElement = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const focusableSelector = [
+      'a[href]',
+      'button:not([disabled])',
+      'input:not([disabled])',
+      'select:not([disabled])',
+      'textarea:not([disabled])',
+      '[tabindex]:not([tabindex="-1"])',
+    ].join(',');
+
+    const getFocusableElements = () =>
+      Array.from(panel.querySelectorAll<HTMLElement>(focusableSelector)).filter((element) => {
+        const isHidden = element.hasAttribute('aria-hidden') || element.offsetParent === null;
+        return !isHidden;
+      });
+
+    const focusTimer = window.setTimeout(() => {
+      (getFocusableElements()[0] ?? modalPanel).focus();
+    }, 0);
+
+    function handleTabKey(event: KeyboardEvent) {
+      if (event.key !== 'Tab') {
+        return;
+      }
+
+      const focusableElements = getFocusableElements();
+
+      if (focusableElements.length === 0) {
+        event.preventDefault();
+        modalPanel.focus();
+        return;
+      }
+
+      const firstElement = focusableElements[0];
+      const lastElement = focusableElements[focusableElements.length - 1];
+
+      if (event.shiftKey && document.activeElement === firstElement) {
+        event.preventDefault();
+        lastElement.focus();
+        return;
+      }
+
+      if (!event.shiftKey && document.activeElement === lastElement) {
+        event.preventDefault();
+        firstElement.focus();
+      }
+    }
+
+    document.addEventListener('keydown', handleTabKey);
+
+    return () => {
+      window.clearTimeout(focusTimer);
+      document.removeEventListener('keydown', handleTabKey);
+      previouslyFocusedElement?.focus();
+    };
+  }, [standalone]);
 
   useEffect(() => {
     if (!visibleFeedback?.autoClose || !isAuthenticated || !onClose) {
@@ -370,7 +439,15 @@ export function AuthModal({
   return createPortal(
     <div className="glass-modal" role="presentation">
       <button className="glass-modal__backdrop" type="button" aria-label="인증 모달 닫기" onClick={onClose} />
-      <div className="glass-modal__panel" role="dialog" aria-modal="true" aria-label="인증" onClick={(event) => event.stopPropagation()}>
+      <div
+        ref={modalPanelRef}
+        className="glass-modal__panel"
+        role="dialog"
+        aria-modal="true"
+        aria-label="인증"
+        tabIndex={-1}
+        onClick={(event) => event.stopPropagation()}
+      >
         {card}
       </div>
     </div>,

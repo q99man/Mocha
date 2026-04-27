@@ -76,6 +76,7 @@ export function MyPage() {
   const [expandedAttemptId, setExpandedAttemptId] = useState<number | null>(null);
   const [expandedPostId, setExpandedPostId] = useState<number | null>(null);
   const [expandedReviewId, setExpandedReviewId] = useState<number | null>(null);
+  const [expandedLikedChallengeId, setExpandedLikedChallengeId] = useState<number | null>(null);
   const [postDetailsById, setPostDetailsById] = useState<Record<number, BoardPost>>({});
   const [postDetailLoadingId, setPostDetailLoadingId] = useState<number | null>(null);
   const [postDetailError, setPostDetailError] = useState<string | null>(null);
@@ -300,6 +301,7 @@ export function MyPage() {
     setExpandedAttemptId(null);
     setExpandedPostId(null);
     setExpandedReviewId(null);
+    setExpandedLikedChallengeId(null);
     setCreatingPost(false);
     setEditingPostId(null);
     setEditingReviewId(null);
@@ -316,6 +318,7 @@ export function MyPage() {
     setExpandedAttemptId((current) => (current === attemptId ? null : attemptId));
     setExpandedPostId(null);
     setExpandedReviewId(null);
+    setExpandedLikedChallengeId(null);
     setCreatingPost(false);
     setEditingPostId(null);
     setEditingReviewId(null);
@@ -343,6 +346,7 @@ export function MyPage() {
     try {
       await unlikeChallenge(challengeId);
       setLikedChallenges((current) => current.filter((challenge) => challenge.id !== challengeId));
+      setExpandedLikedChallengeId((current) => (current === challengeId ? null : current));
       setLikeActionSuccess('좋아요를 취소했습니다.');
     } catch (likeError) {
       setLikeActionError(likeError instanceof Error ? likeError.message : '좋아요를 취소하지 못했습니다.');
@@ -369,6 +373,7 @@ export function MyPage() {
     setExpandedAttemptId(null);
     setExpandedPostId(postId);
     setExpandedReviewId(null);
+    setExpandedLikedChallengeId(null);
     setCreatingPost(false);
     setEditingReviewId(null);
     setEditingPostId(null);
@@ -404,6 +409,21 @@ export function MyPage() {
     setExpandedAttemptId(null);
     setExpandedReviewId(reviewId);
     setExpandedPostId(null);
+    setExpandedLikedChallengeId(null);
+    setCreatingPost(false);
+    setEditingPostId(null);
+    setEditingReviewId(null);
+  }
+
+  function handleLikedChallengeRowToggle(challengeId: number) {
+    setLikeActionError(null);
+    setLikeActionSuccess(null);
+    setConfirmState({ type: 'none' });
+
+    setExpandedLikedChallengeId((current) => (current === challengeId ? null : challengeId));
+    setExpandedAttemptId(null);
+    setExpandedPostId(null);
+    setExpandedReviewId(null);
     setCreatingPost(false);
     setEditingPostId(null);
     setEditingReviewId(null);
@@ -430,6 +450,7 @@ export function MyPage() {
     setEditingPostId(post.id);
     setExpandedPostId(post.id);
     setExpandedReviewId(null);
+    setExpandedLikedChallengeId(null);
     setPostActionError(null);
     setPostActionSuccess(null);
     setConfirmState({ type: 'none' });
@@ -564,6 +585,7 @@ export function MyPage() {
     setExpandedAttemptId(null);
     setExpandedReviewId(review.id);
     setExpandedPostId(null);
+    setExpandedLikedChallengeId(null);
     setReviewActionError(null);
     setReviewActionSuccess(null);
     setConfirmState({ type: 'none' });
@@ -761,10 +783,12 @@ export function MyPage() {
         {activeTab === 'LIKES' ? (
           <MyPageLikedChallengesTab
             pagedChallenges={pagedLikedChallenges}
+            expandedChallengeId={expandedLikedChallengeId}
             likedPage={likedPage}
             likedTotalPages={likedTotalPages}
             unlikeBusyIds={unlikeBusyIds}
             onLikedPageChange={setLikedPage}
+            onToggleChallenge={handleLikedChallengeRowToggle}
             onUnlikeChallenge={handleUnlikeChallenge}
             formatDuration={formatDuration}
             formatDifficulty={formatDifficulty}

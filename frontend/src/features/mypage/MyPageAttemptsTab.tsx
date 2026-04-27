@@ -36,7 +36,6 @@ export function MyPageAttemptsTab({
       {pagedAttempts.length === 0 ? (
         <div className="glass-panel glass-panel--nested glass-panel--empty">
           <strong>아직 저장된 기록이 없습니다.</strong>
-          <p>챌린지를 완료하면 여기서 바로 확인할 수 있습니다.</p>
         </div>
       ) : (
         <div className="admin-hub-compact-table mypage-compact-table">

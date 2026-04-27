@@ -49,7 +49,6 @@ export function MyPageReviewsTab({
       {pagedReviews.length === 0 ? (
         <div className="glass-panel glass-panel--nested glass-panel--empty">
           <strong>작성한 후기가 아직 없습니다.</strong>
-          <p>챌린지에 참여하면 후기 버튼으로 바로 등록할 수 있습니다.</p>
         </div>
       ) : (
         <div className="admin-hub-compact-table mypage-compact-table">
@@ -87,7 +86,7 @@ export function MyPageReviewsTab({
                         {review.challengeTitle}
                       </button>
                     </div>
-                    <div className="mypage-compact-row__metric">★ {review.rating.toFixed(1)}</div>
+                    <div className="mypage-compact-row__metric mypage-compact-row__metric--rating">★ {review.rating.toFixed(1)}</div>
                     <div className="mypage-compact-row__date">{formatDate(review.createdAt)}</div>
                   </article>
 

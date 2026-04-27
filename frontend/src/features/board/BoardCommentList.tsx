@@ -32,7 +32,6 @@ export function BoardCommentList({
     return (
       <div className="board-compact-empty board-empty-inline">
         <strong>아직 등록된 댓글이 없습니다.</strong>
-        <p>첫 댓글로 대화를 시작해 보세요.</p>
       </div>
     );
   }

@@ -20,8 +20,7 @@ export function LandingHero({ isAuthenticated }: LandingHeroProps) {
         </div>
 
         <div className="lp-hero__copy">
-          <span className="lp-hero__eyebrow">Motion Challenge</span>
-          <h2>모션 챌린지 도전해 보세요</h2>
+          <h2>Motion Challenge</h2>
           <div className="lp-actions">
             <Link className="lp-button" to={isAuthenticated ? '/challenges' : buildAuthModalHref(location, { redirectPath: '/' })}>
               시작하기

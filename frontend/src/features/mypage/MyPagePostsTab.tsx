@@ -76,7 +76,6 @@ export function MyPagePostsTab({
           <div className="mypage-inline-detail__header">
             <div>
               <strong>새 게시글 작성</strong>
-              <p>게시판에 맞게 간단하게 작성하고 바로 등록할 수 있습니다.</p>
             </div>
             <div className="admin-action-group admin-action-group--inline">
               <button

@@ -55,7 +55,8 @@ export function AppLayout() {
   const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
   const [layoutToast, setLayoutToast] = useState<LayoutToast | null>(null);
 
-  const navItems = [
+  const navItems = [...BASE_NAV_ITEMS];
+  const mobileNavItems = [
     ...BASE_NAV_ITEMS,
     ...(isAuthenticated && !isAdmin ? [{ to: '/mypage', label: '마이페이지', mobileLabel: '마이', icon: 'user' as const }] : []),
     ...(isAdmin ? [{ to: '/admin', label: '관리', icon: 'admin' as const }] : []),
@@ -166,7 +167,7 @@ export function AppLayout() {
 
   const mobileBottomNav = showMobileBottomNav ? (
     <nav className="mobile-bottom-nav" aria-label="모바일 주요 메뉴">
-      {navItems.map((item) => (
+      {mobileNavItems.map((item) => (
         <NavLink key={item.to} to={item.to} end={item.to === '/'} className="mobile-bottom-nav__item">
           <MobileNavIcon icon={item.icon} />
           <span>{item.mobileLabel ?? item.label}</span>
@@ -199,33 +200,42 @@ export function AppLayout() {
     <>
       {isLandingRoute ? (
         <div className="stage-shell stage-shell--landing">
-          <header className={`stage-topbar stage-topbar--landing${isLandingTopbarScrolled ? ' is-scrolled' : ''}`}>
-            <Link className="stage-topbar__brand stage-topbar__brand--landing" to="/">
+          <header className={`app-header-glass stage-topbar stage-topbar--landing${isLandingTopbarScrolled ? ' is-scrolled' : ''}`}>
+            <Link className="app-header-glass__brand stage-topbar__brand stage-topbar__brand--landing" to="/">
               <div className="stage-topbar__title-row stage-topbar__title-row--landing">
-                <h1>Mocha</h1>
+                <strong>Mocha</strong>
               </div>
             </Link>
 
-            <div className="stage-topbar__actions stage-topbar__actions--landing">
-              {isAdmin ? (
-                <NavLink className="stage-nav__utility" to="/admin">
-                  관리자
+            <nav className="app-header-glass__nav stage-nav stage-nav--landing" aria-label="주요 메뉴">
+              {navItems.map((item) => (
+                <NavLink key={item.to} to={item.to} end={item.to === '/'}>
+                  {item.label}
                 </NavLink>
-              ) : null}
-              {isAuthenticated && !isAdmin ? (
-                <NavLink className="stage-nav__utility" to="/mypage">
-                  마이페이지
-                </NavLink>
-              ) : null}
+              ))}
+            </nav>
+
+            <div className="app-header-glass__actions stage-topbar__actions stage-topbar__actions--landing">
               {isAuthenticated ? (
-                <button
-                  className="stage-nav__utility"
-                  type="button"
-                  onClick={() => setLogoutConfirmOpen(true)}
-                  disabled={logoutBusy}
-                >
-                  로그아웃
-                </button>
+                <>
+                  {isAdmin ? (
+                    <NavLink className="stage-nav__utility" to="/admin">
+                      관리자
+                    </NavLink>
+                  ) : (
+                    <NavLink className="stage-nav__utility" to="/mypage">
+                      마이페이지
+                    </NavLink>
+                  )}
+                  <button
+                    className="stage-nav__utility"
+                    type="button"
+                    onClick={() => setLogoutConfirmOpen(true)}
+                    disabled={logoutBusy}
+                  >
+                    로그아웃
+                  </button>
+                </>
               ) : (
                 <NavLink className="stage-nav__cta" to={buildAuthModalHref(location, { redirectPath: location.pathname })}>
                   로그인
@@ -250,7 +260,7 @@ export function AppLayout() {
                 <strong>Mocha</strong>
               </Link>
 
-              <nav className="app-header-glass__nav" aria-label="주요 메뉴">
+              <nav className="app-header-glass__nav stage-nav stage-nav--landing" aria-label="주요 메뉴">
                 {navItems.map((item) => (
                   <NavLink key={item.to} to={item.to} end={item.to === '/'}>
                     {item.label}
@@ -261,7 +271,15 @@ export function AppLayout() {
               <div className="app-header-glass__actions">
                 {isAuthenticated ? (
                   <>
-                    <span className="app-header-glass__account">{user?.displayName ?? '사용자'}</span>
+                    {isAdmin ? (
+                      <NavLink className="stage-nav__utility" to="/admin">
+                        관리자
+                      </NavLink>
+                    ) : (
+                      <NavLink className="stage-nav__utility" to="/mypage">
+                        마이페이지
+                      </NavLink>
+                    )}
                     <button
                       className="stage-nav__utility"
                       type="button"

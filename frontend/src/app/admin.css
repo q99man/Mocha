@@ -32,7 +32,7 @@
   min-height: 24px;
   padding: 0 10px;
   border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 999px;
+  border-radius: 8px;
   background: rgba(255, 255, 255, 0.05);
   color: rgba(255, 255, 255, 0.85);
   font-size: 0.72rem;
@@ -143,7 +143,7 @@
   align-items: end;
   padding: 14px;
   border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 18px;
+  border-radius: 8px;
   background: rgba(255, 255, 255, 0.035);
   position: relative;
   z-index: 5;
@@ -198,7 +198,7 @@
   min-height: 38px;
   padding: 8px 12px;
   border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 12px;
+  border-radius: 8px;
   background: rgba(255, 255, 255, 0.04);
   color: #ffffff;
   font-size: 0.84rem;
@@ -214,7 +214,7 @@
   right: 8px;
   width: 22px;
   height: 22px;
-  border-radius: 999px;
+  border-radius: 8px;
   border: 1px solid rgba(255, 255, 255, 0.08);
   background: rgba(255, 255, 255, 0.06);
   color: rgba(255, 255, 255, 0.72);
@@ -291,7 +291,7 @@
   gap: 4px;
   padding: 8px;
   border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 16px;
+  border-radius: 8px;
   background:
     linear-gradient(180deg, rgba(28, 35, 48, 0.98), rgba(14, 20, 30, 0.98));
   box-shadow:
@@ -321,7 +321,7 @@
   min-height: 34px;
   padding: 7px 10px;
   border: 0;
-  border-radius: 10px;
+  border-radius: 8px;
   background: transparent;
   color: rgba(255, 255, 255, 0.76);
   font-size: 0.81rem;
@@ -491,7 +491,7 @@
   justify-content: center;
   min-height: 28px;
   padding: 0 10px;
-  border-radius: 999px;
+  border-radius: 8px;
   border: 1px solid rgba(255, 255, 255, 0.1);
   background: rgba(255, 255, 255, 0.04);
   color: rgba(255, 255, 255, 0.84);
@@ -585,7 +585,7 @@
   margin: 10px 0 14px;
   padding: 14px 16px;
   border: 1px solid rgba(255, 255, 255, 0.07);
-  border-radius: 14px;
+  border-radius: 8px;
   background: rgba(255, 255, 255, 0.03);
 }
 
@@ -643,7 +643,7 @@
 
 .admin-hub-compact__inline-card {
   padding: 12px 14px;
-  border-radius: 12px;
+  border-radius: 8px;
   border: 1px solid rgba(255, 255, 255, 0.06);
   background: rgba(255, 255, 255, 0.03);
 }
@@ -671,7 +671,7 @@
 .admin-hub-compact__post-content {
   margin-top: 14px;
   padding: 14px;
-  border-radius: 10px;
+  border-radius: 8px;
   border: 1px solid rgba(255, 255, 255, 0.06);
   background: rgba(0, 0, 0, 0.12);
   color: rgba(255, 255, 255, 0.82);
@@ -688,7 +688,7 @@
 .admin-hub-compact__modal-form {
   gap: 14px;
   padding: 18px;
-  border-radius: 20px;
+  border-radius: 8px;
 }
 
 .admin-hub-compact__modal-summary {
@@ -701,7 +701,7 @@
   display: grid;
   gap: 4px;
   padding: 12px 13px;
-  border-radius: 14px;
+  border-radius: 8px;
   border: 1px solid rgba(255, 255, 255, 0.08);
   background: rgba(255, 255, 255, 0.04);
 }
@@ -788,7 +788,7 @@
 .admin-hub-compact__difficulty-option {
   min-height: 38px;
   border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 12px;
+  border-radius: 8px;
   background: rgba(255, 255, 255, 0.04);
   color: rgba(255, 255, 255, 0.72);
   font-size: 0.86rem;
@@ -819,7 +819,7 @@
 .admin-hub-compact__modal-field select {
   min-height: 38px;
   padding: 9px 11px;
-  border-radius: 12px;
+  border-radius: 8px;
   font-size: 0.86rem;
 }
 
@@ -835,7 +835,7 @@
 .admin-hub-compact__modal-field--dropdown .admin-hub-compact__filter-trigger {
   min-height: 38px;
   padding: 9px 11px;
-  border-radius: 12px;
+  border-radius: 8px;
   font-size: 0.86rem;
 }
 
@@ -957,7 +957,7 @@
 .admin-dashboard-compact__insight,
 .admin-dashboard-compact__review-item {
   border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 18px;
+  border-radius: 8px;
   background: rgba(255, 255, 255, 0.03);
 }
 
@@ -1082,7 +1082,7 @@
   gap: 12px;
   align-items: center;
   padding: 12px 14px;
-  border-radius: 16px;
+  border-radius: 8px;
   border: 1px solid rgba(255, 255, 255, 0.06);
   background: rgba(255, 255, 255, 0.025);
 }
@@ -1178,7 +1178,7 @@
   }
 
   .admin-hub-compact__upload-actions {
-    justify-content: flex-start;
+    justify-content: flex-end;
   }
 
   .admin-hub-compact__model-picker,
@@ -1187,7 +1187,7 @@
   }
 
   .admin-hub-compact__filter-actions {
-    justify-content: flex-start;
+    justify-content: flex-end;
   }
 
   .admin-dashboard-compact__hero-grid,
@@ -1341,8 +1341,8 @@
   .admin-hub-compact-row__actions--wrap,
   .admin-action-group {
     grid-column: 2;
-    justify-self: start;
-    justify-content: flex-start;
+    justify-self: end;
+    justify-content: flex-end;
     flex-wrap: wrap;
     width: 100%;
     max-width: 100%;
@@ -1369,7 +1369,7 @@
   }
 
   .admin-dashboard-compact__list-actions {
-    justify-content: flex-start;
+    justify-content: flex-end;
   }
 }
 
@@ -1389,7 +1389,7 @@
   position: absolute;
   width: 28rem;
   height: 28rem;
-  border-radius: 999px;
+  border-radius: 8px;
   filter: blur(90px);
   opacity: 0.34;
   pointer-events: none;
@@ -1452,7 +1452,7 @@
   align-items: center;
   gap: 0.5rem;
   padding: 0.9rem 1rem;
-  border-radius: 0.9rem;
+  border-radius: 0.5rem;
   border: 1px solid rgba(255, 255, 255, 0.08);
   background: rgba(255, 255, 255, 0.04);
   color: inherit;
@@ -1501,7 +1501,7 @@
 .admin-empty,
 .admin-hub-preview,
 .admin-hub-preview__content {
-  border-radius: 16px;
+  border-radius: 8px;
 }
 
 .admin-button,
@@ -1517,5 +1517,5 @@
 .admin-form input,
 .admin-form textarea,
 .admin-form select {
-  border-radius: 10px;
+  border-radius: 8px;
 }
