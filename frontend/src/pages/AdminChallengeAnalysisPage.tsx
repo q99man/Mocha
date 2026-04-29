@@ -163,11 +163,11 @@ export function AdminChallengeAnalysisPage() {
           </div>
         </div>
 
-        <div className="glass-chip-group mypage-compact-tabs admin-hub-compact__chips">
-          <span className="glass-chip is-active">{formatDifficulty(challenge.difficulty)}</span>
-          <span className="glass-chip">{challenge.category}</span>
-          <span className="glass-chip">{toAnalysisStatusLabel(challenge.referenceAnalysisStatus)}</span>
-          <span className="glass-chip">
+        <div className="glass-chip-group mypage-compact-tabs admin-hub-compact__chips admin-analysis-compact__meta">
+          <span className="glass-chip admin-analysis-compact__meta-chip is-active">{formatDifficulty(challenge.difficulty)}</span>
+          <span className="glass-chip admin-analysis-compact__meta-chip">{challenge.category}</span>
+          <span className="glass-chip admin-analysis-compact__meta-chip">{toAnalysisStatusLabel(challenge.referenceAnalysisStatus)}</span>
+          <span className="glass-chip admin-analysis-compact__meta-chip">
             {challenge.referenceMotionProfileReady ? '미리보기 가능' : '미리보기 대기'}
           </span>
         </div>

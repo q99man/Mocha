@@ -60,7 +60,7 @@ public class AuthController {
     public ResponseEntity<MemberSessionResponse> me(Authentication authentication) {
         return authService.getCurrentSession(authentication)
                 .map(ResponseEntity::ok)
-                .orElseGet(() -> ResponseEntity.status(HttpStatus.UNAUTHORIZED).build());
+                .orElseGet(() -> ResponseEntity.noContent().build());
     }
 
     @PatchMapping("/me")

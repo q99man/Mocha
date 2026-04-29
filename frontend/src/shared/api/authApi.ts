@@ -26,7 +26,7 @@ export async function getCurrentSession(): Promise<AuthSession | null> {
     credentials: 'include',
   });
 
-  if (response.status === 401) {
+  if (response.status === 401 || response.status === 204) {
     return null;
   }
 

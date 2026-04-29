@@ -14,6 +14,30 @@
   margin-top: 0;
 }
 
+.admin-analysis-compact__meta {
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 12px;
+}
+
+.admin-analysis-compact__meta-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 32px;
+  padding: 0 12px;
+  line-height: 1;
+  cursor: default;
+  transform: none;
+  transition:
+    background 220ms ease,
+    border-color 220ms ease;
+}
+
+.admin-analysis-compact__meta-chip:hover {
+  transform: none;
+}
+
 .admin-hub-compact__section {
   display: grid;
   gap: 14px;
@@ -1142,7 +1166,7 @@
   display: grid;
   grid-template-columns: 132px minmax(0, 1fr);
   gap: 14px;
-  align-items: start;
+  align-items: center;
   padding: 12px 2px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }

@@ -97,6 +97,12 @@ class AuthIntegrationTest {
     }
 
     @Test
+    void currentSessionReturnsNoContentWhenUnauthenticated() throws Exception {
+        mockMvc.perform(get("/api/auth/me"))
+                .andExpect(status().isNoContent());
+    }
+
+    @Test
     void firstRegisteredMemberBecomesAdminAndCanAccessAdminApi() throws Exception {
         MvcResult registerResult = mockMvc.perform(post("/api/auth/register")
                         .contentType("application/json")

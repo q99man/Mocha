@@ -4200,7 +4200,8 @@ main {
   background: rgba(255, 255, 255, 0.1);
 }
 
-.glass-chip:hover,
+button.glass-chip:hover,
+a.glass-chip:hover,
 .glass-pagination__button:hover:not(:disabled) {
   transform: translateY(-1px);
 }
@@ -5173,10 +5174,6 @@ main {
 
 .board-compact-body .board-compact-row:last-child {
   border-bottom: none;
-}
-
-.board-compact-row:hover {
-  background: rgba(255, 255, 255, 0.03);
 }
 
 .board-compact-col,
