@@ -197,14 +197,32 @@ cd mediapipe-bridge
 <details>
 <summary><b>사용자 흐름 스크린샷 보기</b></summary>
 
-- **챌린지 목록**: 활성 챌린지 탐색 진입점  
-  <img width="900" alt="챌린지 목록" src="docs/screenshots/challenges.jpg" />
-- **시도 업로드/카메라 확인**: 촬영/업로드 단계 진입  
-  <img width="900" alt="시도 업로드/카메라 확인" src="docs/screenshots/attempt-upload.jpg" />
-- **챌린지 상세/참여**: 상세 정보·레퍼런스 확인 후 시작  
-  <img width="900" alt="챌린지 상세/참여" src="docs/screenshots/challenge-detail.jpg" />
-- **시도 결과**: 처리 완료 후 점수/결과 확인  
-  <img width="900" alt="시도 결과" src="docs/screenshots/attempt-result.jpg" />
+<table>
+  <tr>
+    <td align="center" width="50%">
+      <b>챌린지 목록</b><br />
+      활성 챌린지 탐색 진입점<br /><br />
+      <img width="440" alt="챌린지 목록" src="docs/screenshots/challenges.jpg" />
+    </td>
+    <td align="center" width="50%">
+      <b>시도 업로드/카메라 확인</b><br />
+      촬영/업로드 단계 진입<br /><br />
+      <img width="440" alt="시도 업로드/카메라 확인" src="docs/screenshots/attempt-upload.jpg" />
+    </td>
+  </tr>
+  <tr>
+    <td align="center" width="50%">
+      <b>챌린지 상세/참여</b><br />
+      상세 정보·레퍼런스 확인 후 시작<br /><br />
+      <img width="440" alt="챌린지 상세/참여" src="docs/screenshots/challenge-detail.jpg" />
+    </td>
+    <td align="center" width="50%">
+      <b>시도 결과</b><br />
+      처리 완료 후 점수/결과 확인<br /><br />
+      <img width="440" alt="시도 결과" src="docs/screenshots/attempt-result.jpg" />
+    </td>
+  </tr>
+</table>
 
 </details>
 
