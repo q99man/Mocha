@@ -12,8 +12,8 @@
 - [주요 기능](#주요-기능)
 - [기술 스택](#기술-스택)
 - [담당 역할 (개인 프로젝트)](#담당-역할-개인-프로젝트)
-- [핵심 구현 (2~3)](#핵심-구현-2~3)
-- [트러블슈팅 (1)](#트러블슈팅-1)
+- [핵심 구현](#핵심-구현)
+- [트러블슈팅](#트러블슈팅)
 - [실행 방법](#실행-방법)
 - [화면 이미지](#화면-이미지)
 - [저장소 구조](#저장소-구조)
@@ -45,6 +45,7 @@ npm.cmd run dev
 
 ---
 
+<a id="프로젝트-소개"></a>
 ## 프로젝트 소개
 
 Mocha는 “짧게 따라 하고 바로 피드백 받는” 경험에 집중한 모션 챌린지 웹 플랫폼입니다.  
@@ -53,6 +54,7 @@ Mocha는 “짧게 따라 하고 바로 피드백 받는” 경험에 집중한 
 - 제품 범위/비목표: [docs/PRODUCT.md](docs/PRODUCT.md)
 - 구조/모듈 맵: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
 
+<a id="주요-기능"></a>
 ## 주요 기능
 
 - **공개 사용자**
@@ -67,6 +69,7 @@ Mocha는 “짧게 따라 하고 바로 피드백 받는” 경험에 집중한 
   - 모델 자산 관리
   - 챌린지 기준 영상(레퍼런스) 분석 실행
 
+<a id="기술-스택"></a>
 ## 기술 스택
 
 - **Frontend**: React 18, TypeScript, Vite, React Router, Vitest
@@ -75,6 +78,7 @@ Mocha는 “짧게 따라 하고 바로 피드백 받는” 경험에 집중한 
 - **Infra(Local)**: MySQL 8.4, Redis 7.4 (`docker-compose.yml`)
 - **Test**: H2(테스트 프로필), Spring Boot Test, Spring Security Test
 
+<a id="담당-역할-개인-프로젝트"></a>
 ## 담당 역할 (개인 프로젝트)
 
 - 공개 UX/관리자 UX를 분리한 라우팅·레이아웃 구조 설계 및 구현
@@ -83,7 +87,8 @@ Mocha는 “짧게 따라 하고 바로 피드백 받는” 경험에 집중한 
 - MySQL 런타임 프로필과 H2 테스트 프로필 분리로 테스트 안정성 확보
 - MediaPipe 기반 분석을 브리지(FastAPI)로 분리해 확장 가능한 처리 경로 마련
 
-## 핵심 구현 (2~3)
+<a id="핵심-구현"></a>
+## 핵심 구현
 
 ### 1) 시도 업로드 → 처리 진행률 → 결과/이력 조회 플로우
 
@@ -103,7 +108,8 @@ Mocha는 “짧게 따라 하고 바로 피드백 받는” 경험에 집중한 
 - **해결**: MediaPipe 분석을 FastAPI 브리지로 분리하고, 백엔드는 HTTP로 요청하는 구조로 확장 경로를 마련했습니다.
 - **결과**: 분석 워커/모델 업데이트/성능 튜닝을 백엔드와 독립적으로 진행할 수 있습니다.
 
-## 트러블슈팅 (1)
+<a id="트러블슈팅"></a>
+## 트러블슈팅
 
 ### 로컬에서 MySQL 접속 실패(Access denied) / 설정이 꼬이는 문제
 
@@ -116,6 +122,7 @@ Mocha는 “짧게 따라 하고 바로 피드백 받는” 경험에 집중한 
   - 또는 도커를 쓰지 않는다면, 본인 로컬 MySQL 계정/비밀번호에 맞춰 `.env` 또는 `application-mysql.yml`을 일관되게 맞춥니다.
 - **배운점**: 로컬 실행에서 가장 큰 비용은 “코드”보다 “환경 불일치”입니다. 도커/프로필/환경변수의 단일 소스(Single Source of Truth)를 유지하면 시행착오가 줄어듭니다.
 
+<a id="실행-방법"></a>
 ## 실행 방법
 
 자세한 개발 가이드는 [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)를 참고하세요.
@@ -182,6 +189,7 @@ cd mediapipe-bridge
 
 소셜 로그인(OAuth2)을 붙이려면: [docs/SOCIAL_AUTH_SETUP.md](docs/SOCIAL_AUTH_SETUP.md)
 
+<a id="화면-이미지"></a>
 ## 화면 이미지
 
 스크린샷은 `docs/screenshots/`에 두고, README에서는 **필요할 때만 펼쳐서** 확인할 수 있도록 정리했습니다.
@@ -190,13 +198,13 @@ cd mediapipe-bridge
 <summary><b>사용자 흐름 스크린샷 보기</b></summary>
 
 - **챌린지 목록**: 활성 챌린지 탐색 진입점  
-  ![챌린지 목록](docs/screenshots/challenges.jpg)
-- **챌린지 상세/참여**: 상세 정보·레퍼런스 확인 후 시작  
-  ![챌린지 상세/참여](docs/screenshots/challenge-detail.jpg)
+  <img width="900" alt="챌린지 목록" src="docs/screenshots/challenges.jpg" />
 - **시도 업로드/카메라 확인**: 촬영/업로드 단계 진입  
-  ![시도 업로드/카메라 확인](docs/screenshots/attempt-upload.jpg)
+  <img width="900" alt="시도 업로드/카메라 확인" src="docs/screenshots/attempt-upload.jpg" />
+- **챌린지 상세/참여**: 상세 정보·레퍼런스 확인 후 시작  
+  <img width="900" alt="챌린지 상세/참여" src="docs/screenshots/challenge-detail.jpg" />
 - **시도 결과**: 처리 완료 후 점수/결과 확인  
-  ![시도 결과](docs/screenshots/attempt-result.jpg)
+  <img width="900" alt="시도 결과" src="docs/screenshots/attempt-result.jpg" />
 
 </details>
 
@@ -204,14 +212,15 @@ cd mediapipe-bridge
 <summary><b>관리자(운영) 스크린샷 보기</b></summary>
 
 - **챌린지 관리**: CRUD 및 활성/비활성 토글  
-  ![관리자 - 챌린지 관리](docs/screenshots/admin-challenges.jpg)
+  <img width="900" alt="관리자 - 챌린지 관리" src="docs/screenshots/admin-challenges.jpg" />
 - **챌린지 분석**: 기준 영상 분석 실행/관리  
-  ![관리자 - 챌린지 분석](docs/screenshots/admin-analysis.jpg)
+  <img width="900" alt="관리자 - 챌린지 분석" src="docs/screenshots/admin-analysis.jpg" />
 
 </details>
 
 ---
 
+<a id="저장소-구조"></a>
 ## 저장소 구조
 
 ```text
