@@ -16,6 +16,7 @@ import {
 import { buildAttemptJudgementInsights } from '../shared/presentation/attemptJudgementInsights';
 import { buildAttemptReplayHud } from '../shared/presentation/attemptReplayHud';
 import { buildAttemptReplayTimeline } from '../shared/presentation/attemptReplayTimeline';
+import { normalizeAttemptMessage } from '../shared/presentation/attemptMessages';
 import type { AttemptSummary, AttemptVideoProcessingJobProgress } from '../shared/types/attempt';
 import type { Challenge } from '../shared/types/challenge';
 
@@ -159,7 +160,7 @@ export function AttemptResultPage() {
       return '진행 중';
     }
 
-    return finalFeedback?.headline || attempt.resultHeadline || '결과';
+    return finalFeedback?.headline || normalizeAttemptMessage(attempt.resultHeadline, '결과');
   }, [attempt, finalFeedback, pending]);
 
   const summary = useMemo(() => {
@@ -168,10 +169,10 @@ export function AttemptResultPage() {
     }
 
     if (pending) {
-      return attempt.processingNotice ?? '진행 중';
+      return normalizeAttemptMessage(attempt.processingNotice, '분석이 아직 진행 중입니다.');
     }
 
-    return finalFeedback?.summary || attempt.resultSummary;
+    return finalFeedback?.summary || normalizeAttemptMessage(attempt.resultSummary, '결과 요약을 준비하지 못했습니다.');
   }, [attempt, finalFeedback, pending]);
 
   const briefComment = useMemo(() => {
@@ -184,10 +185,13 @@ export function AttemptResultPage() {
     }
 
     if (finalFeedback?.focusLabel) {
-      return `Focus: ${finalFeedback.focusLabel}`;
+      return `집중 포인트: ${finalFeedback.focusLabel}`;
     }
 
-    return attempt.coachingTeaser || attempt.keepStableFocus || attempt.retryFocus || '다음에는 더 좋아질 수 있습니다.';
+    return normalizeAttemptMessage(
+      attempt.coachingTeaser || attempt.keepStableFocus || attempt.retryFocus,
+      '다음에는 더 좋아질 수 있습니다.',
+    );
   }, [attempt, finalFeedback, pending]);
 
   const replayCues = useMemo(

@@ -91,7 +91,7 @@ describe('AttemptResultPage final feedback', () => {
     expect(screen.getByText('This run is close to top-tier quality. Tighten the beat match on the next take.')).toBeInTheDocument();
     expect(screen.getAllByText('Building consistency').length).toBeGreaterThan(0);
     expect(screen.getAllByText('클리어').length).toBeGreaterThan(0);
-    expect(screen.getByText('Focus: Tighten the beat match on the next take.')).toBeInTheDocument();
+    expect(screen.getByText('집중 포인트: Tighten the beat match on the next take.')).toBeInTheDocument();
     expect(screen.queryByText('Raw headline')).not.toBeInTheDocument();
   });
 });

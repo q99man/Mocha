@@ -566,10 +566,10 @@ public class AttemptService {
     private String buildDeltaTail(AttemptDeltaMetric bestMetric, AttemptDeltaMetric worstMetric) {
         StringBuilder tail = new StringBuilder();
         if (bestMetric != null && bestMetric.delta() > 0) {
-            tail.append(" ").append(bestMetric.label()).append(" improved ").append(formatSignedDelta(bestMetric.delta())).append(".");
+            tail.append(" ").append(bestMetric.label()).append("이 ").append(formatSignedDelta(bestMetric.delta())).append(" 좋아졌습니다.");
         }
         if (worstMetric != null && worstMetric.delta() < 0) {
-            tail.append(" ").append(worstMetric.label()).append(" slipped ").append(formatSignedDelta(worstMetric.delta())).append(".");
+            tail.append(" ").append(worstMetric.label()).append("이 ").append(formatSignedDelta(worstMetric.delta())).append(" 낮아졌습니다.");
         }
         return tail.toString();
     }
@@ -592,20 +592,20 @@ public class AttemptService {
         AttemptDeltaMetric worstMetric = buildPrimaryDeltaMetric(comparison, false);
 
         if (weakestArea != null) {
-            String message = "Focus the next retry on " + weakestArea + " first.";
+            String message = "다음 재도전에서는 " + weakestArea + "부터 먼저 집중해 보세요.";
             if (worstMetric != null && worstMetric.delta() < 0) {
-                message += " " + worstMetric.label() + " also moved " + formatSignedDelta(worstMetric.delta()) + ".";
+                message += " " + worstMetric.label() + "도 " + formatSignedDelta(worstMetric.delta()) + " 변했습니다.";
             }
             return message;
         }
 
         if (comparison != null && comparison.scoreDeltaFromPrevious() != null) {
-            return "Keep the capture setup stable and isolate one variable. Latest score trend: "
+            return "촬영 세팅을 안정적으로 유지하고 한 번에 한 가지 변화만 바꿔 보세요. 최근 점수 흐름: "
                     + formatSignedDelta(comparison.scoreDeltaFromPrevious())
-                    + " pts.";
+                    + "점";
         }
 
-        return "Use the next retry to create a clean baseline with the same camera setup.";
+        return "다음 재도전에서는 같은 카메라 세팅으로 깔끔한 기준 기록을 만들어 보세요.";
     }
 
     private String buildKeepStableFocus(
@@ -620,18 +620,18 @@ public class AttemptService {
         AttemptDeltaMetric bestMetric = buildPrimaryDeltaMetric(comparison, true);
 
         if (strongestArea != null) {
-            String message = "Keep " + strongestArea + " stable on the next retry.";
+            String message = "다음 재도전에서도 " + strongestArea + "을 안정적으로 유지해 보세요.";
             if (bestMetric != null && bestMetric.delta() > 0) {
-                message += " " + bestMetric.label() + " improved " + formatSignedDelta(bestMetric.delta()) + ".";
+                message += " " + bestMetric.label() + "이 " + formatSignedDelta(bestMetric.delta()) + " 좋아졌습니다.";
             }
             return message;
         }
 
         if (bestMetric != null && bestMetric.delta() > 0) {
-            return "Preserve the setup that improved " + bestMetric.label() + " by " + formatSignedDelta(bestMetric.delta()) + ".";
+            return bestMetric.label() + "을 " + formatSignedDelta(bestMetric.delta()) + " 개선한 세팅을 유지해 보세요.";
         }
 
-        return "Keep the current framing, lighting, and tempo as consistent as possible across retries.";
+        return "재도전 사이에서 현재 구도, 조명, 템포를 최대한 일정하게 유지해 보세요.";
     }
 
     private String resolveResultSource(Attempt attempt, boolean hasUploadedVideo) {
@@ -863,4 +863,3 @@ public class AttemptService {
         };
     }
 }
-

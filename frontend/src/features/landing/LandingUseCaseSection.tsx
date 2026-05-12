@@ -12,9 +12,24 @@ type ReviewRow = 'left' | 'right';
 
 export function LandingUseCaseSection({ reviews }: LandingUseCaseSectionProps) {
   const distributedReviews = useMemo(() => distributeReviews(reviews), [reviews]);
-  const firstRow = distributedReviews.filter((_, index) => index % 2 === 0);
-  const secondRow = distributedReviews.filter((_, index) => index % 2 === 1);
-  const secondRowSource = secondRow.length > 0 ? secondRow : firstRow;
+
+  const padReviews = (items: Review[]) => {
+    if (items.length === 0) {
+      return items;
+    }
+    let padded = [...items];
+    while (padded.length < 4) {
+      padded = [...padded, ...items];
+    }
+    return padded;
+  };
+
+  const firstRow = useMemo(() => padReviews(distributedReviews.filter((_, index) => index % 2 === 0)), [distributedReviews]);
+  const secondRow = useMemo(() => {
+    const rawSecond = distributedReviews.filter((_, index) => index % 2 === 1);
+    const source = rawSecond.length > 0 ? rawSecond : distributedReviews.filter((_, index) => index % 2 === 0);
+    return padReviews(source);
+  }, [distributedReviews]);
 
   return (
     <section className="lp-section lp-section--light" id="use-case">
@@ -27,20 +42,20 @@ export function LandingUseCaseSection({ reviews }: LandingUseCaseSectionProps) {
           <div className="lp-review-marquee__viewport">
             <div className="lp-review-marquee__track lp-review-marquee__track--left">
               <ReviewCardGroup reviews={firstRow} row="left" clone={false} />
-              {firstRow.length > 1 ? <ReviewCardGroup reviews={firstRow} row="left" clone /> : null}
+              <ReviewCardGroup reviews={firstRow} row="left" clone />
             </div>
           </div>
 
           <div className="lp-review-marquee__viewport">
-            <div className="lp-review-marquee__track lp-review-marquee__track--right">
-              <ReviewCardGroup reviews={secondRowSource} row="right" clone={false} />
-              {secondRowSource.length > 1 ? <ReviewCardGroup reviews={secondRowSource} row="right" clone /> : null}
+            <div className={`lp-review-marquee__track lp-review-marquee__track--right`}>
+              <ReviewCardGroup reviews={secondRow} row="right" clone={false} />
+              <ReviewCardGroup reviews={secondRow} row="right" clone />
             </div>
           </div>
         </div>
       ) : (
         <article className="lp-review-empty lp-panel-glass">
-          <span className="lp-kicker">Coming soon</span>
+          <span className="lp-kicker">곧 공개됩니다</span>
         </article>
       )}
     </section>
@@ -52,7 +67,7 @@ function ReviewCardGroup({ reviews, row, clone }: { reviews: Review[]; row: Revi
     <div className="lp-review-marquee__group" aria-hidden={clone}>
       {reviews.map((review, index) => (
         <ReviewCard
-          key={`${review.id}-${row}-${clone ? 'clone' : 'base'}`}
+          key={`${review.id}-${row}-${clone ? 'clone' : 'base'}-${index}`}
           review={review}
           ariaHidden={clone}
           offset={getReviewOffset(review, index, row)}

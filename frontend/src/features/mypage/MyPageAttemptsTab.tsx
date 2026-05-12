@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 
 import { IconView } from '../../shared/components/AdminIcons';
 import { Pagination } from '../../shared/components/Pagination';
+import { normalizeAttemptMessage } from '../../shared/presentation/attemptMessages';
 import type { AttemptSummary } from '../../shared/types/attempt';
 
 type MyPageAttemptsTabProps = {
@@ -108,12 +109,16 @@ export function MyPageAttemptsTab({
                       </div>
 
                       <article className="mypage-inline-content">
-                        {attempt.resultHeadline}
+                        {normalizeAttemptMessage(attempt.resultHeadline, '결과')}
                         {'\n'}
                         {'\n'}
-                        {attempt.resultSummary}
-                        {attempt.coachingTeaser ? `\n\n코칭: ${attempt.coachingTeaser}` : ''}
-                        {attempt.processingNotice ? `\n\n안내: ${attempt.processingNotice}` : ''}
+                        {normalizeAttemptMessage(attempt.resultSummary, '결과 요약을 준비하지 못했습니다.')}
+                        {attempt.coachingTeaser
+                          ? `\n\n코칭: ${normalizeAttemptMessage(attempt.coachingTeaser, '다음 시도에서 다시 확인해 주세요.')}`
+                          : ''}
+                        {attempt.processingNotice
+                          ? `\n\n안내: ${normalizeAttemptMessage(attempt.processingNotice, '분석 상태를 확인하는 중입니다.')}`
+                          : ''}
                       </article>
                     </section>
                   ) : null}

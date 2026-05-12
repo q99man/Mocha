@@ -76,14 +76,14 @@ public class LocalVideoStorageService implements VideoStorageService {
 
         Path absolutePath = rootPath.resolve(storagePath).normalize();
         if (!absolutePath.startsWith(rootPath)) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "鍮꾨뵒???뚯씪 寃쎈줈媛 ?좏슚?섏? ?딆뒿?덈떎.");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "비디오 파일 경로가 유효하지 않습니다.");
         }
 
         try {
             Files.deleteIfExists(absolutePath);
             cleanupEmptyParents(absolutePath.getParent());
         } catch (IOException exception) {
-            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "鍮꾨뵒???뚯씪 ?곗궘??ㅽ뙣?덉뒿?덈떎.", exception);
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "비디오 파일 삭제에 실패했습니다.", exception);
         }
     }
 

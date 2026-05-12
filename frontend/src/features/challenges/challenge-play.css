@@ -1,5 +1,4 @@
-﻿/* ?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═??   DJMAX-Style Challenge Play Screen
-   ?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═??*/
+/* DJMAX-Style Challenge Play Screen */
 
 /* ---------- Full-screen playground container ---------- */
 .play-stage {
@@ -257,57 +256,80 @@
   animation-delay: 440ms;
 }
 
+/* 리액션 컨테이너: 배경 제거 및 위치 설정 */
 .play-stage__rail-reaction {
   position: absolute;
-  bottom: calc(100% + 7px);
-  padding: 4px 7px;
-  border-radius: 8px;
-  background: rgba(4, 5, 10, 0.72);
-  font-size: 1.1rem;
-  line-height: 1;
-  filter: drop-shadow(0 8px 12px rgba(0, 0, 0, 0.44));
+  bottom: calc(100% + 16px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
   pointer-events: none;
-  animation: railReaction 1800ms ease-out forwards;
+  z-index: 30;
+  /* 위로 떠오르는 전체 흐름 애니메이션 */
+  animation: premiumReactionFloat 2200ms cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
 }
 
-@keyframes railShine {
-  to {
-    transform: translateX(120%);
-  }
+/* 이모티콘 아이콘 공통 스타일 */
+.play-stage__rail-reaction-icon {
+  display: block;
+  font-size: 1.8rem; /* 크기를 아주 약간 축소 */
+  line-height: 1;
+  filter: none;
 }
 
-@keyframes railBeat {
-  0%,
-  100% {
-    transform: translateY(-50%) scale(0.82);
-    opacity: 0.28;
-  }
-  48% {
-    transform: translateY(-50%) scale(1.28);
-    opacity: 0.82;
-  }
+/* --- 타입별 전용 애니메이션 --- */
+
+/* 1. Sparkle: 반짝이는 효과 */
+.play-stage__rail-reaction.is-sparkle .play-stage__rail-reaction-icon {
+  animation: sparkleTwinkle 600ms ease-in-out infinite alternate;
 }
 
-@keyframes railReaction {
+/* 2. Clap: 박수 치는 흔들림 효과 */
+.play-stage__rail-reaction.is-clap .play-stage__rail-reaction-icon {
+  animation: clapShake 400ms ease-in-out infinite;
+}
+
+/* 3. Fire: 불타오르는 일렁임 효과 */
+.play-stage__rail-reaction.is-fire .play-stage__rail-reaction-icon {
+  animation: fireVibe 500ms ease-in-out infinite;
+}
+
+/* --- Keyframes 정의 --- */
+
+/* 반짝반짝 (Twinkle) */
+@keyframes sparkleTwinkle {
+  from { transform: scale(1) rotate(0deg); filter: brightness(1); }
+  to { transform: scale(1.2) rotate(15deg); filter: brightness(1.2); }
+}
+
+/* 짝짝짝 (Clapping) */
+@keyframes clapShake {
+  0%, 100% { transform: scale(1) rotate(-8deg); }
+  50% { transform: scale(1.1) rotate(8deg); }
+}
+
+/* 이글이글 (Flicker) */
+@keyframes fireVibe {
+  0%, 100% { transform: translateY(0) scale(1); filter: contrast(1); }
+  50% { transform: translateY(-3px) scale(1.1) skewX(2deg); filter: contrast(1.1); }
+}
+
+/* 전체 부유 애니메이션 */
+@keyframes premiumReactionFloat {
   0% {
     opacity: 0;
-    transform: translate(-50%, 12px) scale(0.72);
+    transform: translate(-50%, 20px) scale(0.5);
   }
-  16% {
+  15% {
     opacity: 1;
-    transform: translate(-50%, -6px) scale(1.14);
+    transform: translate(-50%, -10px) scale(1);
   }
-  30% {
+  80% {
     opacity: 1;
-    transform: translate(-50%, 0) scale(1);
-  }
-  72% {
-    opacity: 1;
-    transform: translate(-50%, -4px) scale(1);
   }
   100% {
     opacity: 0;
-    transform: translate(-50%, -30px) scale(0.9);
+    transform: translate(-50%, -80px) scale(0.9);
   }
 }
 
@@ -396,10 +418,10 @@
 .play-stage__camera-frame {
   position: relative;
   z-index: 1;
-  width: min(calc(100% - 56px), calc((100vh - 260px) * 9 / 16));
+  width: min(calc(100% - 56px), calc((100vh - 172px) * 9 / 16));
   max-width: 650px;
   aspect-ratio: 9 / 16;
-  max-height: calc(100vh - 260px);
+  max-height: calc(100vh - 172px);
   border-radius: 8px;
   overflow: hidden;
   background:
@@ -1095,8 +1117,7 @@
   border-color: rgba(200, 170, 100, 0.6);
 }
 
-/* ?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═??   DJMAX-Style Song Select (Challenge List)
-   ?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═??*/
+/* DJMAX-Style Song Select (Challenge List) */
 
 /* ---------- 2-pane container ---------- */
 .song-select {
@@ -1132,7 +1153,7 @@
   z-index: 4;
 }
 
-/* ?�?� Video-fill variant ?�?� */
+/* Video-fill variant */
 .song-select__detail--video-fill {
   padding: 0;
   background: #000;
@@ -1705,10 +1726,12 @@
   color: #fff;
 }
 
-.song-select__item-like-btn--active {
+.song-select__item-like-btn--active,
+.song-select__item-like-btn--active:hover {
   border-color: rgba(255, 94, 132, 0.5);
   background: rgba(255, 94, 132, 0.16);
   color: #ff8faa;
+  box-shadow: 0 0 15px rgba(255, 94, 132, 0.12);
 }
 
 .song-select__item-like-btn:disabled {
@@ -2039,8 +2062,7 @@
   gap: 14px;
 }
 
-/* ?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═??   DJMAX-Style Result Screen
-   ?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═??*/
+/* DJMAX-Style Result Screen */
 
 .play-result {
   position: fixed;
@@ -3598,20 +3620,6 @@
     animation-delay: 440ms;
   }
 
-  .play-stage__rail-reaction {
-    position: absolute;
-    right: auto;
-    bottom: calc(100% + 7px);
-    padding: 4px 7px;
-    border-radius: 8px;
-    background: rgba(4, 5, 10, 0.72);
-    font-size: 1.1rem;
-    line-height: 1;
-    filter: drop-shadow(0 8px 12px rgba(0, 0, 0, 0.44));
-    pointer-events: none;
-    animation: railReaction 1800ms ease-out forwards;
-  }
-
   .play-stage__right {
     position: absolute;
     top: calc(var(--play-mobile-top-safe) + 44px);
@@ -3741,7 +3749,7 @@
     min-width: 38px;
   }
 
-  .song-select__item-review-btn {
+  .song-select__item .song-select__item-review-btn {
     max-width: 38px;
     overflow: hidden;
     text-overflow: clip;
@@ -3764,5 +3772,19 @@
     width: 100%;
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .song-select__review-compose-buttons {
+    width: 100%;
+    margin-top: 12px;
+  }
+
+  .song-select__review-compose-buttons .song-select__panel-btn,
+  .song-select__review-compose-buttons .song-select__item-review-btn {
+    flex: 1;
+    justify-content: center;
+    min-height: 36px;
+    padding: 0 16px;
+    font-size: 0.8rem;
   }
 }

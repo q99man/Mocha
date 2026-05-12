@@ -89,12 +89,12 @@ describe('AttemptResultPage', () => {
       </MemoryRouter>,
     );
 
-    expect(await screen.findByText('Analysis is still running.')).toBeInTheDocument();
+    expect(await screen.findByText('분석이 아직 진행 중입니다.')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: '갱신' }));
 
-    expect(await screen.findByText('Completed result')).toBeInTheDocument();
-    expect(screen.getByText('Completed refreshed summary.')).toBeInTheDocument();
+    expect(await screen.findByText('결과 준비 완료')).toBeInTheDocument();
+    expect(screen.getByText('새로고침된 결과 요약입니다.')).toBeInTheDocument();
     expect(mockedGetAttemptById).toHaveBeenCalledWith(10);
     expect(mockedGetAttemptById).toHaveBeenCalledWith(11);
   });
@@ -151,12 +151,12 @@ describe('AttemptResultPage', () => {
       </MemoryRouter>,
     );
 
-    expect(await screen.findByText('Analysis is still running.')).toBeInTheDocument();
+    expect(await screen.findByText('분석이 아직 진행 중입니다.')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: '갱신' }));
 
-    expect(await screen.findByText('Kick result ready')).toBeInTheDocument();
-    expect(screen.getByText('Refreshed same-result summary.')).toBeInTheDocument();
+    expect(await screen.findByText('결과 준비 완료')).toBeInTheDocument();
+    expect(screen.getByText('최신 결과 요약입니다.')).toBeInTheDocument();
     await waitFor(() => expect(mockedGetAttemptById).toHaveBeenCalledTimes(2));
     expect(screen.queryByRole('button', { name: '갱신' })).not.toBeInTheDocument();
   });

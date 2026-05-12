@@ -54,7 +54,7 @@ export function LandingShowcaseSection({ challenges }: LandingShowcaseSectionPro
           </div>
         ) : (
           <article className="lp-showcase__card lp-showcase__card--empty lp-panel-glass">
-            <strong>Coming soon</strong>
+            <strong>곧 공개됩니다</strong>
           </article>
         )}
       </div>

@@ -119,7 +119,7 @@ export function buildDurableProgressNextStep(progress: AttemptVideoProcessingJob
     case 'FAILED':
       return buildDurableProgressFailureAction(progress.failureAction);
     default:
-      return 'Refresh this card to continue.';
+      return '계속하려면 이 카드를 새로고침해 주세요.';
   }
 }
 

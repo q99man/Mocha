@@ -1,4 +1,4 @@
-﻿import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 
 import '../features/challenges/challenge-play.css';
@@ -545,13 +545,13 @@ export function ChallengeStartPage() {
       return null;
     }
     if (progress >= 90) {
-      return { key: '90', label: '🔥', percent: 90 };
+      return { key: '90', label: '🔥', percent: 90, type: 'fire' };
     }
-    if (progress >= 62) {
-      return { key: '62', label: '👏', percent: 62 };
+    if (progress >= 60) {
+      return { key: '60', label: '👏', percent: 60, type: 'clap' };
     }
-    if (progress >= 32) {
-      return { key: '32', label: '✨', percent: 32 };
+    if (progress >= 30) {
+      return { key: '30', label: '✨', percent: 30, type: 'sparkle' };
     }
 
     return null;
@@ -622,37 +622,37 @@ export function ChallengeStartPage() {
             <span>{flowMode === 'test' ? 'TEST MODE' : 'CAMERA MODE'}</span>
           </div>
 
-          <h3 className="play-result__judgement-title">Result Analysis</h3>
+          <h3 className="play-result__judgement-title">결과 분석</h3>
 
           <div className="play-result__judgement-table">
-            <span className="play-result__judgement-label play-result__judgement-label--accent">Flow</span>
-            <span className="play-result__judgement-value">{flowMode === 'test' ? 'Timeline test' : 'Camera upload'}</span>
+            <span className="play-result__judgement-label play-result__judgement-label--accent">흐름</span>
+            <span className="play-result__judgement-value">{flowMode === 'test' ? '타임라인 테스트' : '카메라 업로드'}</span>
 
-            <span className="play-result__judgement-label play-result__judgement-label--accent">Strongest</span>
+            <span className="play-result__judgement-label play-result__judgement-label--accent">강점</span>
             <span className="play-result__judgement-value">{formatAreaLabel(resultAttempt?.strongestArea)}</span>
 
-            <span className="play-result__judgement-label play-result__judgement-label--accent">Weakest</span>
+            <span className="play-result__judgement-label play-result__judgement-label--accent">보완</span>
             <span className="play-result__judgement-value">{formatAreaLabel(resultAttempt?.weakestArea)}</span>
           </div>
 
           <div className="play-result__summary-card">
             <strong>{resultHeadline}</strong>
             <p>{resultSummary}</p>
-            {resultAttempt ? <span>Record #{String(resultAttempt.id).padStart(3, '0')}</span> : null}
+            {resultAttempt ? <span>기록 #{String(resultAttempt.id).padStart(3, '0')}</span> : null}
           </div>
 
           <div className="play-result__meta-section">
-            <h4 className="play-result__meta-title">Challenge</h4>
+            <h4 className="play-result__meta-title">챌린지</h4>
             <span className="play-result__meta-value">{challenge.title}</span>
           </div>
 
           <div className="play-result__meta-section">
-            <h4 className="play-result__meta-title">Difficulty</h4>
+            <h4 className="play-result__meta-title">난이도</h4>
             <span className="play-result__meta-value">{formatDifficulty(challenge.difficulty)}</span>
           </div>
 
           <div className="play-result__meta-section">
-            <h4 className="play-result__meta-title">Category</h4>
+            <h4 className="play-result__meta-title">카테고리</h4>
             <span className="play-result__meta-value">{challenge.category}</span>
           </div>
         </div>
@@ -660,24 +660,24 @@ export function ChallengeStartPage() {
         <div className="play-result__right">
           <div className="play-result__stat-ring">
             <div className="play-result__stat-item">
-              <span>Flow</span>
-              <strong>{flowMode === 'test' ? 'Test' : 'Camera'}</strong>
+              <span>흐름</span>
+              <strong>{flowMode === 'test' ? '테스트' : '카메라'}</strong>
             </div>
             <div className="play-result__stat-item">
-              <span>Status</span>
-              <strong>{resultAttempt ? 'Saved' : 'Retry needed'}</strong>
+              <span>상태</span>
+              <strong>{resultAttempt ? '저장됨' : '재시도 필요'}</strong>
             </div>
           </div>
 
           <div className="play-result__score-circle">
             <span className="play-result__rate">{resultRate}</span>
             <span className="play-result__rate-delta">
-              {flowMode === 'test' ? 'Preview result' : 'Upload or scoring issue'}
+              {flowMode === 'test' ? '미리보기 결과' : '업로드 또는 채점 확인 필요'}
             </span>
           </div>
 
           <div className="play-result__score-block">
-            <span className="play-result__score-label">Score</span>
+            <span className="play-result__score-label">점수</span>
             <span className="play-result__score-number">{animatedResultScore}</span>
             {scoreDelta != null ? (
               <span className="play-result__score-delta">
@@ -686,12 +686,12 @@ export function ChallengeStartPage() {
             ) : null}
           </div>
 
-          {isNewRecord ? <span className="play-result__new-record">New record</span> : null}
+          {isNewRecord ? <span className="play-result__new-record">신기록</span> : null}
 
           <div className="play-result__actions">
             {resultAttempt ? (
               <Link className="play-result__action-btn" to={`/attempts/${resultAttempt.id}/result`}>
-                View result
+                결과 보기
               </Link>
             ) : null}
             <button
@@ -699,10 +699,10 @@ export function ChallengeStartPage() {
               className="play-result__action-btn play-result__action-btn--secondary"
               onClick={handleRetry}
             >
-              Retry
+              다시 시도
             </button>
             <Link className="play-result__action-btn play-result__action-btn--secondary" to={`/challenges?challengeId=${challenge.id}`}>
-              Back to list
+              목록으로
             </Link>
           </div>
         </div>
@@ -783,8 +783,8 @@ export function ChallengeStartPage() {
               <span className="play-stage__rail-beat play-stage__rail-beat--two" />
               <span className="play-stage__rail-beat play-stage__rail-beat--three" />
               {railReaction ? (
-                <span className="play-stage__rail-reaction" key={railReaction.key} style={{ left: `${railReaction.percent}%` }}>
-                  {railReaction.label}
+                <span className={`play-stage__rail-reaction is-${railReaction.type}`} key={railReaction.key} style={{ left: `${railReaction.percent}%` }}>
+                  <span className="play-stage__rail-reaction-icon">{railReaction.label}</span>
                 </span>
               ) : null}
             </div>

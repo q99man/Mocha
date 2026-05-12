@@ -591,6 +591,7 @@ export function ChallengesPage() {
       return;
     }
 
+    const isAdding = !challenge.likedByCurrentMember;
     setLikeFeedbackError(null);
     setLikeBusyIds((current) => {
       const next = new Set(current);
@@ -598,12 +599,25 @@ export function ChallengesPage() {
       return next;
     });
 
+    // Optimistic update
+    setChallenges((prev) =>
+      prev.map((c) =>
+        c.id === challengeId
+          ? {
+              ...c,
+              likedByCurrentMember: isAdding,
+              likeCount: isAdding ? c.likeCount + 1 : Math.max(0, c.likeCount - 1),
+            }
+          : c,
+      ),
+    );
+
     try {
-      const updatedChallenge = challenge.likedByCurrentMember
-        ? await unlikeChallenge(challengeId)
-        : await likeChallenge(challengeId);
+      const updatedChallenge = isAdding ? await likeChallenge(challengeId) : await unlikeChallenge(challengeId);
       updateChallengeFromResponse(updatedChallenge);
     } catch (likeError) {
+      // Revert on error
+      setChallenges((prev) => prev.map((c) => (c.id === challengeId ? challenge : c)));
       setLikeFeedbackError(likeError instanceof Error ? likeError.message : '좋아요를 반영하지 못했습니다.');
     } finally {
       setLikeBusyIds((current) => {

@@ -51,17 +51,17 @@ export function buildLandingMetricCards(challenges: Challenge[]): LandingMetricC
 
   return [
     {
-      label: 'Ready',
+      label: '준비 완료',
       value: String(summary.readyCount),
       meta: categoryMeta,
     },
     {
-      label: 'Live',
+      label: '운영 중',
       value: String(summary.activeCount),
-      meta: summary.totalCount > 0 ? `${summary.totalCount} tracks` : '등록 대기',
+      meta: summary.totalCount > 0 ? `전체 ${summary.totalCount}개` : '등록 대기',
     },
     {
-      label: 'Retry',
+      label: '재도전',
       value: summary.scoredCount > 0 ? String(summary.scoredCount) : '0',
       meta: latestScoredChallenge?.latestRetrySummary
         ? `${latestScoredChallenge.title} ${formatDeltaText(latestScoredChallenge.latestRetrySummary.scoreDeltaFromPrevious)}`

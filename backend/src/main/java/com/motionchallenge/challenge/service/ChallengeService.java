@@ -265,7 +265,7 @@ public class ChallengeService {
     @Transactional
     public void deleteChallenge(Long challengeId) {
         Challenge challenge = challengeRepository.findById(challengeId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "梨뚮┛吏瑜?李얠쓣 ???놁뒿?덈떎."));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "챌린지를 찾을 수 없습니다."));
 
         Optional<ChallengeVideo> challengeVideoOptional = challengeVideoRepository.findByChallengeId(challengeId);
         List<Attempt> attempts = attemptRepository.findByChallengeIdOrderByCreatedAtAscIdAsc(challengeId);
@@ -880,10 +880,10 @@ public class ChallengeService {
     private String buildDeltaTail(DeltaMetric bestMetric, DeltaMetric worstMetric) {
         StringBuilder tail = new StringBuilder();
         if (bestMetric != null && bestMetric.delta() > 0) {
-            tail.append(" ").append(bestMetric.label()).append(" improved ").append(formatSignedDelta(bestMetric.delta())).append(".");
+            tail.append(" ").append(bestMetric.label()).append("이 ").append(formatSignedDelta(bestMetric.delta())).append(" 좋아졌습니다.");
         }
         if (worstMetric != null && worstMetric.delta() < 0) {
-            tail.append(" ").append(worstMetric.label()).append(" slipped ").append(formatSignedDelta(worstMetric.delta())).append(".");
+            tail.append(" ").append(worstMetric.label()).append("이 ").append(formatSignedDelta(worstMetric.delta())).append(" 낮아졌습니다.");
         }
         return tail.toString();
     }

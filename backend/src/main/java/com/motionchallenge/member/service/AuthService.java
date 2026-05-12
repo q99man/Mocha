@@ -261,11 +261,11 @@ public class AuthService {
 
     private String normalizeDisplayName(String displayName) {
         if (displayName == null) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "?쒖떆 ?대쫫???꾩슂?⑸땲??");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "표시 이름이 필요합니다.");
         }
         String normalized = displayName.trim();
         if (normalized.isBlank()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "?쒖떆 ?대쫫???꾩슂?⑸땲??");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "표시 이름이 필요합니다.");
         }
         return normalized;
     }
