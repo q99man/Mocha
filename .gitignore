@@ -32,6 +32,9 @@ tmp/actual-upload-analysis*/
 .vscode/
 *.iml
 
+# MarkDown
+*.md
+
 # Local env
 .env
 .env.local
