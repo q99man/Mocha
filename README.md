@@ -205,7 +205,7 @@ cd mediapipe-bridge
       <img width="440" alt="챌린지 목록" src="docs/screenshots/challenges.jpg" />
     </td>
     <td align="center" width="50%">
-      <b>시도 업로드/카메라 확인</b><br />
+      <b>카메라 확인</b><br />
       촬영/업로드 단계 진입<br /><br />
       <img width="440" alt="시도 업로드/카메라 확인" src="docs/screenshots/attempt-upload.jpg" />
     </td>
