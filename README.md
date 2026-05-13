@@ -192,8 +192,6 @@ cd mediapipe-bridge
 <a id="화면-이미지"></a>
 ## 화면 이미지
 
-스크린샷은 `docs/screenshots/`에 두고, README에서는 **필요할 때만 펼쳐서** 확인할 수 있도록 정리했습니다.
-
 <details>
 <summary><b>사용자 흐름 스크린샷 보기</b></summary>
 
