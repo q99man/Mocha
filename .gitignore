@@ -34,6 +34,7 @@ tmp/actual-upload-analysis*/
 
 # MarkDown
 *.md
+!README.md
 
 # Local env
 .env
