@@ -259,12 +259,16 @@ cd mediapipe-bridge
 <details>
 <summary><b>사용자 흐름 UX Flow</b></summary>
 
+###
+
 <img width="900" alt="UX Flow" src="docs/screenshots/portfolio_slide_01.jpg" />
 
 </details>
 
 <details>
 <summary><b>사용자 흐름 Play Flow</b></summary>
+
+###
 
 <img width="900" alt="Play Flow" src="docs/screenshots/portfolio_slide_02.JPG" />
 
@@ -273,6 +277,8 @@ cd mediapipe-bridge
 <details>
 <summary><b>관리자 화면 보기</b></summary>
 
+###
+
 <img width="900" alt="운영 허브" src="docs/screenshots/portfolio_slide_03.jpg" />
 
 </details>
@@ -280,12 +286,14 @@ cd mediapipe-bridge
 <details>
 <summary><b>챌린지 분석 보기</b></summary>
 
+###
+
 <img width="900" alt="챌린지 관리" src="docs/screenshots/portfolio_slide_04.jpg" />
 
 </details>
 
 ---
-
+ 
 <a id="저장소-구조"></a>
 
 ## 저장소 구조
