@@ -259,8 +259,6 @@ cd mediapipe-bridge
 <details>
 <summary><b>사용자 흐름 UX Flow</b></summary>
 
-### User App, UX Flow
-
 서비스 메인 플로우 화면입니다.
 
 <img width="900" alt="UX Flow" src="docs/screenshots/portfolio_slide_01.jpg" />
@@ -269,8 +267,6 @@ cd mediapipe-bridge
 
 <details>
 <summary><b>사용자 흐름 Play Flow</b></summary>
-
-### User App, Play Flow
 
 카메라 설정과 플레이 화면입니다.
 
@@ -281,8 +277,6 @@ cd mediapipe-bridge
 <details>
 <summary><b>관리자 화면 보기</b></summary>
 
-### 운영 허브 화면
-
 관리자 운영 관리자 화면입니다.
 
 <img width="900" alt="운영 허브" src="docs/screenshots/portfolio_slide_03.jpg" />
@@ -291,8 +285,6 @@ cd mediapipe-bridge
 
 <details>
 <summary><b>챌린지 분석 보기</b></summary>
-
-### 챌린지 분석
 
 챌린지 분석 및 상세 관리 화면입니다.
 
