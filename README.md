@@ -274,7 +274,7 @@ cd mediapipe-bridge
 
 카메라 설정과 플레이 화면입니다.
 
-<img width="900" alt="Play Flow" src="docs/screenshots/portfolio_slide_02.jpg" />
+<img width="900" alt="Play Flow" src="docs/screenshots/portfolio_slide_02.JPG" />
 
 </details>
 
