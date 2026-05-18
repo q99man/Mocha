@@ -1,5 +1,6 @@
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from './AuthProvider';
+import { buildAuthModalHref, buildPathWithSearch, resolveAuthMode } from './authModalUtils';
 
 export function RequireAdmin({ children }: { children: React.ReactNode }) {
   const { isAdmin, isAuthenticated, isLoading } = useAuth();
@@ -10,8 +11,19 @@ export function RequireAdmin({ children }: { children: React.ReactNode }) {
   }
 
   if (!isAuthenticated) {
-    const redirect = encodeURIComponent(location.pathname + location.search);
-    return <Navigate to={`/auth?mode=login&redirect=${redirect}`} replace />;
+    const authMode = resolveAuthMode(new URLSearchParams(location.search).get('auth'));
+    if (authMode) {
+      return null;
+    }
+
+    return (
+      <Navigate
+        to={buildAuthModalHref(location, {
+          redirectPath: buildPathWithSearch(location.pathname, location.search),
+        })}
+        replace
+      />
+    );
   }
 
   if (!isAdmin) {

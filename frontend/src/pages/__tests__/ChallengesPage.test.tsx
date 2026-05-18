@@ -1,5 +1,5 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { getAttempts } from '../../shared/api/attemptApi';
@@ -40,6 +40,7 @@ const mockedUseAuth = vi.mocked(useAuth);
 
 describe('ChallengesPage', () => {
   let playMock: ReturnType<typeof vi.fn>;
+  let getUserMediaMock: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -55,6 +56,15 @@ describe('ChallengesPage', () => {
     Object.defineProperty(Element.prototype, 'scrollIntoView', {
       configurable: true,
       value: vi.fn(),
+    });
+    getUserMediaMock = vi.fn().mockResolvedValue({
+      getTracks: () => [{ stop: vi.fn() }],
+    });
+    Object.defineProperty(navigator, 'mediaDevices', {
+      configurable: true,
+      value: {
+        getUserMedia: getUserMediaMock,
+      },
     });
     mockedUseAuth.mockReturnValue({
       user: null,
@@ -271,6 +281,48 @@ describe('ChallengesPage', () => {
     await waitFor(() => expect(mockedLikeChallenge).toHaveBeenCalledWith(2));
     await waitFor(() => expect(playMock).toHaveBeenCalledTimes(2));
     expect(container.querySelector('video')?.getAttribute('src')).toBe('http://localhost:8080/uploads/second.mp4');
+  });
+
+  it('opens the auth modal flow on the challenge list when an unauthenticated member starts play', async () => {
+    function LocationProbe() {
+      const location = useLocation();
+      return <output aria-label="location">{`${location.pathname}${location.search}`}</output>;
+    }
+
+    const { container } = render(
+      <MemoryRouter initialEntries={['/challenges']}>
+        <LocationProbe />
+        <Routes>
+          <Route path="/challenges" element={<ChallengesPage />} />
+          <Route path="/challenges/:id/start" element={<div>Challenge Start Page</div>} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    await screen.findAllByText('First Challenge');
+
+    const startButton = container.querySelector<HTMLButtonElement>('.song-select__action-btn');
+    expect(startButton).not.toBeNull();
+    fireEvent.click(startButton!);
+
+    const cameraCheckButton = await waitFor(() => {
+      const button = document.body.querySelector<HTMLButtonElement>('.camera-modal__btn:not(.camera-modal__btn--secondary)');
+      expect(button).not.toBeNull();
+      return button!;
+    });
+    fireEvent.click(cameraCheckButton);
+
+    const cameraStartButton = await waitFor(() => {
+      const button = document.body.querySelector<HTMLButtonElement>('.camera-modal__btn--primary');
+      expect(button).not.toBeNull();
+      return button!;
+    });
+    fireEvent.click(cameraStartButton);
+
+    await waitFor(() => expect(screen.getByLabelText('location').textContent).toContain('/challenges?'));
+    expect(screen.getByLabelText('location').textContent).toContain('auth=login');
+    expect(screen.getByLabelText('location').textContent).toContain('redirect=%2Fchallenges%2F1%2Fstart');
+    expect(screen.queryByText('Challenge Start Page')).not.toBeInTheDocument();
   });
 });
 

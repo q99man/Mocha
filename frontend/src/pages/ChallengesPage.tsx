@@ -913,7 +913,12 @@ export function ChallengesPage() {
               void fadeOutAudio();
               const targetId = modalChallenge.id;
               setModalChallengeId(null);
-              void navigate(`/challenges/${targetId}/start`);
+              const targetPath = `/challenges/${targetId}/start`;
+              if (!isAuthenticated) {
+                void navigate(buildAuthModalHref(location, { redirectPath: targetPath }));
+                return;
+              }
+              void navigate(targetPath);
             }}
           onClose={() => setModalChallengeId(null)}
         />
