@@ -279,7 +279,7 @@ cd mediapipe-bridge
 </details>
 
 <details>
-<summary><b>관리자 화면 스크린샷 보기</b></summary>
+<summary><b>관리자 화면 보기</b></summary>
 
 ### 운영 허브 화면
 
@@ -290,7 +290,7 @@ cd mediapipe-bridge
 </details>
 
 <details>
-<summary><b>챌린지 분석 스크린샷 보기</b></summary>
+<summary><b>챌린지 분석 보기</b></summary>
 
 ### 챌린지 분석
 
