@@ -72,7 +72,7 @@ public class OAuth2AuthenticationSuccessHandler implements AuthenticationSuccess
     }
 
     private String buildFrontendRedirectPath(String path, String authProvider, String socialStatus) {
-        String baseUrl = trimTrailingSlash(authProperties.getFrontendBaseUrl());
+        String baseUrl = authProperties.getNormalizedFrontendBaseUrl();
         String normalizedPath = path.startsWith("/") ? path : "/" + path;
         UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(baseUrl + normalizedPath);
         if (normalizedPath.startsWith("/auth")) {
@@ -84,12 +84,5 @@ public class OAuth2AuthenticationSuccessHandler implements AuthenticationSuccess
         builder.replaceQueryParam("social", socialStatus);
         builder.replaceQueryParam("provider", authProvider.toLowerCase(Locale.ROOT));
         return builder.encode().build().toUriString();
-    }
-
-    private String trimTrailingSlash(String value) {
-        if (value == null || value.isBlank()) {
-            return "http://localhost:5173";
-        }
-        return value.endsWith("/") ? value.substring(0, value.length() - 1) : value;
     }
 }

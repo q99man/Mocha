@@ -38,7 +38,7 @@ public class OAuth2AuthenticationFailureHandler implements AuthenticationFailure
     }
 
     private String buildFailureRedirectPath(String failurePath, String requestedPath, String provider, String reason) {
-        String baseUrl = trimTrailingSlash(authProperties.getFrontendBaseUrl());
+        String baseUrl = authProperties.getNormalizedFrontendBaseUrl();
         String normalizedPath = failurePath.startsWith("/") ? failurePath : "/" + failurePath;
         UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(baseUrl + normalizedPath);
         if (normalizedPath.startsWith("/auth")) {
@@ -77,12 +77,5 @@ public class OAuth2AuthenticationFailureHandler implements AuthenticationFailure
             return "cancelled";
         }
         return "failed";
-    }
-
-    private String trimTrailingSlash(String value) {
-        if (value == null || value.isBlank()) {
-            return "http://localhost:5173";
-        }
-        return value.endsWith("/") ? value.substring(0, value.length() - 1) : value;
     }
 }

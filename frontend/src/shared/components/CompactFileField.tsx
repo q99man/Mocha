@@ -66,6 +66,7 @@ export function CompactFileField({
         aria-disabled={disabled}
       >
         <div className="compact-file__summary">
+          <span>{buttonLabel}</span>
           <strong>{selectedFileName ?? emptyLabel}</strong>
         </div>
         {selectedFileName ? (

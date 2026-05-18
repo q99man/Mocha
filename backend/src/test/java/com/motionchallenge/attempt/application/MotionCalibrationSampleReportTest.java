@@ -28,6 +28,7 @@ import java.util.stream.Collectors;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 class MotionCalibrationSampleReportTest {
 
@@ -45,12 +46,8 @@ class MotionCalibrationSampleReportTest {
         Path pythonExe = repoRoot.resolve("mediapipe-bridge").resolve(".venv").resolve("Scripts").resolve("python.exe");
         Path workingRoot = repoRoot.resolve("backend").resolve("build").resolve("tmp").resolve("motion-calibration");
 
-        assertThat(Files.isDirectory(calibrationRoot))
-                .as("motion-calibration directory must exist for local calibration report")
-                .isTrue();
-        assertThat(Files.exists(pythonExe))
-                .as("mediapipe bridge virtualenv python must exist for local calibration report")
-                .isTrue();
+        assumeTrue(Files.isDirectory(calibrationRoot), "motion-calibration directory is required for local calibration report");
+        assumeTrue(Files.exists(pythonExe), "mediapipe bridge virtualenv python is required for local calibration report");
         Files.createDirectories(workingRoot);
 
         List<Path> challengeDirectories;

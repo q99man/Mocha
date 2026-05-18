@@ -1,4 +1,5 @@
 import type { BoardComment } from '../../shared/types/board';
+import { formatCompactDateTime as formatDateTime } from '../../shared/presentation/dateTime';
 import { BoardCommentComposer } from './BoardCommentComposer';
 
 type BoardCommentListProps = {
@@ -92,17 +93,3 @@ export function BoardCommentList({
   );
 }
 
-function formatDateTime(value: string) {
-  const parsed = new Date(value);
-
-  if (Number.isNaN(parsed.getTime())) {
-    return value;
-  }
-
-  return parsed.toLocaleString('ko-KR', {
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-}

@@ -1,5 +1,4 @@
 export type AttemptStatus = 'Prepared' | 'Completed';
-export type AttemptRecordType = 'prepared' | 'completed';
 export type AttemptProcessingMode = 'SYNC_INLINE' | 'ASYNC_JOB_PENDING';
 export type AttemptResultSource =
   | 'PREPARED_FLOW'
@@ -79,13 +78,6 @@ export type AttemptSummary = {
   timingDeltaFromPrevious: number | null;
   stabilityDeltaFromPrevious: number | null;
   attemptedAt: string;
-};
-
-export type AttemptCreateRequest = {
-  challengeId: number;
-  score: number;
-  notes?: string;
-  recordType?: AttemptRecordType;
 };
 
 export type AttemptVideoUploadRequest = {

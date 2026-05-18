@@ -20,6 +20,8 @@ import { getMyReviews, removeReview, updateReview } from '../shared/api/reviewAp
 import { useAuth } from '../shared/auth/AuthProvider';
 import { CompactConfirmDialog } from '../shared/components/CompactConfirmDialog';
 import { CompactToast } from '../shared/components/CompactToast';
+import { formatAttemptResultSource } from '../shared/presentation/attemptResultSource';
+import { formatCompactDateTime as formatDate } from '../shared/presentation/dateTime';
 import type { AttemptSummary } from '../shared/types/attempt';
 import type { BoardPost, BoardPostInput, BoardPostSummary } from '../shared/types/board';
 import type { Challenge } from '../shared/types/challenge';
@@ -723,7 +725,7 @@ export function MyPage() {
             attemptTotalPages={attemptTotalPages}
             onToggleAttempt={handleAttemptRowToggle}
             onAttemptPageChange={setAttemptPage}
-            formatResultSource={formatResultSource}
+            formatResultSource={formatAttemptResultSource}
             formatDate={formatDate}
             toAttemptAreaLabel={toAttemptAreaLabel}
           />
@@ -857,19 +859,6 @@ function toCategoryLabel(category: BoardPostSummary['category']) {
   }
 }
 
-function formatResultSource(value: AttemptSummary['resultSource']) {
-  switch (value) {
-    case 'VIDEO_UPLOAD_AUTOSCORED':
-      return '자동 채점';
-    case 'SAMPLE_SCORING_PREVIEW':
-      return '미리보기';
-    case 'PREPARED_FLOW':
-      return '준비 흐름';
-    default:
-      return value;
-  }
-}
-
 function toAttemptAreaLabel(
   value: AttemptSummary['strongestArea'] | AttemptSummary['weakestArea'],
   fallback: string,
@@ -884,20 +873,6 @@ function toAttemptAreaLabel(
     default:
       return value;
   }
-}
-
-function formatDate(value: string) {
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) {
-    return value;
-  }
-
-  return parsed.toLocaleString('ko-KR', {
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
 }
 
 function formatDuration(durationSec: number) {

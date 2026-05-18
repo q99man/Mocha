@@ -1,16 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 
 import '../features/challenges/challenge-play.css';
 import { formatDifficulty } from '../features/challenges/difficulty';
-import { createAttempt, uploadAttemptVideo } from '../shared/api/attemptApi';
+import { uploadAttemptVideo } from '../shared/api/attemptApi';
 import { getChallengeById } from '../shared/api/challengeApi';
 import { resolveApiUrl } from '../shared/api/client';
 import { useAnimatedNumber } from '../shared/hooks/useAnimatedNumber';
 import type { AttemptSummary } from '../shared/types/attempt';
 import type { Challenge } from '../shared/types/challenge';
 
-type FlowMode = 'camera' | 'test';
 type PlayState = 'idle' | 'countdown' | 'playing' | 'clear' | 'analyzing' | 'result';
 
 const RECORDING_MIME_CANDIDATES = [
@@ -24,12 +23,10 @@ const RECORDING_MIME_CANDIDATES = [
 export function ChallengeStartPage() {
   const { id = '' } = useParams();
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
 
   const [challenge, setChallenge] = useState<Challenge | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [flowMode, setFlowMode] = useState<FlowMode>(searchParams.get('mode') === 'test' ? 'test' : 'camera');
 
   const [playState, setPlayState] = useState<PlayState>('idle');
   const [countdownNumber, setCountdownNumber] = useState(3);
@@ -152,7 +149,6 @@ export function ChallengeStartPage() {
 
   const requestCamera = useCallback(async () => {
     if (!navigator.mediaDevices?.getUserMedia) {
-      setFlowMode('test');
       setCameraReady(false);
       return false;
     }
@@ -167,10 +163,8 @@ export function ChallengeStartPage() {
       }
 
       setCameraReady(true);
-      setFlowMode('camera');
       return true;
     } catch {
-      setFlowMode('test');
       setCameraReady(false);
       return false;
     }
@@ -202,15 +196,10 @@ export function ChallengeStartPage() {
   }, [clearPlaybackTimers, discardRecording, stopCamera, stopReferenceVideo]);
 
   useEffect(() => {
-    if (flowMode === 'camera' && playState === 'idle' && !cameraReady) {
+    if (playState === 'idle' && !cameraReady) {
       void requestCamera();
     }
-
-    if (flowMode === 'test') {
-      discardRecording();
-      stopCamera();
-    }
-  }, [cameraReady, discardRecording, flowMode, playState, requestCamera, stopCamera]);
+  }, [cameraReady, playState, requestCamera]);
 
   const startCameraRecording = useCallback(() => {
     if (typeof MediaRecorder === 'undefined') {
@@ -321,34 +310,22 @@ export function ChallengeStartPage() {
       setResultError(null);
 
       try {
-        if (flowMode === 'camera') {
-          if (!recordedFile) {
-            throw new Error('녹화된 플레이 영상이 없어 분석을 시작할 수 없습니다.');
-          }
-
-          const response = await uploadAttemptVideo({
-            challengeId: challenge.id,
-            notes: 'Challenge play camera capture uploaded from the play flow.',
-            attemptVideo: recordedFile,
-          });
-
-          if (response.attemptId != null) {
-            void navigate(`/attempts/${response.attemptId}/result`, { replace: true });
-            return;
-          }
-
-          throw new Error('분석은 시작됐지만 결과 기록 ID를 받지 못했습니다.');
+        if (!recordedFile) {
+          throw new Error('녹화된 플레이 영상이 없어 분석을 시작할 수 없습니다.');
         }
 
-        const attempt = await createAttempt({
+        const response = await uploadAttemptVideo({
           challengeId: challenge.id,
-          score: 0,
-          notes: 'Test mode preview result saved without camera upload.',
-          recordType: 'completed',
+          notes: 'Challenge play camera capture uploaded from the play flow.',
+          attemptVideo: recordedFile,
         });
 
-        setResultAttempt(attempt);
-        void navigate(`/attempts/${attempt.id}/result`, { replace: true });
+        if (response.attemptId != null) {
+          void navigate(`/attempts/${response.attemptId}/result`, { replace: true });
+          return;
+        }
+
+        throw new Error('분석은 시작됐지만 결과 기록 ID를 받지 못했습니다.');
       } catch (saveError) {
         setResultError(saveError instanceof Error ? saveError.message : '결과를 저장하지 못했습니다.');
         setPlayState('result');
@@ -356,7 +333,7 @@ export function ChallengeStartPage() {
         setSavingResult(false);
       }
     },
-    [challenge, flowMode, navigate],
+    [challenge, navigate],
   );
 
   const handlePlayComplete = useCallback(() => {
@@ -368,7 +345,7 @@ export function ChallengeStartPage() {
 
       void (async () => {
         try {
-          const recordedFile = flowMode === 'camera' ? await stopCameraRecording() : null;
+          const recordedFile = await stopCameraRecording();
           stopCamera();
           await persistPlayResult(recordedFile);
         } catch (playError) {
@@ -378,7 +355,7 @@ export function ChallengeStartPage() {
         }
       })();
     }, 1800);
-  }, [flowMode, persistPlayResult, stopCamera, stopCameraRecording, stopReferenceVideo]);
+  }, [persistPlayResult, stopCamera, stopCameraRecording, stopReferenceVideo]);
 
   const startGame = useCallback(async () => {
     clearPlaybackTimers();
@@ -387,10 +364,10 @@ export function ChallengeStartPage() {
     setProgress(0);
     setCountdownNumber(3);
 
-    if (flowMode === 'camera' && !cameraReady) {
+    if (!cameraReady) {
       const ready = await requestCamera();
       if (!ready) {
-        setResultError('카메라를 사용할 수 없어 테스트 모드로 전환했습니다. 다시 시작해 주세요.');
+        setResultError('카메라를 사용할 수 없어 플레이를 시작할 수 없습니다. 권한과 장치를 확인한 뒤 다시 시도해 주세요.');
         setPlayState('result');
         return;
       }
@@ -412,9 +389,7 @@ export function ChallengeStartPage() {
       }
 
       try {
-        if (flowMode === 'camera') {
-          startCameraRecording();
-        }
+        startCameraRecording();
       } catch (recordingError) {
         setResultError(recordingError instanceof Error ? recordingError.message : '카메라 녹화를 시작하지 못했습니다.');
         setPlayState('result');
@@ -452,7 +427,6 @@ export function ChallengeStartPage() {
     cameraReady,
     challenge?.durationSec,
     clearPlaybackTimers,
-    flowMode,
     handlePlayComplete,
     playReferenceVideoFromStart,
     requestCamera,
@@ -477,11 +451,8 @@ export function ChallengeStartPage() {
 
   const handleRetry = useCallback(() => {
     resetPlaySession();
-
-    if (flowMode === 'camera') {
-      void requestCamera();
-    }
-  }, [flowMode, requestCamera, resetPlaySession]);
+    void requestCamera();
+  }, [requestCamera, resetPlaySession]);
 
   const handleExitPromptClose = useCallback(() => {
     setExitPromptOpen(false);
@@ -529,12 +500,11 @@ export function ChallengeStartPage() {
   const animatedResultScore = useAnimatedNumber(resultScore, { duration: 1600 });
   const animatedResultRate = useAnimatedNumber(resultScore, { duration: 1850, decimals: 2 });
   const resultRate = `${animatedResultRate.toFixed(2)}%`;
-  const resultHeadline = flowMode === 'test' ? '테스트 모드 결과가 준비되었습니다.' : '플레이 결과를 정리했습니다.';
+  const resultHeadline = '플레이 결과를 정리했습니다.';
   const resultSummary =
     resultError ??
-    (flowMode === 'test'
-      ? '카메라 없이 실행한 테스트 결과입니다. 실제 모션분석 점수는 아니며 플레이 흐름 점검용으로 저장됩니다.'
-      : resultAttempt?.resultSummary ?? '카메라 업로드와 자동채점이 연결되지 않아 임시 결과 화면을 표시하고 있습니다.');
+    resultAttempt?.resultSummary ??
+    '카메라 업로드와 자동채점 결과를 확인하지 못했습니다. 다시 시도해 주세요.';
   const scoreDelta = resultAttempt?.scoreDeltaFromPrevious;
   const isNewRecord = scoreDelta != null && scoreDelta > 0;
   const playDurationSec = challenge?.durationSec ?? 30;
@@ -558,12 +528,10 @@ export function ChallengeStartPage() {
   }, [playState, progress]);
   const analysisSteps = [
     '플레이 구간을 정리하고 있습니다.',
-    flowMode === 'test'
-      ? '카메라 없이 테스트 기록을 생성하고 있습니다.'
-      : savingResult
-        ? '녹화 영상을 업로드하고 자동채점을 요청하고 있습니다.'
-        : '녹화 영상을 정리하고 업로드를 준비하고 있습니다.',
-    flowMode === 'test' ? '프리뷰 결과 페이지로 이동합니다.' : '분석이 끝나면 결과 페이지로 바로 이동합니다.',
+    savingResult
+      ? '녹화 영상을 업로드하고 자동채점을 요청하고 있습니다.'
+      : '녹화 영상을 정리하고 업로드를 준비하고 있습니다.',
+    '분석이 끝나면 결과 페이지로 바로 이동합니다.',
   ];
 
   if (loading) {
@@ -619,14 +587,14 @@ export function ChallengeStartPage() {
       <div className="play-result">
         <div className="play-result__left">
           <div className="play-result__mode-label">
-            <span>{flowMode === 'test' ? 'TEST MODE' : 'CAMERA MODE'}</span>
+            <span>CAMERA MODE</span>
           </div>
 
           <h3 className="play-result__judgement-title">결과 분석</h3>
 
           <div className="play-result__judgement-table">
             <span className="play-result__judgement-label play-result__judgement-label--accent">흐름</span>
-            <span className="play-result__judgement-value">{flowMode === 'test' ? '타임라인 테스트' : '카메라 업로드'}</span>
+            <span className="play-result__judgement-value">카메라 업로드</span>
 
             <span className="play-result__judgement-label play-result__judgement-label--accent">강점</span>
             <span className="play-result__judgement-value">{formatAreaLabel(resultAttempt?.strongestArea)}</span>
@@ -661,7 +629,7 @@ export function ChallengeStartPage() {
           <div className="play-result__stat-ring">
             <div className="play-result__stat-item">
               <span>흐름</span>
-              <strong>{flowMode === 'test' ? '테스트' : '카메라'}</strong>
+              <strong>카메라</strong>
             </div>
             <div className="play-result__stat-item">
               <span>상태</span>
@@ -671,9 +639,7 @@ export function ChallengeStartPage() {
 
           <div className="play-result__score-circle">
             <span className="play-result__rate">{resultRate}</span>
-            <span className="play-result__rate-delta">
-              {flowMode === 'test' ? '미리보기 결과' : '업로드 또는 채점 확인 필요'}
-            </span>
+            <span className="play-result__rate-delta">업로드 또는 채점 확인 필요</span>
           </div>
 
           <div className="play-result__score-block">
@@ -738,33 +704,23 @@ export function ChallengeStartPage() {
         </div>
 
         <div className="play-stage__right">
-          <div className={`play-stage__mode-chip${flowMode === 'test' ? ' play-stage__mode-chip--test' : ''}`}>
-            {flowMode === 'test' ? 'TIMELINE TEST' : 'LIVE CAMERA'}
+          <div className="play-stage__mode-chip">
+            LIVE CAMERA
           </div>
 
           <div className="play-stage__rec">
             <span className={`play-stage__rec-dot${playState === 'playing' ? ' play-stage__rec-dot--active' : ''}`} />
-            {playState === 'playing'
-              ? flowMode === 'test'
-                ? 'Testing'
-                : 'Recording'
-              : flowMode === 'test'
-                ? 'Test standby'
-                : 'Camera standby'}
+            {playState === 'playing' ? 'Recording' : 'Camera standby'}
           </div>
 
           <div className="play-stage__media-stack play-stage__media-stack--camera">
             <div className="play-stage__camera-frame">
-              {cameraReady && flowMode === 'camera' ? (
+              {cameraReady ? (
                 <video ref={cameraVideoRef} className="play-stage__camera" autoPlay muted playsInline />
               ) : (
                 <div className="play-stage__camera-placeholder">
-                  <span>{flowMode === 'test' ? 'Test mode' : 'Camera'}</span>
-                  <span>
-                    {flowMode === 'test'
-                      ? '카메라 없이 판정 흐름만 점검하는 테스트 모드입니다.'
-                      : '카메라 권한과 미리보기를 준비하고 있습니다.'}
-                  </span>
+                  <span>Camera</span>
+                  <span>카메라 권한과 미리보기를 준비하고 있습니다.</span>
                 </div>
               )}
             </div>
@@ -775,7 +731,7 @@ export function ChallengeStartPage() {
           className={`play-stage__play-rail${playState === 'playing' ? ' is-active' : ''}`}
           aria-label={`플레이 진행 ${formatPlayClock(playElapsedSec)} / ${formatPlayClock(playDurationSec)}`}
         >
-          <span className="play-stage__rail-mode">{flowMode === 'test' ? 'TEST' : 'REC'}</span>
+          <span className="play-stage__rail-mode">REC</span>
           <div className="play-stage__rail-main">
             <div className="play-stage__rail-track" aria-hidden="true">
               <div className="play-stage__rail-fill" style={{ width: `${progress}%` }} />
@@ -813,18 +769,16 @@ export function ChallengeStartPage() {
             <div className="play-stage__transition-clear" aria-hidden={playState !== 'clear'}>
               <span className="play-stage__clear-text">Challenge Clear</span>
               <span className="play-stage__clear-note">
-                {flowMode === 'test' ? '테스트 결과를 정리하고 있습니다.' : '분석을 이어서 준비하고 있습니다.'}
+                분석을 이어서 준비하고 있습니다.
               </span>
             </div>
 
             <div className="play-stage__transition-analysis" aria-hidden={playState !== 'analyzing'}>
               <div className="play-stage__analyzing-panel">
                 <span className="play-stage__analyzing-eyebrow">Analyzing</span>
-                <h2>{flowMode === 'test' ? '테스트 결과를 정리하고 있습니다.' : '실제 플레이 영상을 업로드하고 분석하고 있습니다.'}</h2>
+                <h2>실제 플레이 영상을 업로드하고 분석하고 있습니다.</h2>
                 <p>
-                  {flowMode === 'test'
-                    ? '카메라 없이 플레이 흐름만 확인한 테스트 결과입니다.'
-                    : '업로드가 끝나면 자동채점 결과 페이지로 바로 이동합니다.'}
+                  업로드가 끝나면 자동채점 결과 페이지로 바로 이동합니다.
                 </p>
 
                 <div className="play-stage__analysis-list">
@@ -881,21 +835,6 @@ function resolveRecordingMimeType() {
   }
 
   return RECORDING_MIME_CANDIDATES.find((candidate) => MediaRecorder.isTypeSupported(candidate)) ?? '';
-}
-
-function formatDurationLabel(durationSec: number) {
-  if (durationSec < 60) {
-    return `${durationSec}s`;
-  }
-
-  const minutes = Math.floor(durationSec / 60);
-  const seconds = durationSec % 60;
-
-  if (seconds === 0) {
-    return `${minutes}m`;
-  }
-
-  return `${minutes}m ${seconds}s`;
 }
 
 function formatAreaLabel(value: AttemptSummary['strongestArea'] | undefined) {

@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 
 type CameraSetupModalProps = {
   challengeTitle: string;
-  onConfirm: (mode: 'camera' | 'test') => void;
+  onConfirm: () => void;
   onClose: () => void;
 };
 
@@ -74,9 +74,9 @@ export function CameraSetupModal({ challengeTitle, onConfirm, onClose }: CameraS
     }
   }
 
-  function handleConfirm(mode: 'camera' | 'test') {
+  function handleConfirm() {
     stopStream();
-    onConfirm(mode);
+    onConfirm();
   }
 
   function handleClose() {
@@ -87,17 +87,17 @@ export function CameraSetupModal({ challengeTitle, onConfirm, onClose }: CameraS
   function statusLabel() {
     switch (status) {
       case 'idle':
-        return '카메라 상태를 확인한 뒤 시작하거나 테스트 모드로 진행할 수 있습니다.';
+        return '카메라 상태를 확인한 뒤 시작할 수 있습니다.';
       case 'requesting':
         return '카메라 권한을 확인하고 있습니다.';
       case 'ready':
         return '카메라 미리보기가 준비되었습니다.';
       case 'denied':
-        return '카메라 권한이 거부되었습니다. 테스트 모드로 계속할 수 있습니다.';
+        return '카메라 권한이 거부되었습니다. 권한을 허용한 뒤 다시 시도해 주세요.';
       case 'unavailable':
-        return '사용 가능한 카메라가 없습니다. 테스트 모드로 계속할 수 있습니다.';
+        return '사용 가능한 카메라가 없습니다. 장치를 연결한 뒤 다시 시도해 주세요.';
       case 'error':
-        return '카메라 연결에 실패했습니다. 테스트 모드로 계속할 수 있습니다.';
+        return '카메라 연결에 실패했습니다. 장치 상태를 확인한 뒤 다시 시도해 주세요.';
     }
   }
 
@@ -109,7 +109,6 @@ export function CameraSetupModal({ challengeTitle, onConfirm, onClose }: CameraS
         : '';
 
   const canStartWithCamera = status === 'ready';
-  const canUseTestMode = status !== 'requesting';
 
   const modal = (
     <div className="camera-modal-backdrop" onClick={handleClose}>
@@ -117,7 +116,7 @@ export function CameraSetupModal({ challengeTitle, onConfirm, onClose }: CameraS
         <div className="camera-modal__header">
           <div>
             <h3>카메라 설정</h3>
-            <p>{challengeTitle} 도전 전에 카메라를 확인하거나 테스트 모드로 전환합니다.</p>
+            <p>{challengeTitle} 도전 전에 카메라를 확인합니다.</p>
           </div>
           <button type="button" className="camera-modal__close" onClick={handleClose}>
             ×
@@ -158,19 +157,9 @@ export function CameraSetupModal({ challengeTitle, onConfirm, onClose }: CameraS
             <button
               type="button"
               className="camera-modal__btn camera-modal__btn--primary"
-              onClick={() => handleConfirm('camera')}
+              onClick={handleConfirm}
             >
               카메라로 시작
-            </button>
-          ) : null}
-
-          {canUseTestMode ? (
-            <button
-              type="button"
-              className="camera-modal__btn camera-modal__btn--secondary"
-              onClick={() => handleConfirm('test')}
-            >
-              테스트 모드
             </button>
           ) : null}
 

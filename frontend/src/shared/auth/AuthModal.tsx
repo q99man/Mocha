@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { buildSocialLoginUrl } from '../api/authApi';
 import type { SocialAuthProvider } from '../types/auth';
 import { useAuth } from './AuthProvider';
-import { formatSocialAuthProvider, type AuthFeedback, type AuthMode } from './authModalUtils';
+import { type AuthFeedback, type AuthMode } from './authModalUtils';
 
 const SOCIAL_LOGIN_OPTIONS: Array<{
   provider: SocialAuthProvider;
@@ -48,39 +48,6 @@ const SOCIAL_LOGIN_OPTIONS: Array<{
   },
 ];
 
-const SOCIAL_PROVIDER_GUIDES: Record<
-  SocialAuthProvider,
-  { eyebrow: string; title: string; description: string; details: string[] }
-> = {
-  KAKAO: {
-    eyebrow: 'Kakao Flow',
-    title: '카카오 인증 한 번으로 빠르게 연결됩니다.',
-    description: '카카오 로그인 창에서 계정만 확인하면 현재 흐름으로 바로 복귀합니다.',
-    details: [
-      '기존에 같은 이메일 회원이 있으면 카카오 계정으로 자동 연결됩니다.',
-      '처음 로그인하는 경우 별도 가입 없이 계정이 바로 만들어집니다.',
-    ],
-  },
-  NAVER: {
-    eyebrow: 'Naver Flow',
-    title: '네이버 계정 확인 후 바로 로그인 상태가 됩니다.',
-    description: '네이버 승인 완료 시 현재 페이지에서 이어서 사용할 수 있습니다.',
-    details: [
-      '기존 동일 이메일이 있으면 네이버 로그인으로 전환 연결됩니다.',
-      '새 계정이면 프로필 정보를 바탕으로 회원가입이 자동 완료됩니다.',
-    ],
-  },
-  GOOGLE: {
-    eyebrow: 'Google Flow',
-    title: '구글 인증 후 바로 서비스로 돌아옵니다.',
-    description: '구글 계정 선택과 승인만 끝나면 추가 입력 없이 이어집니다.',
-    details: [
-      '같은 이메일 회원 정보가 있으면 구글 계정으로 연결됩니다.',
-      '처음 사용하는 경우에도 즉시 계정이 생성되어 바로 시작할 수 있습니다.',
-    ],
-  },
-};
-
 type AuthModalProps = {
   mode: AuthMode;
   redirectTarget?: string | null;
@@ -99,7 +66,7 @@ export function AuthModal({
   onModeChange,
 }: AuthModalProps) {
   const navigate = useNavigate();
-  const { login, register, isLoading, isAuthenticated, isAdmin, user } = useAuth();
+  const { login, register, isLoading, isAuthenticated, isAdmin } = useAuth();
   const [activeMode, setActiveMode] = useState<AuthMode>(mode);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -241,9 +208,6 @@ export function AuthModal({
     }
     return redirectTarget ?? (isAdmin ? '/admin' : '/mypage');
   }, [isAdmin, redirectTarget]);
-
-  const socialGuide = SOCIAL_PROVIDER_GUIDES[socialPreviewProvider];
-  const socialPreviewLabel = formatSocialAuthProvider(socialPreviewProvider);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();

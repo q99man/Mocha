@@ -36,5 +36,5 @@ export function ChallengeVisual({
     );
   }
 
-  return <div className={placeholderClassName}>VISUAL READY SOON</div>;
+  return <div className={placeholderClassName}>이미지 준비 중</div>;
 }

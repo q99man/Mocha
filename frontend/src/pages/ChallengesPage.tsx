@@ -873,7 +873,6 @@ export function ChallengesPage() {
               selectedChallenge={selectedChallenge}
               isAuthenticated={isAuthenticated}
               hasAttemptedSelectedChallenge={hasAttemptedSelectedChallenge}
-              hasMyReview={hasMyReview}
               canWriteReview={canWriteReview}
               reviewFormOpen={reviewFormOpen}
               reviewForm={reviewForm}
@@ -908,14 +907,14 @@ export function ChallengesPage() {
       </div>
 
       {modalChallenge ? (
-        <CameraSetupModal
-          challengeTitle={modalChallenge.title}
-          onConfirm={(mode) => {
-            void fadeOutAudio();
-            const targetId = modalChallenge.id;
-            setModalChallengeId(null);
-            void navigate(`/challenges/${targetId}/start${mode === 'test' ? '?mode=test' : ''}`);
-          }}
+          <CameraSetupModal
+            challengeTitle={modalChallenge.title}
+            onConfirm={() => {
+              void fadeOutAudio();
+              const targetId = modalChallenge.id;
+              setModalChallengeId(null);
+              void navigate(`/challenges/${targetId}/start`);
+            }}
           onClose={() => setModalChallengeId(null)}
         />
       ) : null}

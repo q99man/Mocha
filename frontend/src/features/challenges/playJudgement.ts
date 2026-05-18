@@ -1,5 +1,3 @@
-export type PlayFlowMode = 'camera' | 'test';
-
 export type PlayJudgementTone = 'perfect' | 'good' | 'hold' | 'early' | 'late' | 'miss';
 
 export type PlayJudgementVerdict = 'PERFECT' | 'GOOD' | 'HOLD' | 'EARLY' | 'LATE' | 'MISS';
@@ -47,32 +45,6 @@ export type MotionAnalysisJudgementCue = {
   confidence: number;
 };
 
-const TIMELINE_PREVIEW_PATTERN: PlayJudgementVerdict[] = [
-  'PERFECT',
-  'GOOD',
-  'EARLY',
-  'PERFECT',
-  'GOOD',
-  'LATE',
-  'PERFECT',
-  'HOLD',
-  'GOOD',
-  'MISS',
-];
-
-const TEST_PREVIEW_PATTERN: PlayJudgementVerdict[] = [
-  'GOOD',
-  'EARLY',
-  'GOOD',
-  'PERFECT',
-  'LATE',
-  'GOOD',
-  'HOLD',
-  'GOOD',
-  'PERFECT',
-  'MISS',
-];
-
 const JUDGEMENT_COPY: Record<PlayJudgementVerdict, { tone: PlayJudgementTone; label: string; guide: string }> = {
   PERFECT: {
     tone: 'perfect',
@@ -105,44 +77,6 @@ const JUDGEMENT_COPY: Record<PlayJudgementVerdict, { tone: PlayJudgementTone; la
     guide: 'The section needs a cleaner retry.',
   },
 };
-
-export function buildPlayJudgementTimeline(durationSec: number, flowMode: PlayFlowMode) {
-  const safeDurationSec = Math.max(4, Math.round(durationSec));
-  const intervalMs = safeDurationSec <= 20 ? 650 : safeDurationSec <= 40 ? 560 : 520;
-  const leadInMs = 420;
-  const eventCount = Math.max(6, Math.floor((safeDurationSec * 1000 - leadInMs) / intervalMs));
-  const laneShift = flowMode === 'camera' ? 0 : 2;
-
-  return Array.from({ length: eventCount }, (_, index) => {
-    const triggerMs = leadInMs + index * intervalMs;
-    const second = Math.floor(triggerMs / 1000);
-
-    return {
-      id: index + 1,
-      beatIndex: index,
-      second,
-      triggerMs,
-      windowMs: Math.round(intervalMs * 0.72),
-      lane: (index + laneShift) % 6,
-      accent: index % 4 === 0,
-    } satisfies PlayJudgementPlanItem;
-  });
-}
-
-export function buildPreviewJudgementEvaluation(
-  planItem: PlayJudgementPlanItem,
-  flowMode: PlayFlowMode,
-): PlayJudgementEvaluation {
-  const pattern = flowMode === 'camera' ? TIMELINE_PREVIEW_PATTERN : TEST_PREVIEW_PATTERN;
-  const verdict = pattern[planItem.beatIndex % pattern.length];
-
-  return {
-    verdict,
-    source: 'timeline-preview',
-    offsetMs: buildPreviewOffset(planItem.beatIndex, verdict),
-    confidence: buildPreviewConfidence(verdict),
-  };
-}
 
 export function buildPlayJudgementCue(
   planItem: PlayJudgementPlanItem,
@@ -184,41 +118,4 @@ export function buildMotionAnalysisJudgementCue(cue: MotionAnalysisJudgementCue)
     offsetMs: cue.offsetMs,
     confidence: cue.confidence,
   };
-}
-
-function buildPreviewOffset(beatIndex: number, verdict: PlayJudgementVerdict) {
-  switch (verdict) {
-    case 'PERFECT':
-      return [6, -4, 8, -6][beatIndex % 4];
-    case 'GOOD':
-      return [22, -18, 16, -20][beatIndex % 4];
-    case 'HOLD':
-      return [12, -10, 14, -12][beatIndex % 4];
-    case 'EARLY':
-      return [-42, -36, -48][beatIndex % 3];
-    case 'LATE':
-      return [38, 44, 34][beatIndex % 3];
-    case 'MISS':
-      return [86, -92][beatIndex % 2];
-    default:
-      return 0;
-  }
-}
-
-function buildPreviewConfidence(verdict: PlayJudgementVerdict) {
-  switch (verdict) {
-    case 'PERFECT':
-      return 0.96;
-    case 'GOOD':
-      return 0.84;
-    case 'HOLD':
-      return 0.8;
-    case 'EARLY':
-    case 'LATE':
-      return 0.68;
-    case 'MISS':
-      return 0.42;
-    default:
-      return 0.5;
-  }
 }

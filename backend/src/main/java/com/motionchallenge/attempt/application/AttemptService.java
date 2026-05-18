@@ -13,8 +13,8 @@ import com.motionchallenge.challenge.repository.ChallengeRepository;
 import com.motionchallenge.member.entity.Member;
 import com.motionchallenge.member.service.CurrentMemberService;
 import com.motionchallenge.motion.service.MotionAnalysisModeSupport;
-import com.motionchallenge.scoring.application.SimpleScoringPreviewService;
-import com.motionchallenge.scoring.application.SimpleScoringResult;
+import com.motionchallenge.scoring.application.AttemptResultPresentation;
+import com.motionchallenge.scoring.application.AttemptResultPresentationService;
 import com.motionchallenge.video.service.StoredVideo;
 import com.motionchallenge.video.service.VideoStorageService;
 import java.time.Duration;
@@ -36,14 +36,10 @@ public class AttemptService {
     private static final String FAILURE_CODE_UPLOAD_STORAGE = "UPLOAD_STORAGE_FAILED";
     private static final String FAILURE_CODE_ANALYSIS = "ANALYSIS_FAILED";
     private static final String FAILURE_CODE_SCORING = "SCORING_FAILED";
-    private static final int PREPARED_SCORE = 0;
-    private static final int MIN_COMPLETED_SCORE = 0;
-    private static final String DEFAULT_PREPARED_NOTE = "이 챌린지의 준비 상태가 저장되었습니다.";
-    private static final String DEFAULT_COMPLETED_NOTE = "프로토타입 완료 결과가 저장되었습니다.";
     private static final String PROCESSING_NOTICE_AUTOSCORED =
             "업로드한 영상이 자동으로 분석되고 채점되었습니다.";
     private static final String PROCESSING_NOTICE_SAMPLE =
-            "이 결과는 실제 업로드 비교가 아니라 프로토타입 미리보기 결과입니다.";
+            "이 결과는 실제 업로드 비교 없이 생성된 이전 방식의 미리보기 기록입니다.";
     private static final String PROCESSING_NOTICE_PREPARED =
             "이 기록은 아직 준비 상태입니다. 실제 영상을 업로드하면 분석이 시작됩니다.";
     private static final String DEFAULT_FAILURE_MESSAGE =
@@ -54,7 +50,7 @@ public class AttemptService {
     private final AttemptVideoRepository attemptVideoRepository;
     private final ChallengeRepository challengeRepository;
     private final ChallengeMotionProfileRepository challengeMotionProfileRepository;
-    private final SimpleScoringPreviewService simpleScoringPreviewService;
+    private final AttemptResultPresentationService attemptResultPresentationService;
     private final VideoStorageService videoStorageService;
     private final AttemptVideoProcessingDispatcher attemptVideoProcessingDispatcher;
     private final AttemptAsyncPendingProperties asyncPendingProperties;
@@ -68,7 +64,7 @@ public class AttemptService {
             AttemptVideoRepository attemptVideoRepository,
             ChallengeRepository challengeRepository,
             ChallengeMotionProfileRepository challengeMotionProfileRepository,
-            SimpleScoringPreviewService simpleScoringPreviewService,
+            AttemptResultPresentationService attemptResultPresentationService,
             VideoStorageService videoStorageService,
             AttemptVideoProcessingDispatcher attemptVideoProcessingDispatcher,
             AttemptAsyncPendingProperties asyncPendingProperties,
@@ -80,7 +76,7 @@ public class AttemptService {
         this.attemptVideoRepository = attemptVideoRepository;
         this.challengeRepository = challengeRepository;
         this.challengeMotionProfileRepository = challengeMotionProfileRepository;
-        this.simpleScoringPreviewService = simpleScoringPreviewService;
+        this.attemptResultPresentationService = attemptResultPresentationService;
         this.videoStorageService = videoStorageService;
         this.attemptVideoProcessingDispatcher = attemptVideoProcessingDispatcher;
         this.asyncPendingProperties = asyncPendingProperties;
@@ -131,67 +127,6 @@ public class AttemptService {
                         "입력한 trackingId에 해당하는 처리 작업을 찾을 수 없습니다."));
 
         return toProgressResponse(processingJob);
-    }
-
-    @Transactional
-    public AttemptSummaryResponse createPrototypeAttempt(AttemptCreateRequest request) {
-        String normalizedRecordType = normalizeRecordType(request.recordType());
-
-        if (AttemptRecordType.COMPLETED.equals(normalizedRecordType)) {
-            return createCompletedAttempt(new CompletedAttemptCommand(
-                    request.challengeId(),
-                    request.score(),
-                    request.notes()));
-        }
-
-        return createPreparedAttempt(request.challengeId(), request.notes());
-    }
-
-    @Transactional
-    public AttemptSummaryResponse createPreparedAttempt(Long challengeId, String notes) {
-        Member member = currentMemberService.requireCurrentMember();
-        Challenge challenge = findActiveChallenge(challengeId);
-        Attempt attempt = attemptRepository.findTopByChallengeIdAndMemberIdOrderByCreatedAtDescIdDesc(challengeId, member.getId())
-                .orElseGet(() -> new Attempt(
-                        challenge,
-                        member,
-                        PREPARED_SCORE,
-                        AttemptStatus.PREPARED,
-                        null,
-                        false,
-                        PROCESSING_NOTICE_PREPARED,
-                        normalizePreparedNotes(notes)));
-
-        attempt.updatePreparedState(normalizePreparedNotes(notes), PROCESSING_NOTICE_PREPARED);
-        attempt = attemptRepository.save(attempt);
-        removeAttemptVideoIfPresent(attempt);
-        consolidateAttemptHistory(challengeId, member.getId(), attempt.getId());
-
-        return toResponse(attempt, null, false, null, false);
-    }
-
-    @Transactional
-    public AttemptSummaryResponse createCompletedAttempt(CompletedAttemptCommand command) {
-        Member member = currentMemberService.requireCurrentMember();
-        Challenge challenge = findActiveChallenge(command.challengeId());
-        int normalizedScore = normalizeCompletedScore(command.score());
-        Attempt attempt = attemptRepository.findTopByChallengeIdAndMemberIdOrderByCreatedAtDescIdDesc(challenge.getId(), member.getId())
-                .orElseGet(() -> new Attempt(
-                        challenge,
-                        member,
-                        normalizedScore,
-                        AttemptStatus.COMPLETED,
-                        null,
-                        true,
-                        PROCESSING_NOTICE_SAMPLE,
-                        normalizeCompletedNotes(command.notes())));
-
-        attempt.updateCompletedState(normalizedScore, normalizeCompletedNotes(command.notes()), PROCESSING_NOTICE_SAMPLE);
-        attempt = attemptRepository.save(attempt);
-        removeAttemptVideoIfPresent(attempt);
-        consolidateAttemptHistory(challenge.getId(), member.getId(), attempt.getId());
-
-        return toResponse(attempt, null, false, null, false);
     }
 
     @Transactional
@@ -300,7 +235,7 @@ public class AttemptService {
             boolean includeJudgementTimeline) {
         String resultSource = resolveResultSource(attempt, hasUploadedVideo);
         String displayStatus = resolveDisplayStatus(attempt, resultSource);
-        SimpleScoringResult scoringResult = simpleScoringPreviewService.buildResult(displayStatus, attempt.getScore());
+        AttemptResultPresentation resultPresentation = attemptResultPresentationService.buildPresentation(displayStatus, attempt.getScore());
         String processingMode = resolvePersistedProcessingMode(attempt, resultSource);
         boolean processingComplete = resolvePersistedProcessingComplete(attempt, resultSource);
         String processingNotice = resolvePersistedProcessingNotice(attempt, resultSource);
@@ -318,7 +253,7 @@ public class AttemptService {
         String strongestArea = normalizeDisplayText(attempt.getStrongestArea());
         String weakestArea = normalizeDisplayText(attempt.getWeakestArea());
         AttemptFinalFeedbackResponse finalFeedback = attemptFinalFeedbackService.build(
-                scoringResult.scoreAvailable(),
+                resultPresentation.scoreAvailable(),
                 attempt.getScore(),
                 strongestArea,
                 weakestArea,
@@ -335,9 +270,9 @@ public class AttemptService {
                 attempt.getScore(),
                 displayStatus,
                 resultSource,
-                scoringResult.scoreAvailable(),
-                scoringResult.resultHeadline(),
-                resolveResultSummary(attempt, scoringResult, resultSource),
+                resultPresentation.scoreAvailable(),
+                resultPresentation.resultHeadline(),
+                resolveResultSummary(attempt, resultPresentation, resultSource),
                 finalFeedback,
                 judgementTimeline,
                 processingMode,
@@ -667,14 +602,14 @@ public class AttemptService {
         return AttemptStatus.COMPLETED.equals(attempt.getStatus()) && hasUploadedVideo;
     }
 
-    private String resolveResultSummary(Attempt attempt, SimpleScoringResult scoringResult, String resultSource) {
+    private String resolveResultSummary(Attempt attempt, AttemptResultPresentation resultPresentation, String resultSource) {
         String persistedResultSummary = normalizeDisplayText(attempt.getResultSummary());
         if (persistedResultSummary != null && !persistedResultSummary.isBlank()) {
             return persistedResultSummary;
         }
 
         if (AttemptResultSource.VIDEO_UPLOAD_AUTOSCORED.equals(resultSource)) {
-            return scoringResult.resultSummary();
+            return resultPresentation.resultSummary();
         }
 
         String normalizedNotes = normalizeDisplayText(attempt.getNotes());
@@ -682,7 +617,7 @@ public class AttemptService {
             return normalizedNotes;
         }
 
-        return scoringResult.resultSummary();
+        return resultPresentation.resultSummary();
     }
 
     private String resolveDisplayStatus(Attempt attempt, String resultSource) {
@@ -767,38 +702,6 @@ public class AttemptService {
         }
         return PROCESSING_NOTICE_PREPARED;
     }
-    private String normalizeRecordType(String recordType) {
-        if (AttemptRecordType.COMPLETED.equalsIgnoreCase(recordType)) {
-            return AttemptRecordType.COMPLETED;
-        }
-
-        return AttemptRecordType.PREPARED;
-    }
-
-    private int normalizeCompletedScore(int requestedScore) {
-        if (requestedScore < MIN_COMPLETED_SCORE) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "완료된 프로토타입 점수는 최소 1점 이상이어야 합니다.");
-        }
-
-        return requestedScore;
-    }
-
-    private String normalizePreparedNotes(String notes) {
-        if (notes == null || notes.isBlank()) {
-            return DEFAULT_PREPARED_NOTE;
-        }
-
-        return notes;
-    }
-
-    private String normalizeCompletedNotes(String notes) {
-        if (notes == null || notes.isBlank()) {
-            return DEFAULT_COMPLETED_NOTE;
-        }
-
-        return notes;
-    }
-
     private String resolveCompletionStrategy(AttemptProcessingJob processingJob) {
         if (!"ASYNC_JOB_PENDING".equals(processingJob.getProcessingMode())) {
             return "INLINE_FLOW";

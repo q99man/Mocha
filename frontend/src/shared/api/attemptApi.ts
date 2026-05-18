@@ -1,6 +1,5 @@
-﻿import { fetchJson, postFormData, postJson } from './client';
+﻿import { fetchJson, postFormData } from './client';
 import type {
-  AttemptCreateRequest,
   AttemptSummary,
   AttemptVideoProcessingJobProgress,
   AttemptVideoResult,
@@ -35,23 +34,6 @@ export async function getAttemptVideoProcessingProgressByTrackingId(
   return fetchJson<AttemptVideoProcessingJobProgress>(
     `/api/attempts/video-processing-progress/${encodeURIComponent(trackingId)}`,
   );
-}
-
-export async function createAttempt(request: AttemptCreateRequest): Promise<AttemptSummary> {
-  try {
-    return await postJson<AttemptSummary, AttemptCreateRequest>('/api/attempts', request);
-  } catch (error) {
-    if (error instanceof Error && error.message === NOT_FOUND_MESSAGE) {
-      throw new Error('선택한 챌린지를 찾을 수 없습니다.');
-    }
-    if (error instanceof Error && error.message === BAD_REQUEST_MESSAGE) {
-      throw new Error('기록을 저장할 수 없습니다. 입력값을 확인한 뒤 다시 시도해 주세요.');
-    }
-    if (error instanceof Error && error.message === SERVER_ERROR_MESSAGE) {
-      throw new Error('기록 저장 중 서버 오류가 발생했습니다. 다시 시도해 주세요.');
-    }
-    throw new Error('기록을 저장하지 못했습니다.');
-  }
 }
 
 export async function uploadAttemptVideo(request: AttemptVideoUploadRequest): Promise<AttemptVideoResult> {

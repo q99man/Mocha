@@ -9,10 +9,10 @@ import com.motionchallenge.challenge.entity.ChallengeMotionProfile;
 import com.motionchallenge.member.entity.Member;
 import com.motionchallenge.motion.service.MotionAnalysisResult;
 import com.motionchallenge.motion.service.MotionAnalysisService;
+import com.motionchallenge.scoring.application.AttemptResultPresentation;
+import com.motionchallenge.scoring.application.AttemptResultPresentationService;
 import com.motionchallenge.scoring.application.ScoringResult;
 import com.motionchallenge.scoring.application.ScoringService;
-import com.motionchallenge.scoring.application.SimpleScoringPreviewService;
-import com.motionchallenge.scoring.application.SimpleScoringResult;
 import com.motionchallenge.video.service.StoredVideo;
 import com.motionchallenge.video.service.VideoStorageService;
 import java.util.List;
@@ -29,7 +29,7 @@ public class AttemptVideoProcessingService {
     private final AttemptVideoRepository attemptVideoRepository;
     private final MotionAnalysisService motionAnalysisService;
     private final ScoringService scoringService;
-    private final SimpleScoringPreviewService simpleScoringPreviewService;
+    private final AttemptResultPresentationService attemptResultPresentationService;
     private final AttemptJudgementTimelineService attemptJudgementTimelineService;
     private final AttemptFinalFeedbackService attemptFinalFeedbackService;
     private final VideoStorageService videoStorageService;
@@ -39,7 +39,7 @@ public class AttemptVideoProcessingService {
             AttemptVideoRepository attemptVideoRepository,
             MotionAnalysisService motionAnalysisService,
             ScoringService scoringService,
-            SimpleScoringPreviewService simpleScoringPreviewService,
+            AttemptResultPresentationService attemptResultPresentationService,
             AttemptJudgementTimelineService attemptJudgementTimelineService,
             AttemptFinalFeedbackService attemptFinalFeedbackService,
             VideoStorageService videoStorageService) {
@@ -47,7 +47,7 @@ public class AttemptVideoProcessingService {
         this.attemptVideoRepository = attemptVideoRepository;
         this.motionAnalysisService = motionAnalysisService;
         this.scoringService = scoringService;
-        this.simpleScoringPreviewService = simpleScoringPreviewService;
+        this.attemptResultPresentationService = attemptResultPresentationService;
         this.attemptJudgementTimelineService = attemptJudgementTimelineService;
         this.attemptFinalFeedbackService = attemptFinalFeedbackService;
         this.videoStorageService = videoStorageService;
@@ -89,11 +89,11 @@ public class AttemptVideoProcessingService {
 
         upsertAttemptVideo(attempt, storedVideo);
 
-        SimpleScoringResult previewResult = simpleScoringPreviewService.buildResult(
+        AttemptResultPresentation resultPresentation = attemptResultPresentationService.buildPresentation(
                 attempt.getStatus(),
                 scoringResult.score());
         AttemptFinalFeedbackResponse finalFeedback = attemptFinalFeedbackService.build(
-                previewResult.scoreAvailable(),
+                resultPresentation.scoreAvailable(),
                 scoringResult.score(),
                 scoringResult.strongestArea(),
                 scoringResult.weakestArea(),
@@ -107,8 +107,8 @@ public class AttemptVideoProcessingService {
                 scoringResult.score(),
                 attempt.getStatus(),
                 AttemptResultSource.VIDEO_UPLOAD_AUTOSCORED,
-                previewResult.scoreAvailable(),
-                previewResult.resultHeadline(),
+                resultPresentation.scoreAvailable(),
+                resultPresentation.resultHeadline(),
                 scoringResult.summary(),
                 finalFeedback,
                 judgementTimeline,
@@ -190,4 +190,3 @@ public class AttemptVideoProcessingService {
         }
     }
 }
-

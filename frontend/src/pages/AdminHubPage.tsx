@@ -33,7 +33,6 @@ import {
   IconEdit,
   IconRefresh,
   IconSave,
-  IconStatus,
   IconView,
 } from '../shared/components/AdminIcons';
 import { CompactFilterDropdown } from '../shared/components/CompactFilterDropdown';
@@ -41,6 +40,7 @@ import { CompactConfirmDialog } from '../shared/components/CompactConfirmDialog'
 import { CompactToast } from '../shared/components/CompactToast';
 import { Pagination } from '../shared/components/Pagination';
 import { useAuth } from '../shared/auth/AuthProvider';
+import { formatCompactDateTime as formatDateTime, formatFullDateTime as formatDateTimeFull } from '../shared/presentation/dateTime';
 import type {
   AdminMemberCreateInput,
   AdminMemberListResponse,
@@ -267,16 +267,6 @@ export function AdminHubPage() {
   }, [activeTab, boardKeyword, boardCategoryFilter, boardSourceFilter, boardPage]);
 
   const activeChallenges = useMemo(() => challenges.filter((challenge) => challenge.isActive), [challenges]);
-  const pendingAnalysisChallenges = useMemo(
-    () =>
-      challenges.filter(
-        (challenge) =>
-          challenge.referenceVideoUploaded &&
-          !challenge.referenceMotionProfileReady &&
-          challenge.referenceAnalysisStatus !== 'ANALYZING',
-      ),
-    [challenges],
-  );
   const evaluationReadyChallenges = useMemo(
     () =>
       challenges.filter(
@@ -337,8 +327,6 @@ export function AdminHubPage() {
   const boardTotalPages = Math.max(1, Math.ceil(boardTotalCount / POSTS_PER_PAGE));
 
   const modelSummary = activeAsset ? `현재 활성 모델 ${activeAsset.originalFileName}` : '현재 활성 모델이 없습니다.';
-  const challengeSummary = `활성 ${activeChallenges.length}개 · 평가 준비 ${evaluationReadyChallenges.length}개 · 분석 대기 ${pendingAnalysisChallenges.length}개`;
-
   const confirmBusy =
     (confirmDialog.kind === 'DELETE_ASSET' && deletingAssetId === confirmDialog.asset.id) ||
     (confirmDialog.kind === 'DELETE_CHALLENGE' && deletingChallengeId === confirmDialog.challenge.id) ||
@@ -981,7 +969,6 @@ export function AdminHubPage() {
           {!loading && activeTab === 'challenges' ? (
             <AdminChallengesSection
               loading={loading}
-              filteredChallenges={filteredChallenges}
               pagedChallenges={pagedChallenges}
               categoryOptions={categoryOptions}
               challengeSearch={challengeSearch}
@@ -995,7 +982,6 @@ export function AdminHubPage() {
               analyzingId={analyzingId}
               deletingId={deletingChallengeId}
               togglingId={togglingId}
-              challengeSummary={challengeSummary}
               statusFilterOptions={STATUS_FILTER_OPTIONS}
               sortOptions={SORT_OPTIONS}
               setChallengeSearch={setChallengeSearch}
@@ -1638,31 +1624,4 @@ function formatFileSize(size: number) {
     return `${Math.round(size / 1024)} KB`;
   }
   return `${(size / (1024 * 1024)).toFixed(1)} MB`;
-}
-
-function formatDateTime(value: string) {
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) {
-    return value;
-  }
-  return parsed.toLocaleString('ko-KR', {
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-}
-
-function formatDateTimeFull(value: string) {
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) {
-    return value;
-  }
-  return parsed.toLocaleString('ko-KR', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
 }

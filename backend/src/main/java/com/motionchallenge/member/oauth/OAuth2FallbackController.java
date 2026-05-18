@@ -25,7 +25,7 @@ public class OAuth2FallbackController {
             @PathVariable String registrationId,
             HttpServletRequest request) {
         UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(
-                trimTrailingSlash(authProperties.getFrontendBaseUrl())
+                authProperties.getNormalizedFrontendBaseUrl()
                         + normalizePath(authProperties.getFailureRedirectPath()));
         builder.replaceQueryParam("mode", "login");
         builder.replaceQueryParam("social", "failure");
@@ -59,10 +59,4 @@ public class OAuth2FallbackController {
         return value.startsWith("/") ? value : "/" + value;
     }
 
-    private String trimTrailingSlash(String value) {
-        if (value == null || value.isBlank()) {
-            return "http://localhost:5173";
-        }
-        return value.endsWith("/") ? value.substring(0, value.length() - 1) : value;
-    }
 }

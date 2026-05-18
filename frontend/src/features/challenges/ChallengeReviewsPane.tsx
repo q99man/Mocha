@@ -9,7 +9,6 @@ type ChallengeReviewsPaneProps = {
   selectedChallenge: Challenge | null;
   isAuthenticated: boolean;
   hasAttemptedSelectedChallenge: boolean;
-  hasMyReview: boolean;
   canWriteReview: boolean;
   reviewFormOpen: boolean;
   reviewForm: ReviewInput;
@@ -38,7 +37,6 @@ export function ChallengeReviewsPane({
   selectedChallenge,
   isAuthenticated,
   hasAttemptedSelectedChallenge,
-  hasMyReview,
   canWriteReview,
   reviewFormOpen,
   reviewForm,

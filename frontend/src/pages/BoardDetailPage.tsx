@@ -16,6 +16,7 @@ import { useAuth } from '../shared/auth/AuthProvider';
 import { buildAuthModalHref, buildPathWithSearch } from '../shared/auth/authModalUtils';
 import { CompactConfirmDialog } from '../shared/components/CompactConfirmDialog';
 import { CompactToast } from '../shared/components/CompactToast';
+import { formatCompactDateTime as formatDateTime } from '../shared/presentation/dateTime';
 import type { BoardComment, BoardPost } from '../shared/types/board';
 
 const INITIAL_COMMENT = '';
@@ -386,17 +387,3 @@ function toCategoryLabel(category: BoardPost['category']) {
   }
 }
 
-function formatDateTime(value: string) {
-  const parsed = new Date(value);
-
-  if (Number.isNaN(parsed.getTime())) {
-    return value;
-  }
-
-  return parsed.toLocaleString('ko-KR', {
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-}

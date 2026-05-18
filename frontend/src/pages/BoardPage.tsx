@@ -5,6 +5,7 @@ import { getBoardPosts } from '../shared/api/boardApi';
 import { useAuth } from '../shared/auth/AuthProvider';
 import { buildAuthModalHref } from '../shared/auth/authModalUtils';
 import { Pagination } from '../shared/components/Pagination';
+import { formatCompactDate as formatDate } from '../shared/presentation/dateTime';
 import type { BoardCategory, BoardPostSummary } from '../shared/types/board';
 
 const POSTS_PER_PAGE = 10;
@@ -260,15 +261,3 @@ function toCategoryLabel(category: BoardCategory) {
   }
 }
 
-function formatDate(value: string) {
-  const parsed = new Date(value);
-
-  if (Number.isNaN(parsed.getTime())) {
-    return value;
-  }
-
-  return parsed.toLocaleDateString('ko-KR', {
-    month: '2-digit',
-    day: '2-digit',
-  });
-}

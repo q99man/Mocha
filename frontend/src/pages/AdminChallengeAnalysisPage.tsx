@@ -4,6 +4,7 @@ import { Link, useParams } from 'react-router-dom';
 import { ChallengeReferencePosePreview } from '../features/challenges/ChallengeReferencePosePreview';
 import { formatDifficulty } from '../features/challenges/difficulty';
 import { getAdminChallengeById, getAdminChallengeReferencePreview } from '../shared/api/challengeApi';
+import { formatFullDateTime as formatDateTimeFull } from '../shared/presentation/dateTime';
 import type { Challenge } from '../shared/types/challenge';
 
 type SummaryItem = {
@@ -248,17 +249,3 @@ function toAreaLabel(value: string | null | undefined, fallback: string) {
   }
 }
 
-function formatDateTimeFull(value: string) {
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) {
-    return value;
-  }
-
-  return parsed.toLocaleString('ko-KR', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-}

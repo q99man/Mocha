@@ -41,7 +41,7 @@ type LayoutLocationState = {
 export function AppLayout() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, isAdmin, isAuthenticated, logout } = useAuth();
+  const { isAdmin, isAuthenticated, logout } = useAuth();
   const isLandingRoute = location.pathname === '/';
   const authParams = new URLSearchParams(location.search);
   const authMode = resolveAuthMode(authParams.get('auth'));

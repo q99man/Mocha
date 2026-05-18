@@ -5,7 +5,9 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 @ConfigurationProperties(prefix = "app.auth")
 public class AuthProperties {
 
-    private String frontendBaseUrl = "http://localhost:5173";
+    private static final String DEFAULT_FRONTEND_BASE_URL = "http://localhost:5173";
+
+    private String frontendBaseUrl = DEFAULT_FRONTEND_BASE_URL;
     private String defaultUserRedirectPath = "/mypage";
     private String defaultAdminRedirectPath = "/admin";
     private String failureRedirectPath = "/auth?error=social";
@@ -13,6 +15,14 @@ public class AuthProperties {
 
     public String getFrontendBaseUrl() {
         return frontendBaseUrl;
+    }
+
+    public String getNormalizedFrontendBaseUrl() {
+        String baseUrl = frontendBaseUrl;
+        if (baseUrl == null || baseUrl.isBlank()) {
+            return DEFAULT_FRONTEND_BASE_URL;
+        }
+        return baseUrl.endsWith("/") ? baseUrl.substring(0, baseUrl.length() - 1) : baseUrl;
     }
 
     public void setFrontendBaseUrl(String frontendBaseUrl) {

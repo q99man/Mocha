@@ -10,13 +10,12 @@ type AccountConfirmState = 'none' | 'profile' | 'password' | 'withdraw';
 
 export function MyPageAccountTab() {
   const navigate = useNavigate();
-  const { user, logout, refresh } = useAuth();
+  const { user, refresh } = useAuth();
   const [displayName, setDisplayName] = useState(user?.displayName ?? '');
   const [passwordForm, setPasswordForm] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' });
   const [withdrawPassword, setWithdrawPassword] = useState('');
   const [profileBusy, setProfileBusy] = useState(false);
   const [passwordBusy, setPasswordBusy] = useState(false);
-  const [logoutBusy, setLogoutBusy] = useState(false);
   const [withdrawBusy, setWithdrawBusy] = useState(false);
   const [confirmState, setConfirmState] = useState<AccountConfirmState>('none');
   const [toast, setToast] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
@@ -78,16 +77,6 @@ export function MyPageAccountTab() {
       setToast({ type: 'error', text: error instanceof Error ? error.message : '비밀번호 변경에 실패했습니다.' });
     } finally {
       setPasswordBusy(false);
-    }
-  }
-
-  async function handleLogout() {
-    setLogoutBusy(true);
-    try {
-      await logout();
-      navigate('/', { replace: true });
-    } finally {
-      setLogoutBusy(false);
     }
   }
 

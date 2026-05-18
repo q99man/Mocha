@@ -5,7 +5,6 @@ import '../features/challenges/challenge-play.css';
 import { buildMotionAnalysisJudgementCue } from '../features/challenges/playJudgement';
 import { getAttemptById, getAttemptVideoProcessingProgressByTrackingId } from '../shared/api/attemptApi';
 import { getChallengeById } from '../shared/api/challengeApi';
-import { resolveApiUrl } from '../shared/api/client';
 import { useAnimatedNumber } from '../shared/hooks/useAnimatedNumber';
 import {
   ATTEMPT_REPLAY_FILTERS,
@@ -16,6 +15,7 @@ import {
 import { buildAttemptJudgementInsights } from '../shared/presentation/attemptJudgementInsights';
 import { buildAttemptReplayHud } from '../shared/presentation/attemptReplayHud';
 import { buildAttemptReplayTimeline } from '../shared/presentation/attemptReplayTimeline';
+import { formatAttemptResultSource, isLegacyAttemptResultSource } from '../shared/presentation/attemptResultSource';
 import { normalizeAttemptMessage } from '../shared/presentation/attemptMessages';
 import type { AttemptSummary, AttemptVideoProcessingJobProgress } from '../shared/types/attempt';
 import type { Challenge } from '../shared/types/challenge';
@@ -34,11 +34,8 @@ export function AttemptResultPage() {
   const [replayFilter, setReplayFilter] = useState<AttemptReplayFilterKey>('all');
   const [filterMenuOpen, setFilterMenuOpen] = useState(false);
   const [selectedCueId, setSelectedCueId] = useState<number | null>(null);
-  const attemptReplayVideoRef = useRef<HTMLVideoElement | null>(null);
-  const referenceReplayVideoRef = useRef<HTMLVideoElement | null>(null);
   const replayScrubberRef = useRef<HTMLDivElement | null>(null);
   const replayFilterMenuRef = useRef<HTMLDivElement | null>(null);
-  const syncLockRef = useRef(false);
 
   useEffect(() => {
     if (!id) {
@@ -141,7 +138,7 @@ export function AttemptResultPage() {
 
   const pending = !attempt?.processingComplete || attempt?.processingMode === 'ASYNC_JOB_PENDING';
   const finalFeedback = !pending ? attempt?.finalFeedback ?? null : null;
-  const flowModeLabel = attempt ? formatResultSource(attempt.resultSource) : '';
+  const flowModeLabel = attempt ? formatAttemptResultSource(attempt.resultSource) : '';
   const scoreDelta = attempt?.scoreDeltaFromPrevious ?? null;
   const isNewRecord = scoreDelta != null && scoreDelta > 0;
   const animatedScore = useAnimatedNumber(attempt?.score ?? 0, { duration: 1650 });
@@ -590,8 +587,8 @@ export function AttemptResultPage() {
                 ? finalFeedback.cleared
                   ? '클리어 달성'
                   : '재도전 추천'
-              : attempt.resultSource === 'SAMPLE_SCORING_PREVIEW'
-                ? '미리보기'
+              : isLegacyAttemptResultSource(attempt.resultSource)
+                ? '이전 기록'
                 : '완료'}
           </span>
         </div>
@@ -664,48 +661,6 @@ function formatAreaLabel(value: string | null) {
   }
 
   return value;
-}
-
-function formatResultSource(value: AttemptSummary['resultSource']) {
-  switch (value) {
-    case 'VIDEO_UPLOAD_AUTOSCORED':
-      return '자동 채점';
-    case 'SAMPLE_SCORING_PREVIEW':
-      return '미리보기';
-    case 'PREPARED_FLOW':
-      return '준비 흐름';
-    default:
-      return value;
-  }
-}
-
-function formatProcessingMode(value: NonNullable<AttemptSummary['processingMode']>) {
-  switch (value) {
-    case 'SYNC_INLINE':
-      return '내부';
-    case 'ASYNC_JOB_PENDING':
-      return '대기';
-    default:
-      return value;
-  }
-}
-
-function formatDate(value: string | null) {
-  if (!value) {
-    return '-';
-  }
-
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) {
-    return value;
-  }
-
-  return parsed.toLocaleString('ko-KR', {
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
 }
 
 function formatDelta(delta: number | null) {

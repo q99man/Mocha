@@ -21,7 +21,6 @@ type FilterOption<T extends string> = {
 
 type AdminChallengesSectionProps = {
   loading: boolean;
-  filteredChallenges: Challenge[];
   pagedChallenges: Challenge[];
   categoryOptions: string[];
   challengeSearch: string;
@@ -35,7 +34,6 @@ type AdminChallengesSectionProps = {
   analyzingId: number | null;
   deletingId: number | null;
   togglingId: number | null;
-  challengeSummary: string;
   statusFilterOptions: FilterOption<'ALL' | 'ACTIVE' | 'INACTIVE'>[];
   sortOptions: FilterOption<'NEWEST' | 'OLDEST' | 'TITLE_ASC' | 'TITLE_DESC'>[];
   setChallengeSearch: (value: string) => void;
@@ -56,7 +54,6 @@ type AdminChallengesSectionProps = {
 
 export function AdminChallengesSection({
   loading,
-  filteredChallenges,
   pagedChallenges,
   categoryOptions,
   challengeSearch,

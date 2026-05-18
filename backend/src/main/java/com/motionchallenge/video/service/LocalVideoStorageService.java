@@ -104,7 +104,7 @@ public class LocalVideoStorageService implements VideoStorageService {
                 Files.copy(inputStream, targetPath, StandardCopyOption.REPLACE_EXISTING);
             }
         } catch (IOException exception) {
-            // TODO: 로컬 저장을 S3 등 외부 스토리지로 교체할 때 이 구현만 교체하면 됩니다.
+            // 로컬 저장을 S3 등 외부 스토리지로 교체할 때 이 구현만 교체하면 됩니다.
             throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "비디오 파일 저장에 실패했습니다.");
         }
 
