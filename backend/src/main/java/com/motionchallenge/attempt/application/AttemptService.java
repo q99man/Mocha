@@ -570,15 +570,11 @@ public class AttemptService {
     }
 
     private String resolveResultSource(Attempt attempt, boolean hasUploadedVideo) {
-        if (!AttemptStatus.COMPLETED.equals(attempt.getStatus())) {
-            return AttemptResultSource.PREPARED_FLOW;
-        }
-
         if (hasUploadedVideo) {
             return AttemptResultSource.VIDEO_UPLOAD_AUTOSCORED;
         }
 
-        return AttemptResultSource.SAMPLE_SCORING_PREVIEW;
+        return AttemptResultSource.NO_VIDEO_UPLOAD;
     }
 
     private Set<Long> findUploadedAttemptIds(List<Attempt> attempts) {
@@ -622,13 +618,6 @@ public class AttemptService {
 
     private String resolveDisplayStatus(Attempt attempt, String resultSource) {
         String status = normalizeDisplayText(attempt.getStatus());
-        if (AttemptResultSource.PREPARED_FLOW.equals(resultSource)) {
-            return AttemptStatus.PREPARED;
-        }
-        if (AttemptResultSource.VIDEO_UPLOAD_AUTOSCORED.equals(resultSource)
-                || AttemptResultSource.SAMPLE_SCORING_PREVIEW.equals(resultSource)) {
-            return AttemptStatus.COMPLETED;
-        }
         return status == null || status.isBlank() ? AttemptStatus.PREPARED : status;
     }
 
@@ -685,7 +674,7 @@ public class AttemptService {
             return attempt.isProcessingComplete();
         }
 
-        return !AttemptResultSource.PREPARED_FLOW.equals(resultSource);
+        return AttemptStatus.COMPLETED.equals(attempt.getStatus());
     }
 
     private String resolvePersistedProcessingNotice(Attempt attempt, String resultSource) {
@@ -697,7 +686,8 @@ public class AttemptService {
         if (AttemptResultSource.VIDEO_UPLOAD_AUTOSCORED.equals(resultSource)) {
             return PROCESSING_NOTICE_AUTOSCORED;
         }
-        if (AttemptResultSource.SAMPLE_SCORING_PREVIEW.equals(resultSource)) {
+        if (AttemptResultSource.NO_VIDEO_UPLOAD.equals(resultSource)
+                && AttemptStatus.COMPLETED.equals(attempt.getStatus())) {
             return PROCESSING_NOTICE_SAMPLE;
         }
         return PROCESSING_NOTICE_PREPARED;

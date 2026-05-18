@@ -4,15 +4,13 @@ export function formatAttemptResultSource(value: AttemptResultSource) {
   switch (value) {
     case 'VIDEO_UPLOAD_AUTOSCORED':
       return '자동 채점';
-    case 'SAMPLE_SCORING_PREVIEW':
-      return '이전 기록';
-    case 'PREPARED_FLOW':
-      return '준비 기록';
+    case 'NO_VIDEO_UPLOAD':
+      return '영상 없음';
     default:
       return value;
   }
 }
 
-export function isLegacyAttemptResultSource(value: AttemptResultSource) {
-  return value === 'SAMPLE_SCORING_PREVIEW' || value === 'PREPARED_FLOW';
+export function isVideoUploadResultSource(value: AttemptResultSource) {
+  return value === 'VIDEO_UPLOAD_AUTOSCORED';
 }

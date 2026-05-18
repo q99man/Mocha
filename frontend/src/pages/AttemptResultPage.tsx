@@ -15,7 +15,7 @@ import {
 import { buildAttemptJudgementInsights } from '../shared/presentation/attemptJudgementInsights';
 import { buildAttemptReplayHud } from '../shared/presentation/attemptReplayHud';
 import { buildAttemptReplayTimeline } from '../shared/presentation/attemptReplayTimeline';
-import { formatAttemptResultSource, isLegacyAttemptResultSource } from '../shared/presentation/attemptResultSource';
+import { formatAttemptResultSource, isVideoUploadResultSource } from '../shared/presentation/attemptResultSource';
 import { normalizeAttemptMessage } from '../shared/presentation/attemptMessages';
 import type { AttemptSummary, AttemptVideoProcessingJobProgress } from '../shared/types/attempt';
 import type { Challenge } from '../shared/types/challenge';
@@ -587,9 +587,9 @@ export function AttemptResultPage() {
                 ? finalFeedback.cleared
                   ? '클리어 달성'
                   : '재도전 추천'
-              : isLegacyAttemptResultSource(attempt.resultSource)
-                ? '이전 기록'
-                : '완료'}
+              : isVideoUploadResultSource(attempt.resultSource)
+                ? '완료'
+                : '영상 없음'}
           </span>
         </div>
 

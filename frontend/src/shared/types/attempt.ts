@@ -1,8 +1,7 @@
 export type AttemptStatus = 'Prepared' | 'Completed';
 export type AttemptProcessingMode = 'SYNC_INLINE' | 'ASYNC_JOB_PENDING';
 export type AttemptResultSource =
-  | 'PREPARED_FLOW'
-  | 'SAMPLE_SCORING_PREVIEW'
+  | 'NO_VIDEO_UPLOAD'
   | 'VIDEO_UPLOAD_AUTOSCORED';
 
 export type AttemptBreakdownArea = 'pose shape' | 'pose timing' | 'detection quality';

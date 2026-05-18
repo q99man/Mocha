@@ -195,8 +195,8 @@ textarea {
   min-width: 96px;
   padding: 11px 16px;
   border: 1px solid var(--surface-border-subtle);
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.04);
+  border-radius: var(--radius-panel);
+  background: var(--surface);
   color: var(--text-muted);
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -245,7 +245,7 @@ main {
     linear-gradient(135deg, rgba(255, 255, 255, 0.05), transparent 58%),
     var(--surface);
   border: 1px solid var(--surface-border);
-  border-radius: 8px;
+  border-radius: var(--radius-panel);
   box-shadow: var(--shadow);
   backdrop-filter: blur(18px);
 }
@@ -1238,7 +1238,7 @@ main {
 
 .challenge-card__image {
   aspect-ratio: 16 / 9;
-  border-radius: 8px;
+  border-radius: var(--radius-panel);
   background: rgba(73, 228, 255, 0.08);
 }
 
@@ -1257,7 +1257,7 @@ main {
   align-items: center;
   gap: 8px;
   padding: 7px 10px;
-  border-radius: 8px;
+  border-radius: var(--radius-panel);
   background: rgba(4, 10, 19, 0.72);
   border: 1px solid var(--surface-border-subtle);
   backdrop-filter: blur(10px);
@@ -1317,9 +1317,9 @@ main {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  border-radius: 8px;
+  border-radius: var(--radius-panel);
   padding: 7px 11px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--surface-border-subtle);
   background: rgba(255, 255, 255, 0.05);
   color: var(--text-muted);
   font-size: 0.82rem;
@@ -1579,7 +1579,7 @@ main {
   justify-content: center;
   min-height: 44px;
   padding: 10px 18px;
-  border-radius: 8px;
+  border-radius: var(--radius-panel);
   border: 1px solid rgba(73, 228, 255, 0.22);
   background:
     linear-gradient(135deg, #36d8ff 0%, #1d8eff 100%);
@@ -1647,7 +1647,7 @@ main {
 }
 
 .button-link--secondary {
-  background: rgba(255, 255, 255, 0.04);
+  background: var(--surface);
   color: var(--text);
   box-shadow: none;
 }
@@ -3536,7 +3536,7 @@ main {
   position: relative;
   overflow: hidden;
   border: 1px solid rgba(133, 211, 255, 0.14);
-  border-radius: 8px;
+  border-radius: var(--radius-panel);
   background:
     linear-gradient(135deg, rgba(255, 255, 255, 0.05), transparent 58%),
     rgba(10, 22, 40, 0.6);
@@ -3601,7 +3601,7 @@ main {
 .review-composer__message {
   margin: 0;
   padding: 12px 14px;
-  border-radius: 8px;
+  border-radius: var(--radius-panel);
   font-size: 0.95rem;
 }
 
@@ -3686,10 +3686,10 @@ main {
   align-items: center;
   min-height: 34px;
   padding: 0 12px;
-  border-radius: 8px;
+  border-radius: var(--radius-panel);
   border: 1px solid rgba(133, 211, 255, 0.16);
   color: rgba(227, 233, 255, 0.78);
-  background: rgba(255, 255, 255, 0.04);
+  background: var(--surface);
   font-size: 0.84rem;
 }
 
@@ -4186,8 +4186,8 @@ main {
   min-height: 38px;
   padding: 0 14px;
   border: 1px solid rgba(255, 255, 255, 0.09);
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.04);
+  border-radius: var(--radius-panel);
+  background: var(--surface);
   color: rgba(255, 255, 255, 0.82);
   transition:
     background 220ms ease,
@@ -4232,7 +4232,7 @@ a.glass-chip:hover,
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 18px;
   padding: 18px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--surface-border-subtle);
   border-radius: var(--radius-panel);
   background: rgba(255, 255, 255, 0.03);
 }
@@ -4257,7 +4257,7 @@ a.glass-chip:hover,
 
 .glass-list-item__visual {
   overflow: hidden;
-  border-radius: 8px;
+  border-radius: var(--radius-panel);
   aspect-ratio: 16 / 10;
   background: rgba(255, 255, 255, 0.05);
 }
@@ -4397,7 +4397,7 @@ a.glass-chip:hover,
   background:
     linear-gradient(135deg, rgba(255, 255, 255, 0.06), transparent 60%),
     rgba(10, 14, 22, 0.88);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--surface-border-subtle);
   box-shadow: 0 40px 80px rgba(0, 0, 0, 0.64);
   backdrop-filter: blur(28px);
   width: min(400px, 100%);
@@ -4415,7 +4415,7 @@ a.glass-chip:hover,
   width: 34px;
   height: 34px;
   border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 8px;
+  border-radius: var(--radius-panel);
   background: rgba(255, 255, 255, 0.05);
   color: rgba(255, 255, 255, 0.6);
   font-size: 1.2rem;
@@ -4439,7 +4439,7 @@ a.glass-chip:hover,
 .glass-auth-card__hint {
   margin: 0;
   padding: 12px 14px;
-  border-radius: 8px;
+  border-radius: var(--radius-panel);
   font-size: 0.84rem;
   line-height: 1.5;
 }
@@ -4466,9 +4466,9 @@ a.glass-chip:hover,
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 12px;
   padding: 14px 16px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--surface-border);
+  border-radius: var(--radius-panel);
+  background: var(--surface);
   box-shadow: 0 14px 30px rgba(0, 0, 0, 0.22);
 }
 
@@ -4515,7 +4515,7 @@ a.glass-chip:hover,
   height: 28px;
   border: 1px solid var(--surface-border-subtle);
   border-radius: var(--radius-panel);
-  background: rgba(255, 255, 255, 0.04);
+  background: var(--surface);
   color: rgba(255, 255, 255, 0.72);
   font-size: 1rem;
   cursor: pointer;
@@ -4529,9 +4529,9 @@ a.glass-chip:hover,
 .glass-segmented-control {
   display: flex;
   padding: 4px;
-  background: rgba(255, 255, 255, 0.04);
+  background: var(--surface);
   border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 8px;
+  border-radius: var(--radius-panel);
   gap: 4px;
 }
 
@@ -4539,7 +4539,7 @@ a.glass-chip:hover,
   flex: 1;
   min-height: 38px;
   border: none;
-  border-radius: 8px;
+  border-radius: var(--radius-panel);
   background: transparent;
   color: rgba(255, 255, 255, 0.6);
   font-size: 0.88rem;
@@ -4550,7 +4550,7 @@ a.glass-chip:hover,
 
 .glass-segmented-btn:hover {
   color: #ffffff;
-  background: rgba(255, 255, 255, 0.04);
+  background: var(--surface);
 }
 
 .glass-segmented-btn.is-active {
@@ -4570,7 +4570,7 @@ a.glass-chip:hover,
 .glass-auth-social-circle {
   width: 48px;
   height: 48px;
-  border-radius: 8px;
+  border-radius: var(--radius-panel);
   border: none;
   display: flex;
   align-items: center;
@@ -4613,8 +4613,8 @@ a.glass-chip:hover,
   display: grid;
   gap: 8px;
   padding: 12px 14px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 8px;
+  border: 1px solid var(--surface-border-subtle);
+  border-radius: var(--radius-panel);
   background: rgba(255, 255, 255, 0.03);
 }
 
@@ -4637,8 +4637,8 @@ a.glass-chip:hover,
   display: grid;
   gap: 10px;
   padding: 14px 16px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 8px;
+  border: 1px solid var(--surface-border-subtle);
+  border-radius: var(--radius-panel);
   background: rgba(255, 255, 255, 0.035);
 }
 
@@ -4946,9 +4946,9 @@ a.glass-chip:hover,
   width: 100%;
   min-height: 48px;
   padding: 12px 14px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--surface-border);
+  border-radius: var(--radius-panel);
+  background: var(--surface);
   color: #ffffff;
 }
 
@@ -4961,7 +4961,7 @@ a.glass-chip:hover,
   margin-right: 12px;
   padding: 10px 14px;
   border: none;
-  border-radius: 8px;
+  border-radius: var(--radius-panel);
   background: rgba(255, 255, 255, 0.12);
   color: #ffffff;
 }

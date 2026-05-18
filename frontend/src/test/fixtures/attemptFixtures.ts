@@ -11,7 +11,7 @@ export function buildAttemptSummary(overrides: Partial<AttemptSummary> = {}): At
     memberEmail: 'tester@example.com',
     score: 0,
     status: 'Prepared',
-    resultSource: 'PREPARED_FLOW',
+    resultSource: 'NO_VIDEO_UPLOAD',
     scoreAvailable: false,
     resultHeadline: 'Attempt pending',
     resultSummary: 'Waiting for analysis.',

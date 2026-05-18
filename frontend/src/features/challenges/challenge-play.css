@@ -364,10 +364,10 @@
   align-items: center;
   gap: 8px;
   padding: 6px 14px;
-  border-radius: 8px;
+  border-radius: var(--radius-panel);
   background: rgba(0, 0, 0, 0.6);
   backdrop-filter: blur(8px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--surface-border-subtle);
   color: rgba(255, 255, 255, 0.8);
   font-size: 0.76rem;
   letter-spacing: 0.12em;
@@ -422,7 +422,7 @@
   max-width: 650px;
   aspect-ratio: 9 / 16;
   max-height: calc(100vh - 172px);
-  border-radius: 8px;
+  border-radius: var(--radius-panel);
   overflow: hidden;
   background:
     radial-gradient(circle at top, rgba(20, 22, 34, 0.64), rgba(4, 4, 8, 0.98)),
@@ -991,9 +991,9 @@
   justify-content: center;
   width: 36px;
   height: 36px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--surface-border);
+  border-radius: var(--radius-panel);
+  background: var(--surface);
   color: rgba(255, 255, 255, 0.6);
   font-size: 1.1rem;
   cursor: pointer;
@@ -1095,8 +1095,8 @@
 }
 
 .camera-modal__btn--secondary {
-  background: rgba(255, 255, 255, 0.04);
-  border-color: rgba(255, 255, 255, 0.1);
+  background: var(--surface);
+  border-color: var(--surface-border);
   color: rgba(255, 255, 255, 0.7);
 }
 
@@ -1520,9 +1520,9 @@
   align-items: center;
   gap: 6px;
   padding: 8px 14px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--surface-border-subtle);
+  border-radius: var(--radius-panel);
+  background: var(--surface);
   color: rgba(255, 255, 255, 0.62);
   font-size: 0.74rem;
   font-weight: 700;
@@ -1835,9 +1835,9 @@
 
 .song-select__review-notice {
   padding: 12px 14px;
-  border-radius: 8px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(255, 255, 255, 0.04);
+  border-radius: var(--radius-panel);
+  border: 1px solid var(--surface-border-subtle);
+  background: var(--surface);
   color: rgba(255, 255, 255, 0.72);
   font-size: 0.82rem;
   line-height: 1.6;
@@ -1910,8 +1910,8 @@
   min-height: 124px;
   resize: vertical;
   padding: 14px 16px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 8px;
+  border: 1px solid var(--surface-border-subtle);
+  border-radius: var(--radius-panel);
   background: rgba(0, 0, 0, 0.26);
   color: #fff;
   font: inherit;
